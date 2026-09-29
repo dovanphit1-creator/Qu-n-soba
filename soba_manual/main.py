@@ -219,7 +219,7 @@ class App:
         self.box((809, 292, 139, 43), '#314e50', 8, '#bccdc6')
         for i in range(min(world.sink, 5)):
             self.bowl((833+i*19, 314), dirty=True, size=13)
-        self.text(f'Bồn: {world.sink} bát', (810, 282), 16, 'white')
+        self.text(f'Bồn: {world.sink} bát', (815, 323), 16, 'white')
         self.button((970, 292, 165, 43), f'Đang rửa {max(0,math.ceil(world.wash_left))}s' if world.washing else 'Rửa bát',
                     ('wash',), not world.washing and world.sink > 0, small=True)
         # Pots: exact remaining seconds.

@@ -18,7 +18,7 @@ STOCK_COST = {'Mì tươi': 40, 'Nước dùng': 25, 'Hành': 10, 'Tôm': 70, 'B
 TABLE_LAYOUT = [(180, 485, 2), (455, 485, 4), (180, 665, 4),
                 (455, 665, 2), (180, 845, 4), (455, 845, 4)]
 POT_POS = [(836 + col * 118, 396 + row * 102) for row in range(2) for col in range(3)]
-BOWL_POS = [(835 + col * 118, 768 + row * 98) for row in range(2) for col in range(3)]
+BOWL_POS = [(835 + col * 118, 782 + row * 84) for row in range(2) for col in range(3)]
 
 
 @dataclass
