@@ -1,0 +1,46 @@
+QUÁN SOBA — TỰ TAY VẬN HÀNH (Windows 64-bit)
+
+Giải nén toàn bộ rồi nhấp đúp QuanSoba.exe. Không cần Python, trình duyệt hay Internet.
+
+LẦN ĐẦU CHƠI
+- Chọn Luyện tập để có sẵn nhóm 2 người ở cửa. Thời gian luộc vẫn là 3 phút 30 giây.
+- Hoặc chọn Mở quán để bắt đầu với danh tiếng 2%. Khách vào ngẫu nhiên, có thể phải đợi.
+- Space: tạm dừng. F1: hướng dẫn. Khi đổi sang cửa sổ khác, game tự tạm dừng.
+
+QUY TRÌNH CHƠI
+1. Khách đi theo nhóm 1–4 người, có số thứ tự Nhóm 001, 002…
+   Nhấp nhóm ở cửa và chọn: còn chỗ mời vào / hết chỗ xin đợi / hết nguyên liệu hẹn lần sau.
+2. Sau khi nhận khách, họ đến máy bán vé. Đợi khoảng 8 giây rồi nhấp phiếu vàng bên máy.
+3. Đọc món từng khách trong bảng bên phải. Kéo nhóm vào bàn sạch đủ ghế.
+4. Kéo MÌ TƯƠI vào một trong 6 nồi. Luộc đúng 210 giây thực, nhấp nồi để vớt trong 10 giây tiếp theo.
+5. Sau 10 giây đó, mì bị nhão. Có thể nhấp vớt để dùng, hoặc nhấp phải nồi để đổ bỏ và luộc lại.
+6. Bát vừa vớt nằm trên vị trí nồi. KÉO BÁT XUỐNG Ô TRỐNG Ở QUẦY TOPPING bên dưới.
+7. Kéo từng topping xuống bát. Có thể thêm sai, thiếu hoặc thừa — game không ngăn nhưng khách sẽ đánh giá.
+8. Kéo từng bát vào đúng bàn. Khách nhận theo thứ tự 1, 2, 3, 4 trên phiếu của nhóm.
+9. Khi đủ món, nhóm ăn trong khoảng 35 giây rồi rời đi và đánh giá.
+10. Kéo chồng bát bẩn trên bàn vào bồn. Nhấp bàn trống để lau. Nhấp RỬA BÁT để rửa một mẻ tối đa 6 bát.
+    Đưa vào bồn không tự rửa; còn bát sau một mẻ thì phải nhấp rửa tiếp.
+
+CÔNG THỨC
+- Kake soba: Nước dùng + Hành.
+- Soba tôm: Nước dùng + Hành + Tôm.
+- Soba bò: Nước dùng + Hành + Bò.
+- Soba trứng: Nước dùng + Hành + Trứng.
+Mỗi topping dùng 1 lần. Thả bát vào thùng rác để bỏ món; bát bẩn chuyển vào bồn để rửa.
+
+LƯỢNG KHÁCH VÀ LỊCH
+- Mỗi nhóm đi ngang cửa được xét ghé quán đúng một lần. Khoảng 2–3 giây có một nhóm người đi bộ mới.
+- Giờ cao điểm là 11:00–14:00 và 17:00–20:00.
+- Ngày thường: danh tiếng + 0 điểm phần trăm; cao điểm + 10.
+- Thứ Sáu, Bảy, Chủ nhật: danh tiếng + 5; cao điểm + 20.
+- Ngày lễ (14, 28, 42… trong lịch game): danh tiếng + 15; cao điểm + 30.
+- Danh tiếng khởi đầu 2%, tối thiểu 0%, tăng không giới hạn. Xác suất ghé quán tối đa 100%.
+- Mỗi khách có mức dễ tính/bình thường/khó tính. Công thức, mì nhão và thời gian đợi ảnh hưởng điểm đánh giá.
+- 3 giây thực bằng 1 phút trên đồng hồ quán. Thời gian nấu vẫn là 210 giây thực khi game đang chạy.
+
+NGÀY MỚI VÀ LƯU
+Nhập nguyên liệu bằng nút Nhập hàng. Ngừng đón khách, phục vụ hết nhóm đã nhận,
+xử lý hết mì, dọn sạch bàn và rửa hết bát rồi nhấp Sang ngày mới.
+Quán tự ngừng nhận khách mới lúc 22:00; bạn vẫn hoàn tất phục vụ được.
+Tiến trình tự lưu mỗi 15 giây và khi thoát trong %LOCALAPPDATA%\QuanSobaManual\save.json.
+Luyện tập dùng tệp practice.json riêng, không ghi đè tiến trình kinh doanh thường.

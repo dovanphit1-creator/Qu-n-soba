@@ -1,9 +1,9 @@
-name: Build Windows game
+name: Build and verify Windows game
 
 on:
   pull_request:
   push:
-    branches: [build-windows-app]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -14,14 +14,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build standalone executable
+      - name: Install build dependencies
+        run: python -m pip install pyinstaller pygame-ce==2.5.7
+      - name: Check service cycle and gameplay rules
+        run: python soba_manual/test_game.py
+      - name: Build standalone graphical application
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name QuanSoba --paths soba_manual soba_manual/main.py
+      - name: Run the actual Windows executable through a service cycle
+        shell: pwsh
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install pyinstaller
-          python -m PyInstaller --noconfirm --clean --onefile --windowed --name QuanSoba soba_gui.py
-      - name: Upload Windows app
+          $report = Join-Path $PWD 'smoke-windows.json'
+          $process = Start-Process -FilePath '.\dist\QuanSoba.exe' -ArgumentList @('--smoke-test', $report) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Executable test failed: $($process.ExitCode)" }
+          $result = Get-Content $report -Raw | ConvertFrom-Json
+          if (-not $result.ok -or -not $result.frozen -or $result.platform -ne 'win32') { throw 'Invalid executable verification report' }
+          Copy-Item 'soba_manual\HUONG_DAN.txt' 'dist\HUONG_DAN.txt'
+      - name: Upload ready-to-play Windows app
         uses: actions/upload-artifact@v4
         with:
-          name: QuanSoba-Windows
-          path: dist/QuanSoba.exe
+          name: QuanSoba-Manual-Windows
+          path: |
+            dist/QuanSoba.exe
+            dist/HUONG_DAN.txt
+          if-no-files-found: error
+      - name: Upload verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-verification
+          path: |
+            smoke-windows.json
+            smoke-windows.png
           if-no-files-found: error
