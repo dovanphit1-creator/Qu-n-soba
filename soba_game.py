@@ -5,8 +5,10 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import random
+import sys
 
-SAVE_FILE = Path(__file__).with_name("soba_save.json")
+APP_DIR = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).parent
+SAVE_FILE = APP_DIR / "soba_save.json"
 INGREDIENTS = {
     "mì": (120, 45),
     "nước dùng": (100, 35),
