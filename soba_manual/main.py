@@ -13,6 +13,8 @@ import pygame as pg
 from model import (World, RECIPES, STOCK_COST, TABLE_LAYOUT, POT_POS, BOWL_POS,
                    COOK_SECONDS, LIFT_WINDOW, save_path)
 
+from vn_calendar import WEEKDAYS
+
 W, H = 1600, 1000
 INK = '#26372e'
 CREAM = '#fff2d2'
@@ -166,9 +168,9 @@ class App:
         self.text('QUÁN SOBA', (28, 15), 34, CREAM, True)
         self.text('TỰ TAY VẬN HÀNH', (30, 56), 16, '#bcd0b1')
         world = self.world
-        minute = int(world.minute)
-        self.text(f'Ngày {world.day} · {minute//60:02}:{minute%60:02}', (350, 15), 28, CREAM, True)
-        self.text(world.kind + (' · Giờ cao điểm' if world.peak else ' · Giờ thường'), (350, 52), 19, '#c4d6ba')
+        now = world.now
+        self.text(f'{now:%d/%m/%Y  %H:%M:%S}', (350, 15), 25, CREAM, True)
+        self.text(WEEKDAYS[now.weekday()] + ' · VN UTC+7' + (' · Cao điểm' if world.peak else ''), (350, 52), 17, '#c4d6ba')
         self.text(f'{world.cash:,} xu', (720, 15), 28, GOLD, True)
         self.text(f'Bát sạch: {world.clean} / 24', (722, 54), 19, '#c4d6ba')
         self.text(f'Danh tiếng {world.reputation:.2f}%', (1000, 21), 25, CREAM, True)
@@ -350,7 +352,7 @@ class App:
         self.text('KHÁCH & PHIẾU ĂN', (1207, 120), 25, INK, True)
         self.text(f'Tỷ lệ ghé quán: {w.chance:.2f}%', (1208, 165), 23, GREEN, True)
         self.text(f'Danh tiếng {w.reputation:.2f}% + {w.bonus} điểm %', (1208, 196), 18, '#6b705b')
-        self.text('Áp dụng cho mỗi nhóm đi ngang cửa.', (1208, 222), 17, '#6b705b')
+        self.text((w.holiday or w.kind)[:43], (1208, 222), 16, '#6b705b')
         waiting = [p for p in w.parties if p.phase in ('door', 'waiting')]
         selected = w.group(self.selected)
         door = selected if selected and selected.phase in ('door','waiting') else (waiting[0] if waiting else None)
@@ -381,7 +383,7 @@ class App:
             self.wrap('Nhấp nhóm hoặc bàn để xem đúng món của từng người. Giao bát theo thứ tự 1, 2, 3, 4 trên phiếu.', (1208, 551), 340, 22)
         self.button((1207, 825, 169, 45), 'Nhập hàng', ('modal','stock'), small=True)
         self.button((1384, 825, 175, 45), 'Đánh giá', ('modal','reviews'), small=True, color='#836647')
-        self.button((1207, 879, 352, 45), 'Ngừng đón khách' if w.open else 'Dọn xong · sang ngày mới', ('close',), small=True, color='#785b42')
+        self.button((1207, 879, 352, 45), 'Ngừng đón khách' if w.open else 'Dọn xong · mở lại quán', ('close',), small=True, color='#785b42')
         self.button((1207, 936, 169, 35), 'F1 · Cách chơi', ('modal','help'), small=True, color='#687357')
         self.button((1384, 936, 175, 35), 'Lưu và thoát', ('quit',), small=True, color='#687357')
 
@@ -436,7 +438,7 @@ class App:
                 '6  Kéo bát vừa vớt xuống quầy, thêm topping rồi kéo từng bát ra bàn.',
                 '7  Khách ăn xong: kéo bát bẩn vào bồn, nhấp bàn để lau, nhấp Rửa bát.',
                 'Giờ cao điểm: 11–14h và 17–20h. Cuối tuần: thứ Sáu, Bảy, Chủ nhật.',
-                'Ngày lễ: ngày 14, 28, 42… trong lịch game. 3 giây thực = 1 phút trong quán.',
+                'Đồng hồ và lịch theo ngày giờ Việt Nam (UTC+7), tính cả ngày lễ âm lịch.',
                 'Khách thường: +0/+10; cuối tuần: +5/+20; ngày lễ: +15/+30 điểm phần trăm.',
                 'Mỗi nhóm đi ngang cửa được xét một lần. Danh tiếng ≥ 0, không có trần.',
                 'Space: tạm dừng. F1: trợ giúp. Esc: đóng bảng. Tiến trình tự lưu mỗi 15 giây.',
@@ -447,7 +449,7 @@ class App:
             self.button((910, 806, 340, 49), 'Đã hiểu · trở lại quán', ('dismiss',))
         else:
             self.text('QUÁN ĐANG TẠM DỪNG', (800, 385), 39, INK, True, True)
-            self.text('Đồng hồ, khách và các nồi mì đều dừng.', (800, 455), 24, '#697459', False, True)
+            self.text('Khách và nồi mì dừng. Ngày giờ Việt Nam vẫn theo thực tế.', (800, 455), 24, '#697459', False, True)
             self.button((530, 555, 540, 63), 'Tiếp tục chơi', ('pause',))
 
     def draw(self):
@@ -637,7 +639,7 @@ class App:
         elif kind == 'close':
             if self.world.open:
                 self.world.open = False
-                self.world.note('Đã ngừng nhận khách mới. Phục vụ và dọn xong rồi nhấp sang ngày mới.')
+                self.world.note('Đã ngừng nhận khách mới. Phục vụ và dọn xong rồi nhấp mở lại quán.')
             else:
                 self.world.next_day()
         elif kind == 'quit':
@@ -704,6 +706,12 @@ class App:
 
 def smoke_test(output):
     """Exercise the actual bundled executable on Windows without a display."""
+    from datetime import date, datetime, timezone
+    from vn_calendar import holiday_name
+    assert 'Tết' in holiday_name(date(2026, 2, 17))
+    assert 'Hùng Vương' in holiday_name(date(2026, 4, 26))
+    probe = World(clock=lambda: datetime(2026, 9, 29, 17, 30, tzinfo=timezone.utc))
+    assert probe.now.date() == date(2026, 9, 30) and probe.minute == 30
     app = App(headless=True)
     app.world = World(seed=7, practice=True)
     app.world.spawn_left = 100000
@@ -747,7 +755,7 @@ def smoke_test(output):
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 

@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import random
+from vn_calendar import vn_now, holiday_name, VIETNAM
 
 COOK_SECONDS = 210.0
 LIFT_WINDOW = 10.0
@@ -56,7 +57,9 @@ class Table:
 
 
 class World:
-    def __init__(self, seed=None, practice=False):
+    def __init__(self, seed=None, practice=False, clock=None):
+        self._clock = clock or vn_now
+        self.date_key = self.now.date().isoformat()
         self.rng = random.Random(seed)
         self.day = 1
         self.elapsed = 0.0
@@ -92,8 +95,17 @@ class World:
         return text
 
     @property
+    def now(self):
+        return self._clock().astimezone(VIETNAM)
+
+    @property
+    def holiday(self):
+        return holiday_name(self.now.date())
+
+    @property
     def minute(self):
-        return min(22 * 60, 10 * 60 + self.elapsed / 3)
+        now = self.now
+        return now.hour * 60 + now.minute + now.second / 60
 
     @property
     def peak(self):
@@ -101,9 +113,9 @@ class World:
 
     @property
     def kind(self):
-        if self.day % 14 == 0:
+        if self.holiday:
             return 'Ngày lễ'
-        return 'Cuối tuần' if (self.day - 1) % 7 >= 4 else 'Ngày thường'
+        return 'Cuối tuần' if self.now.weekday() >= 4 else 'Ngày thường'
 
     @property
     def bonus(self):
@@ -342,23 +354,24 @@ class World:
 
     def next_day(self):
         if any(p.phase != 'leaving' for p in self.parties) or self.bowls or any(p is not None for p in self.pots):
-            self.note('Hãy phục vụ hoặc từ chối hết khách, xử lý các nồi và bát mì trước khi sang ngày.')
+            self.note('Hãy phục vụ hoặc từ chối hết khách, xử lý các nồi và bát mì trước khi mở lại quán.')
             return False
         if any(t.dirty or t.needs_wipe for t in self.tables) or self.sink or self.washing:
-            self.note('Cần dọn bàn, lau bàn và rửa hết bát trước khi sang ngày.')
+            self.note('Cần dọn bàn, lau bàn và rửa hết bát trước khi mở lại quán.')
             return False
         self.day += 1
         self.elapsed = 0
         self.open = True
-        self.sold_today = 0
-        self.note(f'Bắt đầu ngày {self.day}. {self.kind}; danh tiếng {self.reputation:.2f}%.')
+        self.note(f'Đã mở lại quán. {self.now:%d/%m/%Y} · {self.kind}.')
         return True
 
     def update(self, dt):
         self.elapsed += dt
-        if self.minute >= 22 * 60 and self.open:
-            self.open = False
-            self.note('Đã 22:00, quán ngừng nhận khách mới. Hoàn tất phục vụ và dọn quán.')
+        today = self.now.date().isoformat()
+        if self.date_key != today:
+            self.date_key = today
+            self.sold_today = 0
+            self.note(f'Đã sang ngày {self.now:%d/%m/%Y} theo giờ Việt Nam.')
         for i, age in enumerate(self.pots):
             if age is not None:
                 self.pots[i] += dt
@@ -436,7 +449,7 @@ class World:
                 p.y += dy * step
 
     def save(self, path):
-        data = {k: v for k, v in self.__dict__.items() if k != 'rng'}
+        data = {k: v for k, v in self.__dict__.items() if k not in ('rng', '_clock')}
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
@@ -454,7 +467,7 @@ class World:
             raise ValueError('Phiên bản lưu không phù hợp')
         obj = cls()
         for k, v in data.items():
-            if k not in obj.__dict__ or k == 'rng':
+            if k not in obj.__dict__ or k in ('rng', '_clock'):
                 raise ValueError('Dữ liệu lưu không phù hợp')
             setattr(obj, k, v)
         obj.parties = [Party(**p) for p in data['parties']]

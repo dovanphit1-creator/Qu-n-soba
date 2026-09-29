@@ -15,11 +15,11 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install build dependencies
-        run: python -m pip install pyinstaller pygame-ce==2.5.7
+        run: python -m pip install pyinstaller pygame-ce==2.5.7 holidays==0.105
       - name: Check service cycle and gameplay rules
         run: python soba_manual/test_game.py
       - name: Build standalone graphical application
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name QuanSoba --paths soba_manual soba_manual/main.py
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name QuanSoba --paths soba_manual --collect-all holidays soba_manual/main.py
       - name: Run the actual Windows executable through a service cycle
         shell: pwsh
         run: |

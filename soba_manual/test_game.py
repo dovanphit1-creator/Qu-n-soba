@@ -2,6 +2,8 @@
 import tempfile
 from pathlib import Path
 import unittest
+from datetime import datetime, timedelta, timezone, date
+from vn_calendar import VIETNAM, holiday_name
 from model import World, COOK_SECONDS, RECIPES
 
 
@@ -74,14 +76,12 @@ class RulesTest(unittest.TestCase):
 
     def test_arrival_bonuses_and_no_reputation_ceiling(self):
         w = self.world()
-        for day, normal, peak in [(1,2,12),(5,7,22),(6,7,22),(7,7,22),(14,17,32)]:
-            w.day=day
-            w.elapsed=0
-            self.assertEqual(w.chance,normal)
-            w.elapsed=60*3
-            self.assertEqual(w.chance,peak)
-            w.elapsed=7*60*3
-            self.assertEqual(w.chance,peak)
+        for day, normal, peak in [(date(2026,9,30),2,12), (date(2026,10,2),7,22),
+                                  (date(2026,10,3),7,22), (date(2026,10,4),7,22),
+                                  (date(2026,9,2),17,32), (date(2026,2,17),17,32)]:
+            for hour, expected in [(10, normal), (11, peak), (17, peak), (20, normal)]:
+                w._clock=lambda d=day,h=hour: datetime(d.year,d.month,d.day,h,tzinfo=VIETNAM)
+                self.assertEqual(w.chance,expected)
         w.reputation=400
         self.assertEqual(w.chance,100)
         self.assertEqual(w.reputation,400)
@@ -103,6 +103,20 @@ class RulesTest(unittest.TestCase):
         self.assertEqual(len(w.reviews),3)
         self.assertGreaterEqual(w.reputation,0)
         self.assertLess(w.reputation,2)
+
+    def test_vietnam_time_and_holidays(self):
+        w=self.world()
+        w._clock=lambda: datetime(2026,9,29,17,30,tzinfo=timezone.utc)
+        self.assertEqual(w.now.date(),date(2026,9,30))
+        self.assertEqual(w.minute,30)
+        self.assertIn('Tết',holiday_name(date(2026,2,17)))
+        self.assertIn('Hùng Vương',holiday_name(date(2026,4,26)))
+        self.assertIn('nghỉ bù',holiday_name(date(2026,4,27)))
+        self.assertIn('Văn hóa',holiday_name(date(2026,11,24)))
+        self.assertFalse(holiday_name(date(2026,9,30)))
+        before=w.now
+        w.update(1000)
+        self.assertEqual(w.now,before, 'Game elapsed time cannot advance the calendar')
 
     def test_save_restores_active_game(self):
         w,p=self.ready_party(2)

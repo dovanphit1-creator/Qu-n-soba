@@ -33,14 +33,17 @@ LƯỢNG KHÁCH VÀ LỊCH
 - Giờ cao điểm là 11:00–14:00 và 17:00–20:00.
 - Ngày thường: danh tiếng + 0 điểm phần trăm; cao điểm + 10.
 - Thứ Sáu, Bảy, Chủ nhật: danh tiếng + 5; cao điểm + 20.
-- Ngày lễ (14, 28, 42… trong lịch game): danh tiếng + 15; cao điểm + 30.
+- Ngày lễ Việt Nam (cả Tết và Giỗ Tổ tính theo âm lịch): danh tiếng + 15; cao điểm + 30.
 - Danh tiếng khởi đầu 2%, tối thiểu 0%, tăng không giới hạn. Xác suất ghé quán tối đa 100%.
 - Mỗi khách có mức dễ tính/bình thường/khó tính. Công thức, mì nhão và thời gian đợi ảnh hưởng điểm đánh giá.
-- 3 giây thực bằng 1 phút trên đồng hồ quán. Thời gian nấu vẫn là 210 giây thực khi game đang chạy.
+- Đồng hồ quán hiển thị ngày giờ thực tế Việt Nam UTC+7. Thời gian nấu vẫn là 210 giây thực khi game đang chạy.
 
-NGÀY MỚI VÀ LƯU
+ĐÓNG/MỞ QUÁN VÀ LƯU
 Nhập nguyên liệu bằng nút Nhập hàng. Ngừng đón khách, phục vụ hết nhóm đã nhận,
-xử lý hết mì, dọn sạch bàn và rửa hết bát rồi nhấp Sang ngày mới.
-Quán tự ngừng nhận khách mới lúc 22:00; bạn vẫn hoàn tất phục vụ được.
+xử lý hết mì, dọn sạch bàn và rửa hết bát rồi nhấp Mở lại quán.
+Bạn chủ động ngừng hoặc mở lại quán; không tự khóa quán theo giờ thực.
 Tiến trình tự lưu mỗi 15 giây và khi thoát trong %LOCALAPPDATA%\QuanSobaManual\save.json.
 Luyện tập dùng tệp practice.json riêng, không ghi đè tiến trình kinh doanh thường.
+
+Đồng hồ lấy giờ hệ thống quy đổi UTC+7: cần đặt đúng ngày giờ trên máy. Tạm dừng chỉ dừng khách và nồi mì, lịch vẫn là hiện tại. Bản cập nhật đọc được tiến trình cũ.
+Lịch lễ dùng python-holidays 0.105, bổ sung 24/11 từ 2026 và các ngày hoán đổi đã xác nhận của năm 2026. Quyết định nghỉ hoán đổi của năm sau có thể cần cập nhật.
