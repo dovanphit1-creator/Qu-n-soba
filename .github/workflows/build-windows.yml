@@ -18,7 +18,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pyinstaller
-          python -m PyInstaller --noconfirm --clean --onefile --console --name QuanSoba soba_game.py
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --name QuanSoba soba_gui.py
       - name: Upload Windows app
         uses: actions/upload-artifact@v4
         with:
