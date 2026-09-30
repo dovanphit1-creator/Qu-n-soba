@@ -49,6 +49,26 @@ jobs:
           Set-Content -Path 'dist\SHA256.txt' -Encoding utf8 -Value ($hash + '  Quán Mì Của Tôi.exe')
           $unexpected = Get-ChildItem dist -File | Where-Object { $_.Name -notin @('Quán Mì Của Tôi.exe','HUONG_DAN.txt','PHAT_HANH.txt','SHA256.txt') }
           if ($unexpected) { throw 'Unexpected files in release folder' }
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          $compiler = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $compiler)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'Could not install Inno Setup' }
+          }
+          $version = python -c "import sys; sys.path.insert(0,'soba_manual'); from brand import GAME_VERSION; print(GAME_VERSION)"
+          & $compiler "/DGameVersion=$version" 'soba_manual\installer\game.iss'
+          if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
+      - name: Verify install, reinstall and uninstall preserve player saves
+        shell: pwsh
+        run: ./soba_manual/installer/verify-install.ps1
+      - name: Upload standalone installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuanMiCuaToi-Setup
+          path: installer-output/QuanMiCuaToi-Setup.exe
+          if-no-files-found: error
       - name: Upload ready-to-play Windows app
         uses: actions/upload-artifact@v4
         with:
@@ -64,6 +84,7 @@ jobs:
         with:
           name: Windows-verification
           path: |
+            installer-verification.json
             new-player.json
             new-player.png
             smoke-windows.json

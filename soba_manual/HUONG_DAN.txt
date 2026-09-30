@@ -1,6 +1,10 @@
 Quán Mì Của Tôi (Windows 64-bit)
 
-Giải nén toàn bộ rồi nhấp đúp Quán Mì Của Tôi.exe. Không cần Python, trình duyệt hay Internet.
+Nếu tải QuanMiCuaToi-Setup.exe: mở bộ cài, bấm Cài đặt rồi Hoàn tất.
+Sau đó mở biểu tượng Quán Mì Của Tôi trên Desktop hoặc menu Start.
+Nếu tải bản ZIP: giải nén rồi mở Quán Mì Của Tôi.exe.
+Không cần Python hay Internet để chơi.
+Cài lại và gỡ cài đặt đều giữ tiến trình trong thư mục lưu riêng của bạn.
 
 LẦN ĐẦU CHƠI
 - Ván mới: 10.000.000 VND, danh tiếng 7%, 1 tầng với 1 bàn 4 ghế; không có nguyên liệu hay bát đĩa.
