@@ -18,6 +18,11 @@ RECIPES = {
 }
 PRICES = {'Kake soba': 35000, 'Soba tôm': 45000, 'Soba bò': 50000, 'Soba trứng': 42000}
 STOCK_COST = {'Mì tươi': 6000, 'Nước dùng': 3000, 'Hành': 1000, 'Tôm': 8000, 'Bò': 10000, 'Trứng': 4000}
+SUPPLIER_PERCENT = 97
+
+def supplier_price(name):
+    return STOCK_COST[name] * SUPPLIER_PERCENT // 100
+
 DISH_COST = 15000
 TABLE_COST = 800_000
 CHAIR_COST = 150_000
@@ -532,7 +537,7 @@ class World:
         month = today.month % 12 + 1
         year = today.year + (today.month == 12)
         self.contract_until = today.replace(year=year, month=month, day=min(today.day, calendar.monthrange(year,month)[1])).isoformat()
-        self.note(f'Đã ký hợp đồng 1 tháng, hết hạn ngày {self.contract_until}; đơn hàng tính giá lẻ +2%.')
+        self.note(f'Đã ký hợp đồng 1 tháng, hết hạn ngày {self.contract_until}; đơn hàng tính giá lẻ giảm 3%.')
         return True
 
     def place_order(self, quantities):
@@ -551,14 +556,15 @@ class World:
         if any(order['placed'] == today for order in self.deliveries):
             self.note('Hôm nay đã đặt đơn. Mỗi ngày đặt 1 đơn cho sáng hôm sau.')
             return False
-        cost = sum(STOCK_COST[k] * 102 // 100 * v for k,v in quantities.items())
+        cost = sum(supplier_price(k) * v for k,v in quantities.items())
         if self.cash < cost:
             self.note('Không đủ ngân sách thanh toán đơn hàng.')
             return False
         self.cash -= cost
         self.record('purchases', cost)
         self.deliveries.append({'placed': today, 'due': delivery_at.isoformat(),
-                                'quantities': dict(quantities), 'cost': cost, 'delivered': False})
+                                'quantities': dict(quantities), 'unit_prices': {name: supplier_price(name) for name in quantities},
+                                'cost': cost, 'delivered': False})
         self.note(f'Đã trả {vnd(cost)}; giao 08:00 ngày {delivery_at:%d/%m/%Y}.')
         return True
 
@@ -567,9 +573,14 @@ class World:
         now = self.now
         for order in self.deliveries:
             if not order['delivered'] and now >= datetime.fromisoformat(order['due']):
+                # Old prepaid orders retain their actual purchase cost after a price change.
+                retail_total = sum(STOCK_COST[k] * v for k,v in order['quantities'].items())
                 for name, quantity in order['quantities'].items():
+                    unit = order.get('unit_prices', {}).get(name)
+                    if unit is None:
+                        unit = STOCK_COST[name] * order['cost'] / retail_total
                     self.stock[name] += quantity
-                    self.stock_value[name] += quantity * STOCK_COST[name] * 102 // 100
+                    self.stock_value[name] += quantity * unit
                 order['delivered'] = True
                 changed = True
                 self.note('Nhà cung cấp đã giao đơn ' + order['placed'] + ' vào kho, không thu thêm tiền.')

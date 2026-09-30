@@ -253,7 +253,7 @@ class RulesTest(unittest.TestCase):
         self.assertTrue(w.sign_contract())
         self.assertEqual(w.contract_until,'2026-10-30')
         self.assertTrue(w.place_order({'Mì tươi':10,'Trứng':5}))
-        self.assertEqual(w.cash,10_000_000-81600)
+        self.assertEqual(w.cash,10_000_000-77600)
         self.assertEqual(w.stock['Mì tươi'],0)
         self.assertFalse(w.place_order({'Mì tươi':1}))
         clock[0]=datetime(2026,10,1,0,59,59,tzinfo=timezone.utc) # 07:59:59 VN
@@ -261,9 +261,9 @@ class RulesTest(unittest.TestCase):
         clock[0]+=timedelta(seconds=1)
         w.update(0);self.assertEqual(w.stock['Mì tươi'],10)
         w.update(0);self.assertEqual(w.stock['Mì tươi'],10)
-        self.assertEqual(w.unit_cost('Mì tươi'),6120)
+        self.assertEqual(w.unit_cost('Mì tươi'),5820)
         w.consume('Mì tươi')
-        self.assertEqual(w.totals()['2026-10-01']['ingredients'],6120)
+        self.assertEqual(w.totals()['2026-10-01']['ingredients'],5820)
         clock[0]=datetime(2026,10,1,23,tzinfo=VIETNAM)
         self.assertFalse(w.place_order({'Mì tươi':1}))
         clock[0]=datetime(2026,10,2,22,tzinfo=VIETNAM)
@@ -278,6 +278,19 @@ class RulesTest(unittest.TestCase):
         clock[0]=datetime(2026,10,30,10,tzinfo=VIETNAM)
         self.assertFalse(w.contract_active)
         self.assertFalse(w.place_order({'Mì tươi':1}))
+
+    def test_prepaid_order_keeps_historical_cost_after_discount_update(self):
+        w=World(clock=lambda:datetime(2026,10,2,8,tzinfo=VIETNAM))
+        w.deliveries=[{'placed':'2026-10-01','due':'2026-10-02T08:00:00+07:00',
+                       'quantities':{'Mì tươi':10,'Trứng':5},'cost':81600,'delivered':False}]
+        cash=w.cash
+        w.process_deliveries()
+        self.assertEqual(w.unit_cost('Mì tươi'),6120)
+        self.assertEqual(sum(w.stock_value.values()),81600)
+        self.assertEqual(w.cash,cash)
+        w.consume('Mì tươi')
+        self.assertEqual(w.totals()['2026-10-02']['ingredients'],6120)
+        self.assertFalse(w.process_deliveries())
 
     def test_contract_calendar_month_and_last_day_order(self):
         clock=[datetime(2028,1,31,22,tzinfo=VIETNAM)]

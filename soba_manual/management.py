@@ -1,6 +1,6 @@
 """Closed-shop management controls, including Unicode menu text input."""
 import pygame as pg
-from model import STOCK_COST, TABLE_COST, CHAIR_COST, FLOOR_COST, vnd
+from model import STOCK_COST, TABLE_COST, CHAIR_COST, FLOOR_COST, vnd, supplier_price
 
 INK='#26372e'
 GREEN='#426f57'
@@ -44,18 +44,18 @@ class ManagementUI:
         self.text('NHÀ CUNG CẤP · Giao tự động 08:00 giờ Việt Nam',(60,398),24,INK,True)
         status='Có hiệu lực đến trước '+w.contract_until if w.contract_active else 'Chưa có hợp đồng còn hiệu lực'
         self.text(status,(65,445),20,GREEN)
-        self.button((930,435,587,43),'Ký hợp đồng 1 tháng · đơn hàng giá lẻ +2%',('contract',),not w.contract_active,small=True)
+        self.button((930,435,587,43),'Ký hợp đồng 1 tháng · đơn hàng giá lẻ giảm 3%',('contract',),not w.contract_active,small=True)
         for i,name in enumerate(STOCK_COST):
             y=495+i*48
             self.text(name,(65,y+7),21,INK,True)
-            self.text(vnd(STOCK_COST[name]*102//100)+'/phần',(230,y+9),17)
+            self.text(vnd(supplier_price(name))+'/phần',(230,y+9),17)
             for x,label,delta in [(450,'−10',-10),(514,'−1',-1),(697,'+1',1),(761,'+10',10)]:
                 self.button((x,y,60,36),label,('order_qty',name,delta),small=True)
             self.text(str(self.order_quantities[name]),(633,y+18),22,INK,True,True)
-        cost=sum(STOCK_COST[k]*102//100*v for k,v in self.order_quantities.items())
+        cost=sum(supplier_price(k)*v for k,v in self.order_quantities.items())
         self.text('Tổng đơn: '+vnd(cost),(66,801),26,GREEN,True)
         self.button((65,847,758,40),'Đặt & thanh toán · giao sáng mai',('order',),w.contract_active and cost>0 and w.cash>=cost and w.now.hour<23,small=True)
-        self.wrap('Mỗi ngày đặt 1 đơn trước 23:00. Chọn số lượng nhập thêm; hàng tồn được giữ nguyên. Hợp đồng không có phí cố định, mỗi đơn cộng 2%.',(925,493),585,21)
+        self.wrap('Mỗi ngày đặt 1 đơn trước 23:00. Chọn số lượng nhập thêm; hàng tồn được giữ nguyên. Hợp đồng không có phí cố định, mỗi đơn giảm 3% so với mua lẻ.',(925,493),585,21)
         self.text('ĐƠN GẦN NHẤT',(929,615),21,INK,True)
         for i,order in enumerate(reversed(w.deliveries[-3:])):
             y=654+i*69

@@ -81,7 +81,7 @@ Các giá xây dựng là giá mô phỏng trong game. Chi phí mua dụng cụ 
 
 NHÀ CUNG CẤP
 Mở trang Nhà cung cấp khi đóng quán, ký hợp đồng 1 tháng tính theo lịch Việt Nam.
-Không có phí cố định. Giá từng nguyên liệu trong mọi đơn = giá mua lẻ cộng 2%.
+Không có phí cố định. Giá từng nguyên liệu trong mọi đơn = giá mua lẻ giảm 3%.
 Chọn số lượng nhập thêm mỗi nguyên liệu, xem tổng tiền, bấm Đặt & thanh toán trước 23:00 Việt Nam.
 Mỗi ngày đặt một đơn cho 08:00 sáng hôm sau; tiền trừ ngay khi đặt, giao không trừ lần nữa.
 Hàng tự cộng vào kho khi đến giờ, kể cả đang mở quán. Không xóa hoặc thay hàng tồn.
@@ -97,7 +97,7 @@ Tên tối đa 28 ký tự, tối đa 24 món; mỗi topping tối đa 6 phần,
 Giá vốn và lãi trước điện/nước/ga cập nhật ngay. Bấm Lưu món để đưa món lên máy bán vé.
 Có thể sửa hoặc xóa món; menu luôn phải còn ít nhất một món. Khách chọn trong menu đang bán.
 Phiếu thể hiện số phần topping bằng ký hiệu ×. Kéo nguyên liệu đúng số lần ghi trên phiếu.
-Giá vốn dùng giá nhập bình quân hàng hiện còn trong kho, đã gồm 2% nếu nhập nhà cung cấp.
+Giá vốn dùng giá nhập bình quân hàng hiện còn trong kho, đã tính mức giảm 3% với đơn nhà cung cấp mới.
 Khi một nguyên liệu chưa có trong kho, màn hình tạm dùng giá mua lẻ để ước tính.
 Lợi nhuận gợi ý chưa trừ điện/nước/ga và vốn mua bàn ghế/xây tầng.
 
@@ -111,3 +111,6 @@ python soba_manual/main.py --smoke-test smoke-windows.json
 ```
 
 GitHub Actions tạo EXE Windows độc lập và chạy kiểm tra ngay trên EXE, gồm thao tác tạo menu, giao hàng, ghép bàn và chuyển tầng.
+
+Cập nhật giá nhà cung cấp: đơn mới bằng 97% giá mua lẻ, áp dụng cả hợp đồng đang có.
+Đơn đã thanh toán trước cập nhật và giá vốn hàng tồn giữ theo số tiền mua thực tế.
