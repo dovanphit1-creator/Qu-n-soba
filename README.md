@@ -1,10 +1,10 @@
-# Quán Soba — game Python quản lý quán mì
+# Quán Mì của tôi
 
 Bản mở rộng: ghép bàn, tối đa 3 tầng, nhà cung cấp và menu tự tạo.
 
-QUÁN SOBA — GHÉP BÀN, MỞ RỘNG & MENU (Windows 64-bit)
+Quán Mì của tôi (Windows 64-bit)
 
-Giải nén toàn bộ rồi nhấp đúp QuanSoba.exe. Không cần Python, trình duyệt hay Internet.
+Giải nén toàn bộ rồi nhấp đúp Quán Mì của tôi.exe. Không cần Python, trình duyệt hay Internet.
 
 LẦN ĐẦU CHƠI
 - Ván mới: 10.000.000 VND, danh tiếng 7%, 1 tầng với 1 bàn 4 ghế; không có nguyên liệu hay bát đĩa.
@@ -104,7 +104,8 @@ Lợi nhuận gợi ý chưa trừ điện/nước/ga và vốn mua bàn ghế/x
 ## Chạy mã nguồn
 
 ```sh
-pip install pygame-ce==2.5.7 holidays==0.105
+pip install pygame-ce==2.5.7 holidays==0.105 pillow==11.3.0
+python soba_manual/build_brand_assets.py
 python soba_manual/main.py
 python soba_manual/test_game.py
 python soba_manual/main.py --smoke-test smoke-windows.json
@@ -114,3 +115,5 @@ GitHub Actions tạo EXE Windows độc lập và chạy kiểm tra ngay trên E
 
 Cập nhật giá nhà cung cấp: đơn mới bằng 97% giá mua lẻ, áp dụng cả hợp đồng đang có.
 Đơn đã thanh toán trước cập nhật và giá vốn hàng tồn giữ theo số tiền mua thực tế.
+
+Tên chính thức cố định: Quán Mì của tôi. Icon cố định: bát mì. Các bản cập nhật giữ nguyên nhận diện này.

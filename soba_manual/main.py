@@ -15,6 +15,7 @@ from model import (World, RECIPES, STOCK_COST, TABLE_LAYOUT, POT_POS, BOWL_POS,
 
 from vn_calendar import WEEKDAYS
 from management import ManagementUI
+from brand import GAME_TITLE, WINDOWS_APP_ID
 
 W, H = 1600, 1000
 INK = '#26372e'
@@ -38,6 +39,9 @@ def dist(a, b):
 
 class App(ManagementUI):
     def __init__(self, headless=False):
+        if sys.platform=='win32':
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
         pg.init()
         if headless:
             size = (1280, 800)
@@ -45,7 +49,8 @@ class App(ManagementUI):
             info = pg.display.Info()
             size = (min(1440, info.current_w - 50), min(900, info.current_h - 75))
         self.display = pg.display.set_mode(size, pg.RESIZABLE)
-        pg.display.set_caption('Quán Soba — Tự tay vận hành quán mì')
+        pg.display.set_caption(GAME_TITLE)
+        pg.display.set_icon(pg.image.load(str(Path(__file__).with_name('assets')/'game.png')))
         self.canvas = pg.Surface((W, H))
         self.clock = pg.time.Clock()
         self.fonts = {}
@@ -173,7 +178,7 @@ class App(ManagementUI):
     def render_floor(self):
         self.canvas.fill('#dce5d0')
         self.box((0, 0, W, 87), '#233d32', 0)
-        self.text('QUÁN SOBA', (28, 15), 34, CREAM, True)
+        self.text(GAME_TITLE, (28, 15), 31, CREAM, True)
         self.text('TỰ TAY VẬN HÀNH', (30, 56), 16, '#bcd0b1')
         world = self.world
         now = world.now
@@ -415,7 +420,7 @@ class App(ManagementUI):
         w = self.world
         self.canvas.fill('#e6e9da')
         self.box((0, 0, W, 135), '#233d32', 0)
-        self.text('QUÁN SOBA · QUẢN LÝ', (45, 25), 35, CREAM, True)
+        self.text(GAME_TITLE+' · QUẢN LÝ', (45, 25), 35, CREAM, True)
         self.text('ĐANG ĐÓNG CỬA', (47, 83), 21, GOLD, True)
         self.text(f'{w.now:%d/%m/%Y  %H:%M:%S} · Việt Nam', (1025, 34), 23, CREAM)
         self.text(WEEKDAYS[w.now.weekday()] + ' · ' + (w.holiday or w.kind), (1025, 80), 18, '#c4d6ba')
@@ -794,6 +799,8 @@ def smoke_test(output):
     probe = World(clock=lambda: datetime(2026, 9, 29, 17, 30, tzinfo=timezone.utc))
     assert probe.now.date() == date(2026, 9, 30) and probe.minute == 30
     app = App(headless=True)
+    assert pg.display.get_caption()[0] == GAME_TITLE
+    assert (Path(__file__).with_name('assets')/'game.png').exists()
     app.world = World(seed=7)
     assert app.world.cash == 10000000 and app.world.clean == 0 and not app.world.open
     app.draw()
@@ -856,7 +863,7 @@ def smoke_test(output):
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 

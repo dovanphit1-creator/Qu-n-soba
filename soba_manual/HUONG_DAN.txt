@@ -1,6 +1,6 @@
-QUÁN SOBA — GHÉP BÀN, MỞ RỘNG & MENU (Windows 64-bit)
+Quán Mì của tôi (Windows 64-bit)
 
-Giải nén toàn bộ rồi nhấp đúp QuanSoba.exe. Không cần Python, trình duyệt hay Internet.
+Giải nén toàn bộ rồi nhấp đúp Quán Mì của tôi.exe. Không cần Python, trình duyệt hay Internet.
 
 LẦN ĐẦU CHƠI
 - Ván mới: 10.000.000 VND, danh tiếng 7%, 1 tầng với 1 bàn 4 ghế; không có nguyên liệu hay bát đĩa.
@@ -99,3 +99,5 @@ Lợi nhuận gợi ý chưa trừ điện/nước/ga và vốn mua bàn ghế/x
 
 Cập nhật giá nhà cung cấp: đơn mới bằng 97% giá mua lẻ, áp dụng cả hợp đồng đang có.
 Đơn đã thanh toán trước cập nhật và giá vốn hàng tồn giữ theo số tiền mua thực tế.
+
+Tên chính thức cố định: Quán Mì của tôi. Icon cố định: bát mì. Các bản cập nhật giữ nguyên nhận diện này.
