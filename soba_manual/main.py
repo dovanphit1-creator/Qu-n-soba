@@ -749,10 +749,9 @@ class App(ManagementUI):
             if self.world.close_shop():
                 self.modal='report'; self.manager_tab='overview'; self.persist()
         elif kind=='quit':
-            if self.world.open:
-                self.world.note('Hãy kết ca, dọn sạch và đóng quán trước khi thoát. Tiến trình vẫn tự lưu.')
-            else:
-                self.persist(); self.running=False
+            # Exiting the application saves the active shift; it does not close the shop.
+            self.persist()
+            self.running=False
 
     def event(self,event):
         if self.management_input(event):return
@@ -803,7 +802,10 @@ class App(ManagementUI):
     def run(self):
         while self.running:
             dt=self.clock.tick(60)/1000
-            for event in pg.event.get():self.event(event)
+            for event in pg.event.get():
+                self.event(event)
+                if not self.running:break
+            if not self.running:break
             self.step(dt)
             self.draw()
         pg.quit()
@@ -879,10 +881,12 @@ def smoke_test(output):
     pg.image.save(app.canvas, str(Path(output).with_suffix('.png')))
     from expansion_smoke import check_expansion_ui
     check_expansion_ui(app,output)
+    from exit_smoke import check_window_exit
+    check_window_exit(App)
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 

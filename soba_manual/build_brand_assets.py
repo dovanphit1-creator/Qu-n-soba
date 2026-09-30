@@ -33,7 +33,7 @@ def build():
     icon=im.resize((256,256),Image.Resampling.LANCZOS)
     icon.save(assets/'game.png')
     icon.save(assets/'game.ico',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
-    info=f'''VSVersionInfo(ffi=FixedFileInfo(filevers=(1,0,0,0),prodvers=(1,0,0,0),mask=0x3f,flags=0,OS=0x40004,fileType=1,subtype=0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('FileDescription',{GAME_TITLE!r}),StringStruct('ProductName',{GAME_TITLE!r}),StringStruct('OriginalFilename',{EXE_NAME!r}),StringStruct('InternalName','QuanMiCuaToi'),StringStruct('FileVersion','1.0.0'),StringStruct('ProductVersion','1.0.0')])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])'''
+    info=f'''VSVersionInfo(ffi=FixedFileInfo(filevers=(1,0,1,0),prodvers=(1,0,1,0),mask=0x3f,flags=0,OS=0x40004,fileType=1,subtype=0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('FileDescription',{GAME_TITLE!r}),StringStruct('ProductName',{GAME_TITLE!r}),StringStruct('OriginalFilename',{EXE_NAME!r}),StringStruct('InternalName','QuanMiCuaToi'),StringStruct('FileVersion','1.0.1'),StringStruct('ProductVersion','1.0.1')])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])'''
     (assets/'version.txt').write_text(info,encoding='utf-8')
 
 if __name__=='__main__':build()

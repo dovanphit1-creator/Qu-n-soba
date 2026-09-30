@@ -46,7 +46,7 @@ LƯỢNG KHÁCH VÀ LỊCH
 Nhấp Đóng quán để ngừng nhận nhóm mới. Phục vụ hết khách đã nhận, xử lý hết mì,
 dọn bàn, rửa hết bát và nhấp các vết bẩn LAU trên sàn. Quán bẩn dần khi hoạt động.
 Nhấp xác nhận đóng khi đã sạch để xem báo cáo lợi nhuận, rồi trở về trang quản lý.
-Bạn chủ động mở/đóng quán; không tự khóa theo giờ. Chỉ lưu và thoát sau khi đóng quán.
+Bạn chủ động mở/đóng quán; không tự khóa theo giờ. Có thể bấm X hoặc Alt+F4 để lưu và thoát bất cứ lúc nào, kể cả khi đang mở quán. Lần sau tiếp tục ca đang làm; việc thoát game không tự kết ca hay tính lợi nhuận.
 
 KINH TẾ VND
 Giá bán: Kake 35.000; tôm 45.000; bò 50.000; trứng 42.000 VND.
