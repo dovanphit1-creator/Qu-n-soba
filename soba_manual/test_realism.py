@@ -69,9 +69,9 @@ class RealismTests(unittest.TestCase):
             path=Path(d)/'save.json';w.save(path);r=World.load(path)
             self.assertEqual(r.parties[0].eat_seconds,p.eat_seconds)
             self.assertEqual((r.wash_left,r.wipe_left),(w.wash_left,w.wipe_left))
-            data=json.loads(path.read_text());data['version']=3
+            data=json.loads(path.read_text(encoding="utf-8"));data['version']=3
             for key in ('eat_seconds','choose_seconds','door_patience','wait_patience','queue_patience','buy_seconds','paid_age'):data['parties'][0].pop(key)
             for key in ('wipe_table','wipe_left','dirt_reasons'):data.pop(key)
-            data['wash_left']=3;path.write_text(json.dumps(data));r=World.load(path)
+            data['wash_left']=3;path.write_text(json.dumps(data),encoding="utf-8");r=World.load(path)
             self.assertEqual(len(r.parties[0].eat_seconds),2)
             self.assertGreater(r.wash_left,3);self.assertEqual(r.cash,w.cash)
