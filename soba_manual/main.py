@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-if '--smoke-test' in sys.argv:
+if '--smoke-test' in sys.argv or '--verify-new-player' in sys.argv:
     os.environ['SDL_VIDEODRIVER'] = 'dummy'
     os.environ['SDL_AUDIODRIVER'] = 'dummy'
 import pygame as pg
@@ -69,6 +69,7 @@ class App(ManagementUI):
         self.animation = 0
         self.load_error = ''
         self.has_save = save_path().exists()
+        if not self.has_save:self.modal='welcome'
         self.last_warning = ''
         self.scale = 1
         self.offset = (0, 0)
@@ -501,7 +502,21 @@ class App(ManagementUI):
         shade=pg.Surface((W,H),pg.SRCALPHA); shade.fill((10,28,23,190)); self.canvas.blit(shade,(0,0))
         self.buttons=[]
         self.box((260,110,1080,785),'#fff0d1',20,'#bfa36b',3)
-        if self.modal=='report':
+        if self.modal=='welcome':
+            self.text(GAME_TITLE,(800,185),43,INK,True,True)
+            self.text('CHÀO MỪNG CHỦ QUÁN MỚI',(800,253),28,GREEN,True,True)
+            lines=[
+                'Bạn bắt đầu với 10.000.000 VND và danh tiếng 7%.',
+                'Quán có 1 tầng, 1 bàn và 4 ghế. Kho nguyên liệu và bát đĩa đang trống.',
+                'Vào Chợ mua bát, mì và topping trước khi mở quán.',
+                'Tự đón khách, nhận phiếu, nấu mì, phục vụ và dọn sạch khi kết ca.',
+                'Tiến trình được lưu riêng trên tài khoản Windows của bạn.',
+                'Giờ và ngày lễ theo Việt Nam. Không có chế độ tạm dừng.',
+            ]
+            y=329
+            for line in lines:y=self.wrap(line,(325,y),945,24)+24
+            self.button((535,760,530,68),'Bắt đầu quản lý quán',('begin',))
+        elif self.modal=='report':
             row=self.world.last_report
             self.text('TỔNG KẾT KINH DOANH HÔM NAY',(310,149),34,INK,True)
             self.text(row['date']+' · Đã đóng quán',(310,207),24,GREEN,True)
@@ -714,6 +729,8 @@ class App(ManagementUI):
             self.history_page=max(0,self.history_page+args[0])
         elif kind=='modal':
             self.modal=args[0]
+        elif kind=='begin':
+            self.modal=None; self.manager_tab='overview'; self.persist()
         elif kind=='dismiss':
             self.modal=None
         elif kind=='new' and not self.world.open:
@@ -750,9 +767,9 @@ class App(ManagementUI):
                 floor=event.key-pg.K_1
                 if floor<self.world.floors:self.floor=floor
                 return
-            if event.key==pg.K_F1 and self.modal!='report':
+            if event.key==pg.K_F1 and self.modal not in ('report','welcome'):
                 self.modal=None if self.modal=='help' else 'help'
-            elif event.key==pg.K_ESCAPE and self.modal not in ('report',):
+            elif event.key==pg.K_ESCAPE and self.modal not in ('report','welcome'):
                 self.modal=None
             self.drag=None
         elif event.type==pg.MOUSEMOTION:
@@ -868,8 +885,46 @@ def smoke_test(output):
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 
 
+def verify_new_player(output):
+    """Verify two independent user profiles and a restart without injecting a World."""
+    import tempfile
+    def initial(w):
+        assert w.cash==10_000_000 and w.reputation==7 and not w.open
+        assert w.floors==1 and len(w.tables)==1 and w.tables[0].capacity==4
+        assert all(q==0 for q in w.stock.values()) and w.clean==0 and w.dishes_owned==0
+        assert not w.parties and not w.ledger and not w.deliveries and not w.contract_until
+    app=App(headless=True)
+    assert not app.has_save and app.modal=='welcome'
+    initial(app.world)
+    app.draw()
+    pg.image.save(app.canvas,str(Path(output).with_suffix('.png')))
+    app.action(('begin',));app.world.restock('Mì tươi',1);app.persist()
+    budget=app.world.cash
+    pg.quit()
+    again=App(headless=True)
+    assert again.has_save and again.world.cash==budget and again.world.stock['Mì tươi']==1
+    pg.quit()
+    profile=os.environ['LOCALAPPDATA']
+    with tempfile.TemporaryDirectory(prefix='quanmi-second-player-') as other:
+        os.environ['LOCALAPPDATA']=other
+        another=App(headless=True)
+        initial(another.world)
+        assert another.modal=='welcome'
+        pg.quit()
+    os.environ['LOCALAPPDATA']=profile
+    Path(output).write_text(json.dumps({'ok':True,'platform':sys.platform,
+        'frozen':bool(getattr(sys,'frozen',False)),
+        'checks':['fresh-start','empty-inventory','one-table-four-chairs','independent-users','resume-own-save']}),encoding='utf-8')
+
+
 if __name__ == '__main__':
-    if '--smoke-test' in sys.argv:
-        smoke_test(sys.argv[sys.argv.index('--smoke-test')+1])
+    flag=next((arg for arg in ('--smoke-test','--verify-new-player') if arg in sys.argv),None)
+    if flag:
+        import tempfile
+        # Verification must never read, change or ship a player's actual save.
+        with tempfile.TemporaryDirectory(prefix='quanmi-verification-') as profile:
+            os.environ['LOCALAPPDATA']=profile
+            output=str(Path(sys.argv[sys.argv.index(flag)+1]).resolve())
+            (smoke_test if flag=='--smoke-test' else verify_new_player)(output)
     else:
         App().run()

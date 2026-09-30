@@ -101,3 +101,9 @@ Cập nhật giá nhà cung cấp: đơn mới bằng 97% giá mua lẻ, áp d�
 Đơn đã thanh toán trước cập nhật và giá vốn hàng tồn giữ theo số tiền mua thực tế.
 
 Tên chính thức cố định: Quán Mì của tôi. Icon cố định: bát mì. Các bản cập nhật giữ nguyên nhận diện này.
+
+BẢN PHÁT HÀNH CHO NGƯỜI MỚI
+Lần chạy đầu có màn hình chào mừng và khởi tạo quán trống; không kèm dữ liệu chơi thử.
+Mỗi người dùng Windows lưu tiến trình độc lập. Máy đã chơi tiếp tục bản lưu của máy đó.
+Muốn chơi lại từ đầu, đóng quán rồi chọn Tạo ván mới và xác nhận.
+Xem PHAT_HANH.txt: EXE hiện chưa có chữ ký nhà phát hành, Windows vẫn có thể cảnh báo.

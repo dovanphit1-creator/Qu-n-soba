@@ -1,0 +1,19 @@
+Quán Mì của tôi — phiên bản 1.0.0 cho Windows 64-bit
+
+CÁCH CHƠI
+Giải nén toàn bộ gói tải về. Mở Quán Mì của tôi.exe.
+Không cần Python, không cần tài khoản game hoặc mạng Internet để chơi.
+Lần đầu: 10.000.000 VND, danh tiếng 7%, 1 bàn 4 ghế, kho và bát đĩa trống.
+Gói tải không chứa bản lưu hoặc dữ liệu chơi thử. Mỗi tài khoản Windows tự lưu riêng.
+Máy đã chơi trước đó sẽ tiếp tục bản lưu của chính máy đó.
+Muốn bắt đầu lại: ở trang đóng quán chọn Tạo ván mới, rồi xác nhận.
+Tên Quán Mì của tôi và icon bát mì được giữ cố định qua các cập nhật.
+
+TRẠNG THÁI KÝ SỐ
+Bản EXE này chưa được ký bằng chứng thư nhà phát hành được Windows tin cậy.
+Windows SmartScreen hoặc Smart App Control vẫn có thể cảnh báo/chặn ứng dụng.
+Đây chưa phải gói đã được Microsoft Store duyệt. Không có cam kết không bị chặn.
+Không cần và không đề nghị tắt phần mềm bảo vệ Windows.
+Muốn phân phối qua Microsoft Store cần tài khoản nhà phát triển và xét duyệt MSIX.
+Ký số bằng chứng thư tin cậy xác minh nhà phát hành nhưng không bảo đảm hết mọi cảnh báo.
+SHA256.txt dùng kiểm tra tệp tải; mã SHA256 không thay thế chữ ký số.
