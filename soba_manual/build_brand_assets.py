@@ -1,7 +1,7 @@
 """Reproducible noodle-bowl icon; keep this design fixed across releases."""
 from pathlib import Path
 from PIL import Image, ImageDraw
-from brand import GAME_TITLE, EXE_NAME
+from brand import GAME_TITLE, EXE_NAME, GAME_VERSION
 
 
 def build():
@@ -33,7 +33,8 @@ def build():
     icon=im.resize((256,256),Image.Resampling.LANCZOS)
     icon.save(assets/'game.png')
     icon.save(assets/'game.ico',sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])
-    info=f'''VSVersionInfo(ffi=FixedFileInfo(filevers=(1,0,1,0),prodvers=(1,0,1,0),mask=0x3f,flags=0,OS=0x40004,fileType=1,subtype=0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('FileDescription',{GAME_TITLE!r}),StringStruct('ProductName',{GAME_TITLE!r}),StringStruct('OriginalFilename',{EXE_NAME!r}),StringStruct('InternalName','QuanMiCuaToi'),StringStruct('FileVersion','1.0.1'),StringStruct('ProductVersion','1.0.1')])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])'''
+    version_numbers=tuple(map(int,GAME_VERSION.split('.')))+(0,)
+    info=f'''VSVersionInfo(ffi=FixedFileInfo(filevers={version_numbers!r},prodvers={version_numbers!r},mask=0x3f,flags=0,OS=0x40004,fileType=1,subtype=0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('FileDescription',{GAME_TITLE!r}),StringStruct('ProductName',{GAME_TITLE!r}),StringStruct('OriginalFilename',{EXE_NAME!r}),StringStruct('InternalName','QuanMiCuaToi'),StringStruct('FileVersion',{GAME_VERSION!r}),StringStruct('ProductVersion',{GAME_VERSION!r})])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])'''
     (assets/'version.txt').write_text(info,encoding='utf-8')
 
 if __name__=='__main__':build()

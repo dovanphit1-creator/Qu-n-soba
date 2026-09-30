@@ -15,7 +15,7 @@ from model import (World, RECIPES, STOCK_COST, TABLE_LAYOUT, POT_POS, BOWL_POS,
 
 from vn_calendar import WEEKDAYS
 from management import ManagementUI
-from brand import GAME_TITLE, WINDOWS_APP_ID
+from brand import GAME_TITLE, WINDOWS_APP_ID, GAME_VERSION
 
 W, H = 1600, 1000
 INK = '#26372e'
@@ -40,6 +40,9 @@ def dist(a, b):
 class App(ManagementUI):
     def __init__(self, headless=False, persistent=True):
         self.persistent=persistent
+        self.update_queue=None
+        self.available_update=None
+        self.update_notified=False
         if sys.platform=='win32':
             import ctypes
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
@@ -80,6 +83,17 @@ class App(ManagementUI):
                 self.world = World.load(save_path())
             except (OSError, ValueError, KeyError, TypeError):
                 self.last_warning = 'Không đọc được bản lưu VND; hãy sao lưu tệp trước khi tạo ván mới.'
+
+    def poll_updates(self):
+        if self.update_queue is not None:
+            from queue import Empty
+            try:
+                self.available_update=self.update_queue.get_nowait()
+                self.update_queue=None
+            except Empty:pass
+        if self.available_update and not self.update_notified and self.modal is None and not self.drag:
+            self.modal='update'
+            self.update_notified=True
 
     def font(self, size=22, bold=False):
         key = (size, bold)
@@ -517,6 +531,16 @@ class App(ManagementUI):
             y=329
             for line in lines:y=self.wrap(line,(325,y),945,24)+24
             self.button((535,760,530,68),'Bắt đầu quản lý quán',('begin',))
+        elif self.modal=='update':
+            info=self.available_update
+            self.text('ĐÃ CÓ PHIÊN BẢN MỚI',(800,195),36,INK,True,True)
+            self.text(GAME_TITLE,(800,258),29,GREEN,True,True)
+            self.text('Đang dùng '+GAME_VERSION+'   ·   Bản mới '+info['version'],(320,328),25,INK,True)
+            self.wrap(info['notes'],(320,392),950,23)
+            self.wrap('Tải bản mới từ GitHub Releases. Tiến trình trên máy được giữ lại.',(320,653),950,22)
+            if self.world.open:self.text('Quán vẫn hoạt động khi thông báo này đang mở.',(320,707),20,RED)
+            self.button((330,790,440,61),'Tải bản mới',('download_update',))
+            self.button((830,790,440,61),'Để sau',('dismiss',),color='#8a7352')
         elif self.modal=='report':
             row=self.world.last_report
             self.text('TỔNG KẾT KINH DOANH HÔM NAY',(310,149),34,INK,True)
@@ -733,6 +757,16 @@ class App(ManagementUI):
             self.modal=args[0]
         elif kind=='begin':
             self.modal=None; self.manager_tab='overview'; self.persist()
+        elif kind=='download_update':
+            if self.available_update:
+                import webbrowser
+                self.persist()
+                try:
+                    if not webbrowser.open(self.available_update['url']):
+                        self.last_warning='Không mở được trình duyệt. Hãy vào GitHub Releases của Quán Mì của tôi.'
+                except Exception:
+                    self.last_warning='Không mở được trình duyệt. Hãy vào GitHub Releases của Quán Mì của tôi.'
+            self.modal=None
         elif kind=='dismiss':
             self.modal=None
         elif kind=='new' and not self.world.open:
@@ -791,6 +825,7 @@ class App(ManagementUI):
             self.drag=self.down=None
 
     def step(self,dt):
+        self.poll_updates()
         # Help panels and lost window focus never pause an open restaurant.
         if self.world.process_deliveries():self.persist()
         self.world.update(dt)
@@ -800,6 +835,9 @@ class App(ManagementUI):
             self.persist(); self.auto_save=0
 
     def run(self):
+        if self.persistent and not any(flag in sys.argv for flag in ('--smoke-test','--verify-new-player')):
+            from updates import start_check
+            self.update_queue=start_check()
         while self.running:
             dt=self.clock.tick(60)/1000
             for event in pg.event.get():
@@ -883,10 +921,12 @@ def smoke_test(output):
     check_expansion_ui(app,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)
+    from update_smoke import check_update_ui
+    check_update_ui(App)
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 
