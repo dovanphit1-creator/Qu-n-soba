@@ -1,3 +1,7 @@
+# Quán Mì Của Tôi
+
+Bản mở rộng: ghép bàn, tối đa 3 tầng, nhà cung cấp và menu tự tạo.
+
 Quán Mì Của Tôi (Windows 64-bit)
 
 Giải nén toàn bộ rồi nhấp đúp Quán Mì Của Tôi.exe. Không cần Python, trình duyệt hay Internet.
@@ -46,7 +50,7 @@ LƯỢNG KHÁCH VÀ LỊCH
 Nhấp Đóng quán để ngừng nhận nhóm mới. Phục vụ hết khách đã nhận, xử lý hết mì,
 dọn bàn, rửa hết bát và nhấp các vết bẩn LAU trên sàn. Quán bẩn dần khi hoạt động.
 Nhấp xác nhận đóng khi đã sạch để xem báo cáo lợi nhuận, rồi trở về trang quản lý.
-Bạn chủ động mở/đóng quán; không tự khóa theo giờ. Có thể bấm X hoặc Alt+F4 để lưu và thoát bất cứ lúc nào, kể cả khi đang mở quán. Lần sau tiếp tục ca đang làm; việc thoát game không tự kết ca hay tính lợi nhuận.
+Bạn chủ động mở/đóng quán; không tự khóa theo giờ. Chỉ lưu và thoát sau khi đóng quán.
 
 KINH TẾ VND
 Giá bán: Kake 35.000; tôm 45.000; bò 50.000; trứng 42.000 VND.
@@ -97,6 +101,18 @@ Giá vốn dùng giá nhập bình quân hàng hiện còn trong kho, đã tính
 Khi một nguyên liệu chưa có trong kho, màn hình tạm dùng giá mua lẻ để ước tính.
 Lợi nhuận gợi ý chưa trừ điện/nước/ga và vốn mua bàn ghế/xây tầng.
 
+## Chạy mã nguồn
+
+```sh
+pip install pygame-ce==2.5.7 holidays==0.105 pillow==11.3.0
+python soba_manual/build_brand_assets.py
+python soba_manual/main.py
+python soba_manual/test_game.py
+python soba_manual/main.py --smoke-test smoke-windows.json
+```
+
+GitHub Actions tạo EXE Windows độc lập và chạy kiểm tra ngay trên EXE, gồm thao tác tạo menu, giao hàng, ghép bàn và chuyển tầng.
+
 Cập nhật giá nhà cung cấp: đơn mới bằng 97% giá mua lẻ, áp dụng cả hợp đồng đang có.
 Đơn đã thanh toán trước cập nhật và giá vốn hàng tồn giữ theo số tiền mua thực tế.
 
@@ -107,10 +123,3 @@ Lần chạy đầu có màn hình chào mừng và khởi tạo quán trống; 
 Mỗi người dùng Windows lưu tiến trình độc lập. Máy đã chơi tiếp tục bản lưu của máy đó.
 Muốn chơi lại từ đầu, đóng quán rồi chọn Tạo ván mới và xác nhận.
 Xem PHAT_HANH.txt: EXE hiện chưa có chữ ký nhà phát hành, Windows vẫn có thể cảnh báo.
-
-THÔNG BÁO CẬP NHẬT
-Mỗi lần mở game sẽ kiểm tra GitHub Releases ở nền, không cần tài khoản.
-Nếu có bản chính thức mới hơn và đã đính kèm EXE/ZIP, game hiện Tải bản mới / Để sau.
-Tải bản mới mở trang phát hành bằng trình duyệt; tự tải rồi chạy tệp mới.
-Tiến trình vẫn ở thư mục cũ. Khi không có mạng hoặc kiểm tra lỗi, vẫn chơi bình thường.
-Bản nháp và Pre-release không gửi thông báo trong game.

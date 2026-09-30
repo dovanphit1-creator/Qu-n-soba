@@ -21,40 +21,40 @@ jobs:
       - name: Check service cycle and gameplay rules
         run: python -m unittest discover -s soba_manual -p "test*.py"
       - name: Build standalone graphical application
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name "Quán Mì của tôi" --icon soba_manual/assets/game.ico --version-file soba_manual/assets/version.txt --add-data "soba_manual/assets;assets" --paths soba_manual --collect-all holidays soba_manual/main.py
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name "Quán Mì Của Tôi" --icon soba_manual/assets/game.ico --version-file soba_manual/assets/version.txt --add-data "soba_manual/assets;assets" --paths soba_manual --collect-all holidays soba_manual/main.py
       - name: Run the actual Windows executable through a service cycle
         shell: pwsh
         run: |
           $report = Join-Path $PWD 'smoke-windows.json'
-          $process = Start-Process -FilePath '.\dist\Quán Mì của tôi.exe' -ArgumentList @('--smoke-test', $report) -Wait -PassThru
+          $process = Start-Process -FilePath '.\dist\Quán Mì Của Tôi.exe' -ArgumentList @('--smoke-test', $report) -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Executable test failed: $($process.ExitCode)" }
-          python -c "import pefile; p=pefile.PE('dist/Quán Mì của tôi.exe'); ids={e.id for e in p.DIRECTORY_ENTRY_RESOURCE.entries}; assert {3,14} <= ids"
+          python -c "import pefile; p=pefile.PE('dist/Quán Mì Của Tôi.exe'); ids={e.id for e in p.DIRECTORY_ENTRY_RESOURCE.entries}; assert {3,14} <= ids"
           if ($LASTEXITCODE -ne 0) { throw 'Missing Windows icon resources' }
-          $info = (Get-Item '.\dist\Quán Mì của tôi.exe').VersionInfo
-          if ($info.ProductName -ne 'Quán Mì của tôi') { throw 'Incorrect permanent product name' }
+          $info = (Get-Item '.\dist\Quán Mì Của Tôi.exe').VersionInfo
+          if ($info.ProductName -ne 'Quán Mì Của Tôi') { throw 'Incorrect permanent product name' }
           if ($info.ProductVersion -ne '1.0.0') { throw 'Incorrect release version' }
           if ($info.CompanyName -ne 'Đỗ Văn Phi') { throw 'Incorrect publisher credit' }
           $result = Get-Content $report -Raw | ConvertFrom-Json
           if (-not $result.ok -or -not $result.frozen -or $result.platform -ne 'win32') { throw 'Invalid executable verification report' }
           $fresh = Join-Path $PWD 'new-player.json'
-          $process = Start-Process -FilePath '.\dist\Quán Mì của tôi.exe' -ArgumentList @('--verify-new-player', $fresh) -Wait -PassThru
+          $process = Start-Process -FilePath '.\dist\Quán Mì Của Tôi.exe' -ArgumentList @('--verify-new-player', $fresh) -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw 'New player verification failed' }
           $newPlayer = Get-Content $fresh -Raw | ConvertFrom-Json
           if (-not $newPlayer.ok -or -not $newPlayer.frozen) { throw 'Invalid new player report' }
-          $signature = Get-AuthenticodeSignature '.\dist\Quán Mì của tôi.exe'
+          $signature = Get-AuthenticodeSignature '.\dist\Quán Mì Của Tôi.exe'
           Write-Output ('Authenticode status: ' + $signature.Status)
           Copy-Item 'soba_manual\HUONG_DAN.txt' 'dist\HUONG_DAN.txt'
           Copy-Item 'soba_manual\PHAT_HANH.txt' 'dist\PHAT_HANH.txt'
-          $hash = (Get-FileHash '.\dist\Quán Mì của tôi.exe' -Algorithm SHA256).Hash
-          Set-Content -Path 'dist\SHA256.txt' -Encoding utf8 -Value ($hash + '  Quán Mì của tôi.exe')
-          $unexpected = Get-ChildItem dist -File | Where-Object { $_.Name -notin @('Quán Mì của tôi.exe','HUONG_DAN.txt','PHAT_HANH.txt','SHA256.txt') }
+          $hash = (Get-FileHash '.\dist\Quán Mì Của Tôi.exe' -Algorithm SHA256).Hash
+          Set-Content -Path 'dist\SHA256.txt' -Encoding utf8 -Value ($hash + '  Quán Mì Của Tôi.exe')
+          $unexpected = Get-ChildItem dist -File | Where-Object { $_.Name -notin @('Quán Mì Của Tôi.exe','HUONG_DAN.txt','PHAT_HANH.txt','SHA256.txt') }
           if ($unexpected) { throw 'Unexpected files in release folder' }
       - name: Upload ready-to-play Windows app
         uses: actions/upload-artifact@v4
         with:
           name: QuanMiCuaToi-Windows
           path: |
-            dist/Quán Mì của tôi.exe
+            dist/Quán Mì Của Tôi.exe
             dist/HUONG_DAN.txt
             dist/PHAT_HANH.txt
             dist/SHA256.txt

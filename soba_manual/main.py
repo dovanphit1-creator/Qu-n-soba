@@ -765,9 +765,9 @@ class App(ManagementUI):
                 self.persist()
                 try:
                     if not webbrowser.open(self.available_update['url']):
-                        self.last_warning='Không mở được trình duyệt. Hãy vào GitHub Releases của Quán Mì của tôi.'
+                        self.last_warning='Không mở được trình duyệt. Hãy vào GitHub Releases của Quán Mì Của Tôi.'
                 except Exception:
-                    self.last_warning='Không mở được trình duyệt. Hãy vào GitHub Releases của Quán Mì của tôi.'
+                    self.last_warning='Không mở được trình duyệt. Hãy vào GitHub Releases của Quán Mì Của Tôi.'
             self.modal=None
         elif kind=='dismiss':
             self.modal=None
