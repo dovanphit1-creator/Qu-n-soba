@@ -14,6 +14,7 @@ from model import (World, RECIPES, STOCK_COST, TABLE_LAYOUT, POT_POS, BOWL_POS,
                    COOK_SECONDS, LIFT_WINDOW, save_path, vnd, DISH_COST, DIRT_POS)
 
 from vn_calendar import WEEKDAYS
+from management import ManagementUI
 
 W, H = 1600, 1000
 INK = '#26372e'
@@ -35,7 +36,7 @@ def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-class App:
+class App(ManagementUI):
     def __init__(self, headless=False):
         pg.init()
         if headless:
@@ -57,6 +58,7 @@ class App:
         self.modal = None
         self.manager_tab = 'overview'
         self.history_page = 0
+        self.init_management()
         self.running = True
         self.auto_save = 0
         self.animation = 0
@@ -210,11 +212,16 @@ class App:
         self.box((30, 251, 190, 27), '#705036', 3)
         self.box((354, 251, 820, 27), '#705036', 3)
         self.box((222, 251, 131, 11), '#c45643', 0)
-        self.text('LỐI VÀO', (230, 293), 18, INK, True)
-        self.text('KHU BÀN ĂN', (63, 329), 23, '#67492e', True)
+        # Floor navigation remains clear of the first row of diners.
+        self.text(f'TẦNG {self.floor+1} · KHU BÀN ĂN', (63, 329), 21, '#67492e', True)
+        for floor in range(world.floors):
+            self.button((63+floor*173,290,160,34),f'Tầng {floor+1} [phím {floor+1}]',('floor',floor),small=True,color=GREEN if floor==self.floor else '#92734c')
+        self.text('Đang kéo: phím 1 / 2 / 3 để đổi tầng', (63,364),16)
+
         self.text('BẾP 6 NỒI', (844, 253), 20, CREAM, True)
         for spot in world.dirt:
-            x, y = DIRT_POS[spot]
+            if spot // len(DIRT_POS) != self.floor: continue
+            x, y = DIRT_POS[spot % len(DIRT_POS)]
             for dx, dy in [(-12, 2), (3, -4), (12, 5)]:
                 pg.draw.ellipse(self.canvas, '#907049', (x+dx-8, y+dy-5, 19, 12))
             self.box((x-24, y+12, 48, 23), '#8e553f', 4)
@@ -294,31 +301,27 @@ class App:
             if b and self.drag != ('bowl', b.id):
                 self.bowl((x, y), b.toppings, b.mushy)
                 self.text(f'Bát {b.id} · {len(b.toppings)} vị', (x, y+32), 15, INK, True, True)
-        # Tables and chairs.
-        for i, (x, y, cap) in enumerate(TABLE_LAYOUT):
-            table = world.tables[i]
-            chairs = self.chairs(i)
-            for cx, cy in chairs:
-                self.box((cx-22, cy-22, 44, 44), '#755235', 7)
-                self.box((cx-17, cy-17, 34, 32), '#52765a', 5)
-            self.box((x-88, y-43, 184, 96), '#92734c', 12)
-            self.box((x-92, y-50, 184, 96), '#edce8e', 10, '#a27b47', 4)
-            self.text(f'BÀN {i+1}', (x, y-27), 18, '#704f2e', True, True)
-            p = world.group(table.group)
-            if p:
-                self.text(f'{len(p.meals)}/{p.size} bát', (x, y+7), 19, INK, True, True)
-                for j, meal in enumerate(p.meals):
-                    bx, by = chairs[j]
-                    self.bowl(((bx+x)/2, (by+y)/2+4), meal['toppings'], meal['mushy'], 18)
-            elif table.dirty:
-                self.bowl((x-5, y+7), dirty=True, size=28)
-                self.text(f'{table.dirty} bát bẩn · kéo', (x, y+65), 17, RED, True, True)
-            elif table.needs_wipe:
-                for dx, dy in [(-40, 3), (15, 14), (45, -5)]:
-                    pg.draw.ellipse(self.canvas, '#c5995e', (x+dx, y+dy, 17, 9))
-                self.text('Nhấp để LAU BÀN', (x, y+65), 17, RED, True, True)
-            else:
-                self.text(f'{cap} chỗ · sạch', (x, y+8), 19, GREEN, True, True)
+        # Shared tables; each group retains its own seats, ticket and meals.
+        for i, table in enumerate(world.tables):
+            if table.floor != self.floor: continue
+            x,y=world.table_position(i)
+            chairs=self.chairs(i)
+            for cx,cy in chairs:
+                self.box((cx-22,cy-22,44,44),'#755235',7)
+                self.box((cx-17,cy-17,34,32),'#52765a',5)
+            self.box((x-92,y-50,184,96),'#edce8e',10,'#a27b47',4)
+            label=f'B{i+1} · {table.dirty} bát bẩn' if table.dirty else (f'B{i+1} · LAU BÀN' if table.needs_wipe else f'B{i+1} · {len(world.free_seats(i))}/{table.capacity} trống')
+            self.text(label,(x,y-32),14,RED if table.dirty or table.needs_wipe else INK,True,True)
+            groups=world.at_table(i)
+            if groups:
+                for n,party in enumerate(groups):
+                    rect=self.table_group_rect(i,n)
+                    self.box(rect,'#f5c56b' if self.selected==party.id else '#fff4d8',4)
+                    self.text(f'N{party.id:03} {len(party.meals)}/{party.size}',rect.center,13,INK,True,True)
+            elif not table.dirty and not table.needs_wipe:
+                self.text('Bàn sạch' if table.capacity else 'Chưa có ghế',(x,y),19,GREEN,True,True)
+            if table.dirty and not groups:
+                self.bowl((x,y+8),dirty=True,size=24)
         # Living customers and passers-by.
         for w in world.walkers:
             for j in range(w['size']):
@@ -327,10 +330,15 @@ class App:
             if self.drag == ('party', p.id):
                 continue
             if p.phase in ('seated', 'eating'):
-                for j, (cx, cy) in enumerate(self.chairs(p.table)[:p.size]):
-                    self.person(cx, cy, PEOPLE[(p.id+j)%6])
-                x, y, _ = TABLE_LAYOUT[p.table]
-                self.label_party(p, x, y-105, 'đang ăn' if p.phase == 'eating' else 'đợi món')
+                if world.tables[p.table].floor != self.floor: continue
+                for j,seat in enumerate(p.seats):
+                    cx,cy=self.chairs(p.table)[seat]
+                    self.person(cx,cy,PEOPLE[(p.id+j)%6])
+                    if j < len(p.meals):
+                        tx,ty=world.table_position(p.table)
+                        meal=p.meals[j]
+                        self.bowl((cx+(25 if cx<tx else -25),cy+(14 if cy<ty else -14)),meal['toppings'],meal['mushy'],12)
+
             else:
                 for j in range(p.size):
                     self.person(p.x+(j-(p.size-1)/2)*24, p.y+(j%2)*5, PEOPLE[(p.id+j)%6], self.animation*7+j)
@@ -349,8 +357,12 @@ class App:
         self.text(message, (42, 956), size, CREAM)
 
     def chairs(self, index):
-        x, y, cap = TABLE_LAYOUT[index]
-        return [(x-53, y-65), (x+53, y+65)] if cap == 2 else [(x-53,y-65),(x+53,y-65),(x-53,y+65),(x+53,y+65)]
+        x,y=self.world.table_position(index)
+        return [(x-53,y-65),(x+53,y-65),(x-53,y+65),(x+53,y+65)][:self.world.tables[index].capacity]
+
+    def table_group_rect(self,index,number):
+        x,y=self.world.table_position(index)
+        return pg.Rect(x-87+(number%2)*89,y-12+(number//2)*27,85,24)
 
     def label_party(self, p, x, y, status):
         rect = pg.Rect(x-88, y-18, 176, 41)
@@ -381,13 +393,13 @@ class App:
         self.text('PHIẾU ĐANG XEM', (1208, 516), 22, INK, True)
         if selected and selected.ticket_read:
             p = selected
-            self.text(f'Nhóm {p.id:03} · ' + (f'Bàn {p.table+1}' if p.table >= 0 else 'Chưa xếp bàn'), (1208, 550), 23, GREEN, True)
+            self.text(f'Nhóm {p.id:03} · ' + (f'T{w.tables[p.table].floor+1} Bàn {p.table+1}' if p.table >= 0 else 'Chưa xếp bàn'), (1208, 550), 23, GREEN, True)
             y = 590
             for i, order in enumerate(p.orders):
                 done = i < len(p.meals)
-                self.text(f'{i+1}. {order}' + ('  [đã giao]' if done else ''), (1208, y), 19, '#7a806c' if done else INK, True)
+                self.text(f'{i+1}. {order}' + (' ✓' if done else ''), (1208, y), 16, '#7a806c' if done else INK, True)
                 y += 25
-                self.text(' + '.join(RECIPES[order]), (1227, y), 16, '#736b55')
+                self.text(' · '.join((name.replace('Nước dùng','Dùng') + '×' + str(p.recipes[i].count(name))) for name in dict.fromkeys(p.recipes[i])), (1210, y), 13, '#736b55')
                 y += 31
         elif selected:
             self.wrap(f'Nhóm {selected.id:03} chưa giao phiếu. Chờ khách mua ở máy rồi nhấp phiếu màu vàng.', (1208, 551), 340, 22)
@@ -414,12 +426,19 @@ class App:
         self.button((1030, 173, 260, 82), 'MỞ QUÁN', ('open',))
         self.button((1305, 173, 253, 82), 'Lưu và thoát', ('quit',), color='#7c674b')
         tabs = [('overview','Tổng quan'), ('inventory','Kho nguyên liệu'), ('market','Chợ'),
+                ('expansion','Bàn / tầng'), ('supplier','Nhà cung cấp'), ('menu','Tạo menu'),
                 ('day','Theo ngày'), ('month','Theo tháng'), ('year','Theo năm')]
         for i, (key, label) in enumerate(tabs):
-            self.button((36+i*255, 305, 243, 52), label, ('tab',key),
+            self.button((36+i*170, 305, 161, 52), label, ('tab',key),
                         color=GREEN if self.manager_tab==key else '#7c876d')
         self.box((35, 380, 1525, 520), '#fff3d9', 12)
-        if self.manager_tab in ('inventory','market'):
+        if self.manager_tab=='expansion':
+            self.render_expansion()
+        elif self.manager_tab=='supplier':
+            self.render_supplier()
+        elif self.manager_tab=='menu':
+            self.render_menu()
+        elif self.manager_tab in ('inventory','market'):
             market = self.manager_tab=='market'
             self.text('CHỢ · CHỈ MUA KHI ĐÓNG QUÁN' if market else 'KHO NGUYÊN LIỆU TỒN', (60, 398), 25, INK, True)
             for i, name in enumerate(['Bát/đĩa', *STOCK_COST]):
@@ -505,9 +524,9 @@ class App:
             self.text('CÁCH CHƠI · QUÁN KHÔNG TẠM DỪNG',(308,152),30,INK,True)
             lines=[
                 '1. Khi đóng quán: mua bát, mì và topping tại Chợ rồi bấm Mở quán.',
-                '2. Trả lời nhóm khách, nhận phiếu vàng, kéo nhóm vào bàn đủ ghế.',
+                '2. Nhận phiếu, kéo nhóm vào bàn đủ ghế trống. Có thể ghép nhiều nhóm.',
                 '3. Kéo mì vào 6 nồi. Luộc 210 giây, vớt trong 10 giây, quá giờ sẽ nhão.',
-                '4. Kéo bát xuống quầy, thêm topping theo phiếu, kéo từng bát ra bàn.',
+                '4. Thêm topping. Bàn ghép: nhấp N001/N002 chọn nhóm rồi kéo bát ra bàn.',
                 '5. Khách ăn xong: kéo bát vào bồn, nhấp rửa; nhấp bàn và các chữ LAU ở sàn.',
                 '6. Bấm Đóng quán: ngừng đón nhóm mới nhưng khách và bếp vẫn hoạt động.',
                 '7. Dọn sạch, xử lý hết khách và mì rồi xác nhận đóng để xem lợi nhuận.',
@@ -516,7 +535,7 @@ class App:
                 'Giá giả lập: điện 6.000 VND/giờ; ga 800 VND/nồi; nước 200 VND/bát rửa.',
                 'Lau sàn dùng nước 500 VND/vết. Tiền mua bát ghi riêng là mua dụng cụ.',
                 'Không có tạm dừng: khách và nồi vẫn chạy khi xem bảng hoặc chuyển cửa sổ.',
-                'F1 / Esc: mở hoặc đóng hướng dẫn. Mua hàng chỉ khi đã đóng quán sạch sẽ.',
+                'Phím 1/2/3 đổi tầng cả khi đang kéo. Quản lý bàn/tầng, nhà cung cấp và menu khi đóng quán.',
             ]
             y=219
             for line in lines:y=self.wrap(line,(310,y),970,20)+11
@@ -561,21 +580,21 @@ class App:
         pg.display.flip()
 
     def hit_table(self, point):
-        for i,(x,y,_) in enumerate(TABLE_LAYOUT):
-            if pg.Rect(x-100,y-58,200,116).collidepoint(point):
-                return i
+        for i,t in enumerate(self.world.tables):
+            if t.floor != self.floor: continue
+            x,y=self.world.table_position(i)
+            if pg.Rect(x-100,y-58,200,116).collidepoint(point):return i
         return None
 
     def hit_party(self, point):
+        for i,t in enumerate(self.world.tables):
+            if t.floor!=self.floor:continue
+            for n,p in enumerate(self.world.at_table(i)):
+                if self.table_group_rect(i,n).collidepoint(point):return p
+                if any(dist(point,self.chairs(i)[seat])<26 for seat in p.seats):return p
         for p in reversed(self.world.parties):
-            if p.phase in ('seated','eating'):
-                x,y,_ = TABLE_LAYOUT[p.table]
-                if pg.Rect(x-88,y-123,176,41).collidepoint(point):
-                    return p
-            else:
-                x,y = p.x,p.y
-            if pg.Rect(x-81,y-68,162,103).collidepoint(point):
-                return p
+            if p.phase in ('seated','eating'):continue
+            if pg.Rect(p.x-81,p.y-68,162,103).collidepoint(point):return p
         return None
 
     def source(self, point):
@@ -611,7 +630,7 @@ class App:
         if self.modal or not self.world.open:
             return
         for spot in self.world.dirt[:]:
-            if dist(point,DIRT_POS[spot]) < 35:
+            if spot // len(DIRT_POS)==self.floor and dist(point,DIRT_POS[spot % len(DIRT_POS)]) < 35:
                 self.world.sweep(spot)
                 return
         if TICKET.collidepoint(point):
@@ -627,7 +646,7 @@ class App:
         index = self.hit_table(point)
         if index is not None:
             t = self.world.tables[index]
-            if not t.group and not t.dirty and t.needs_wipe:
+            if not t.dirty and t.needs_wipe:
                 self.world.wipe(index)
                 return
         p = self.hit_party(point)
@@ -659,7 +678,9 @@ class App:
                     break
         elif kind == 'bowl':
             if table is not None:
-                self.world.serve(ident,table)
+                groups=self.world.at_table(table)
+                gid=self.selected if len(groups)>1 else None
+                self.world.serve(ident,table,gid)
             elif TRASH.collidepoint(point):
                 self.world.discard_bowl(ident)
             else:
@@ -681,8 +702,9 @@ class App:
 
     def action(self, action):
         kind,*args=action
+        if self.extra_action(kind,args):return
         if kind=='tab':
-            self.manager_tab=args[0]; self.history_page=0
+            self.manager_tab=args[0]; self.history_page=0; self.input_focus=None; pg.key.stop_text_input()
         elif kind=='page':
             self.history_page=max(0,self.history_page+args[0])
         elif kind=='modal':
@@ -690,7 +712,7 @@ class App:
         elif kind=='dismiss':
             self.modal=None
         elif kind=='new' and not self.world.open:
-            self.world=World(); self.modal=None; self.manager_tab='overview'; self.persist()
+            self.world=World(); self.modal=None; self.manager_tab='overview'; self.init_management(); self.persist()
         elif kind=='open':
             if self.world.open_shop():self.persist()
         elif kind=='answer':
@@ -709,6 +731,7 @@ class App:
                 self.persist(); self.running=False
 
     def event(self,event):
+        if self.management_input(event):return
         if event.type==pg.QUIT:
             self.action(('quit',))
         elif event.type==pg.WINDOWFOCUSLOST:
@@ -718,6 +741,10 @@ class App:
             self.display=pg.display.set_mode((max(800,event.w),max(500,event.h)),pg.RESIZABLE)
             self.update_size()
         elif event.type==pg.KEYDOWN:
+            if event.key in (pg.K_1,pg.K_2,pg.K_3) and not self.modal:
+                floor=event.key-pg.K_1
+                if floor<self.world.floors:self.floor=floor
+                return
             if event.key==pg.K_F1 and self.modal!='report':
                 self.modal=None if self.modal=='help' else 'help'
             elif event.key==pg.K_ESCAPE and self.modal not in ('report',):
@@ -742,9 +769,9 @@ class App:
 
     def step(self,dt):
         # Help panels and lost window focus never pause an open restaurant.
-        if self.world.open:
-            self.world.update(dt)
-            self.animation+=dt
+        if self.world.process_deliveries():self.persist()
+        self.world.update(dt)
+        if self.world.open:self.animation+=dt
         self.auto_save+=dt
         if self.auto_save>=15:
             self.persist(); self.auto_save=0
@@ -824,10 +851,12 @@ def smoke_test(output):
     app.action(('dismiss',))
     app.draw()
     pg.image.save(app.canvas, str(Path(output).with_suffix('.png')))
+    from expansion_smoke import check_expansion_ui
+    check_expansion_ui(app,output)
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 

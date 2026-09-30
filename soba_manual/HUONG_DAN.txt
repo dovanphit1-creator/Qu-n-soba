@@ -1,9 +1,9 @@
-QUÁN SOBA — TỰ TAY VẬN HÀNH (Windows 64-bit)
+QUÁN SOBA — GHÉP BÀN, MỞ RỘNG & MENU (Windows 64-bit)
 
 Giải nén toàn bộ rồi nhấp đúp QuanSoba.exe. Không cần Python, trình duyệt hay Internet.
 
 LẦN ĐẦU CHƠI
-- Bắt đầu tại màn hình đóng quán: 10.000.000 VND, danh tiếng 7%, không có nguyên liệu hay bát đĩa.
+- Ván mới: 10.000.000 VND, danh tiếng 7%, 1 tầng với 1 bàn 4 ghế; không có nguyên liệu hay bát đĩa.
 - Vào Chợ mua bát/đĩa, mì tươi và topping rồi chọn MỞ QUÁN. Chỉ mua hàng khi quán đã đóng hoàn toàn.
 - Trang quản lý có ngân sách, kho tồn và lịch sử doanh thu/chi phí/lợi nhuận theo ngày, tháng, năm.
 - Không có tạm dừng. F1 mở hướng dẫn nhưng khách và nồi vẫn chạy, kể cả khi chuyển cửa sổ.
@@ -12,14 +12,17 @@ QUY TRÌNH CHƠI
 1. Khách đi theo nhóm 1–4 người, có số thứ tự Nhóm 001, 002…
    Nhấp nhóm ở cửa và chọn: còn chỗ mời vào / hết chỗ xin đợi / hết nguyên liệu hẹn lần sau.
 2. Sau khi nhận khách, họ đến máy bán vé. Đợi khoảng 8 giây rồi nhấp phiếu vàng bên máy.
-3. Đọc món từng khách trong bảng bên phải. Kéo nhóm vào bàn sạch đủ ghế.
+3. Đọc món từng khách trong bảng bên phải. Kéo nhóm vào bàn sạch đủ GHẾ TRỐNG.
+   Các nhóm được ghép bàn nhưng mỗi nhóm vẫn có tên/phiếu riêng. Nhấp N001/N002 trên bàn để chọn nhóm.
+   Khi kéo khách hoặc bát, nhấn 1/2/3 để đổi tầng rồi thả vào bàn ở tầng đó.
 4. Kéo MÌ TƯƠI vào một trong 6 nồi. Luộc đúng 210 giây thực, nhấp nồi để vớt trong 10 giây tiếp theo.
 5. Sau 10 giây đó, mì bị nhão. Có thể nhấp vớt để dùng, hoặc nhấp phải nồi để đổ bỏ và luộc lại.
 6. Bát vừa vớt nằm trên vị trí nồi. KÉO BÁT XUỐNG Ô TRỐNG Ở QUẦY TOPPING bên dưới.
 7. Kéo từng topping xuống bát. Có thể thêm sai, thiếu hoặc thừa — game không ngăn nhưng khách sẽ đánh giá.
-8. Kéo từng bát vào đúng bàn. Khách nhận theo thứ tự 1, 2, 3, 4 trên phiếu của nhóm.
+8. Bàn ghép: nhấp tên nhóm cần phục vụ rồi kéo từng bát vào bàn.
+   Khách trong nhóm nhận theo thứ tự 1, 2, 3, 4 trên phiếu. Không chọn nhóm thì bàn ghép chưa nhận món.
 9. Khi đủ món, nhóm ăn trong khoảng 35 giây rồi rời đi và đánh giá.
-10. Kéo chồng bát bẩn trên bàn vào bồn. Nhấp bàn trống để lau. Nhấp RỬA BÁT để rửa một mẻ tối đa 6 bát.
+10. Khi bàn báo bát bẩn, kéo mặt bàn vào bồn (kể cả còn nhóm khác đang ăn). Nhấp bàn trống để lau. Nhấp RỬA BÁT để rửa một mẻ tối đa 6 bát.
     Đưa vào bồn không tự rửa; còn bát sau một mẻ thì phải nhấp rửa tiếp.
 
 CÔNG THỨC
@@ -55,7 +58,41 @@ lau sàn 500 VND/vết. Điện nước ga được thanh toán khi hoàn tất 
 Báo cáo hôm nay cộng các lần mở quán cùng ngày; lịch sử dùng ngày thực tế Việt Nam.
 
 Tiến trình tự lưu mỗi 15 giây và khi thoát tại %LOCALAPPDATA%\QuanSobaManual\save-vnd.json.
-Bản VND tạo tiến trình mới với vốn và kho đúng quy định; không ghi đè save.json của bản cũ.
+Bản này đọc tiến trình VND trước đó, giữ tiền, kho, bàn ghế và khách đang phục vụ.
+Khi nâng bản lưu VND cũ, tạo thêm save-vnd.v2.bak để dự phòng. Ván mới mới bắt đầu với 1 bàn 4 ghế.
+Tệp save.json của bản trước VND vẫn được giữ riêng.
 Đồng hồ lấy giờ hệ thống quy đổi UTC+7: cần đặt đúng ngày giờ trên máy.
 Lịch lễ dùng python-holidays 0.105, bổ sung 24/11 từ 2026 và các ngày hoán đổi đã xác nhận của năm 2026.
 Quyết định nghỉ hoán đổi của năm sau có thể cần cập nhật.
+
+
+BÀN GHẾ VÀ TẦNG
+Khi đóng quán, chọn Bàn / tầng. Bàn trống giá 800.000 VND; mỗi ghế 150.000 VND.
+Mỗi bàn tối đa 4 ghế, mỗi tầng có 6 vị trí đặt bàn. Bàn mua mới chưa có ghế.
+Xây tầng 2: 3.000.000 VND; tầng 3: 5.000.000 VND. Tối đa tổng cộng 3 tầng.
+Tầng mới trống, cần mua bàn ghế. Tất cả tầng cùng hoạt động, dùng chung bếp và kho.
+Phím 1/2/3 hoặc nút Tầng để chuyển khu bàn; phím số dùng được cả khi đang kéo thả.
+Sàn từng tầng đều có thể bẩn. Phải dọn mọi tầng trước khi hoàn tất đóng quán.
+Các giá xây dựng là giá mô phỏng trong game. Chi phí mua dụng cụ ghi riêng trong lịch sử.
+
+NHÀ CUNG CẤP
+Mở trang Nhà cung cấp khi đóng quán, ký hợp đồng 1 tháng tính theo lịch Việt Nam.
+Không có phí cố định. Giá từng nguyên liệu trong mọi đơn = giá mua lẻ cộng 2%.
+Chọn số lượng nhập thêm mỗi nguyên liệu, xem tổng tiền, bấm Đặt & thanh toán trước 23:00 Việt Nam.
+Mỗi ngày đặt một đơn cho 08:00 sáng hôm sau; tiền trừ ngay khi đặt, giao không trừ lần nữa.
+Hàng tự cộng vào kho khi đến giờ, kể cả đang mở quán. Không xóa hoặc thay hàng tồn.
+Không tự đặt hàng nếu người chơi chưa xác nhận số lượng. Cần đặt lại cho ngày tiếp theo.
+Nếu game tắt lúc 08:00, đơn quá hạn tự được nhận khi mở lại, chỉ nhận một lần.
+Hợp đồng có hiệu lực đến trước ngày hết hạn ghi trên màn hình; hết hạn thì ký lại.
+Đơn đã nhận trong thời hạn hợp đồng vẫn giao kể cả sang ngày hết hạn.
+
+MENU TỰ TẠO
+Mở trang Tạo menu khi đóng quán. Nhập tên, giá VND và số phần topping bằng nút +/-.
+Mỗi món có 1 phần mì tươi cố định; chọn thêm nước dùng/hành/tôm/bò/trứng theo ý bạn.
+Tên tối đa 28 ký tự, tối đa 24 món; mỗi topping tối đa 6 phần, tổng topping tối đa 12 phần.
+Giá vốn và lãi trước điện/nước/ga cập nhật ngay. Bấm Lưu món để đưa món lên máy bán vé.
+Có thể sửa hoặc xóa món; menu luôn phải còn ít nhất một món. Khách chọn trong menu đang bán.
+Phiếu thể hiện số phần topping bằng ký hiệu ×. Kéo nguyên liệu đúng số lần ghi trên phiếu.
+Giá vốn dùng giá nhập bình quân hàng hiện còn trong kho, đã gồm 2% nếu nhập nhà cung cấp.
+Khi một nguyên liệu chưa có trong kho, màn hình tạm dùng giá mua lẻ để ước tính.
+Lợi nhuận gợi ý chưa trừ điện/nước/ga và vốn mua bàn ghế/xây tầng.

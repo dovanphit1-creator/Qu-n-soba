@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 from datetime import datetime, timedelta, timezone, date
 from vn_calendar import VIETNAM, holiday_name
-from model import World, COOK_SECONDS, RECIPES
+from model import World, COOK_SECONDS, RECIPES, STOCK_COST, TABLE_COST, CHAIR_COST
 
 
 class RulesTest(unittest.TestCase):
@@ -92,8 +92,10 @@ class RulesTest(unittest.TestCase):
 
     def test_capacity_bad_food_and_reviews(self):
         w,p=self.ready_party(3)
+        w.tables[0].capacity=2
         self.assertFalse(w.seat(p.id,0))
-        self.assertTrue(w.seat(p.id,1))
+        w.tables[0].capacity=4
+        self.assertTrue(w.seat(p.id,0))
         p.temper=['Dễ tính','Bình thường','Khó tính']
         for i in range(3):
             w.start_pot(i)
@@ -102,7 +104,7 @@ class RulesTest(unittest.TestCase):
             w.lift(i)
             w.move_prep(w.bowls[0].id, 0)
             # Intentionally missing every topping: serving is allowed.
-            w.serve(w.bowls[0].id,1)
+            w.serve(w.bowls[0].id,0)
         w.update(35)
         self.assertEqual(len(w.reviews),3)
         self.assertGreaterEqual(w.reputation,0)
@@ -180,7 +182,7 @@ class RulesTest(unittest.TestCase):
 
     def test_save_restores_active_game(self):
         w,p=self.ready_party(2)
-        w.seat(p.id,1)
+        w.seat(p.id,0)
         w.start_pot(0)
         w.update(13)
         with tempfile.TemporaryDirectory() as d:
@@ -189,8 +191,140 @@ class RulesTest(unittest.TestCase):
             loaded=World.load(path)
         self.assertEqual(loaded.pots[0],13)
         self.assertEqual(loaded.group(p.id).orders,p.orders)
-        self.assertEqual(loaded.tables[1].group,p.id)
+        self.assertEqual(loaded.tables[0].group,p.id)
         self.assertEqual(loaded.reputation,7)
+
+    def test_shared_seats_service_and_cleanup_while_occupied(self):
+        w,p=self.ready_party(2)
+        self.assertTrue(w.seat(p.id,0))
+        q=w.add_party(2)
+        w.respond(q.id,'accept');w.update(8);w.collect(q.id)
+        self.assertTrue(w.seat(q.id,0))
+        self.assertFalse(w.can_fit(1))
+        self.assertFalse(set(p.seats)&set(q.seats))
+        for i in range(4):w.start_pot(i)
+        w.update(210)
+        for i in range(4):w.lift(i)
+        b=w.bowls[0];w.move_prep(b.id,0)
+        self.assertFalse(w.serve(b.id,0), 'Shared table requires an explicit group')
+        for i in range(2):
+            b=w.bowls[0];w.move_prep(b.id,0)
+            for name in q.recipes[i]:w.topping(b.id,name)
+            self.assertTrue(w.serve(b.id,0,q.id))
+        w.update(35)
+        self.assertEqual(p.phase,'seated')
+        self.assertEqual(w.tables[0].dirty,2)
+        self.assertTrue(w.clear_table(0))
+        self.assertTrue(w.wipe(0))
+        self.assertTrue(w.can_fit(2))
+        for i in range(2):
+            b=w.bowls[0];w.move_prep(b.id,0)
+            self.assertTrue(w.serve(b.id,0,p.id))
+        self.assertEqual(p.phase,'eating')
+        self.assertEqual(w.tables[0].group,p.id)
+
+    def test_purchase_expansion_and_floor_limit(self):
+        w=World()
+        self.assertEqual([(t.capacity,t.floor,t.slot) for t in w.tables],[(4,0,0)])
+        start=w.cash
+        self.assertTrue(w.buy_table(0))
+        self.assertEqual(w.tables[1].capacity,0)
+        for _ in range(4):self.assertTrue(w.buy_chair(1))
+        self.assertFalse(w.buy_chair(1))
+        self.assertEqual(w.cash,start-TABLE_COST-4*CHAIR_COST)
+        self.assertTrue(w.build_floor())
+        self.assertTrue(w.buy_table(1))
+        self.assertEqual(w.tables[-1].floor,1)
+        w.cash=20_000_000
+        self.assertTrue(w.build_floor())
+        self.assertFalse(w.build_floor())
+        for _ in range(4):self.assertTrue(w.buy_table(0))
+        self.assertFalse(w.buy_table(0))
+        w.open=True
+        self.assertFalse(w.buy_table(2));self.assertFalse(w.buy_chair(2))
+        w.mark_dirty(2)
+        self.assertTrue(all(8<=i<12 for i in w.dirt))
+        self.assertFalse(w.close_shop())
+
+    def test_supplier_deadline_timezone_offline_and_price(self):
+        clock=[datetime(2026,9,30,22,59,59,tzinfo=VIETNAM)]
+        w=World(clock=lambda:clock[0])
+        self.assertFalse(w.place_order({'Mì tươi':10}))
+        self.assertTrue(w.sign_contract())
+        self.assertEqual(w.contract_until,'2026-10-30')
+        self.assertTrue(w.place_order({'Mì tươi':10,'Trứng':5}))
+        self.assertEqual(w.cash,10_000_000-81600)
+        self.assertEqual(w.stock['Mì tươi'],0)
+        self.assertFalse(w.place_order({'Mì tươi':1}))
+        clock[0]=datetime(2026,10,1,0,59,59,tzinfo=timezone.utc) # 07:59:59 VN
+        w.update(0);self.assertEqual(w.stock['Mì tươi'],0)
+        clock[0]+=timedelta(seconds=1)
+        w.update(0);self.assertEqual(w.stock['Mì tươi'],10)
+        w.update(0);self.assertEqual(w.stock['Mì tươi'],10)
+        self.assertEqual(w.unit_cost('Mì tươi'),6120)
+        w.consume('Mì tươi')
+        self.assertEqual(w.totals()['2026-10-01']['ingredients'],6120)
+        clock[0]=datetime(2026,10,1,23,tzinfo=VIETNAM)
+        self.assertFalse(w.place_order({'Mì tươi':1}))
+        clock[0]=datetime(2026,10,2,22,tzinfo=VIETNAM)
+        self.assertTrue(w.place_order({'Mì tươi':1}))
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'save.json';w.save(path);loaded=World.load(path)
+            loaded._clock=lambda:datetime(2026,10,4,9,tzinfo=VIETNAM)
+            loaded.update(0);self.assertEqual(loaded.stock['Mì tươi'],10)
+            loaded.save(path);loaded=World.load(path)
+            loaded._clock=lambda:datetime(2026,10,4,9,tzinfo=VIETNAM)
+            loaded.update(0);self.assertEqual(loaded.stock['Mì tươi'],10)
+        clock[0]=datetime(2026,10,30,10,tzinfo=VIETNAM)
+        self.assertFalse(w.contract_active)
+        self.assertFalse(w.place_order({'Mì tươi':1}))
+
+    def test_contract_calendar_month_and_last_day_order(self):
+        clock=[datetime(2028,1,31,22,tzinfo=VIETNAM)]
+        w=World(clock=lambda:clock[0]);w.sign_contract()
+        self.assertEqual(w.contract_until,'2028-02-29')
+        clock[0]=datetime(2028,2,28,22,tzinfo=VIETNAM)
+        self.assertTrue(w.place_order({'Mì tươi':1}))
+        clock[0]=datetime(2028,2,29,8,tzinfo=VIETNAM)
+        w.update(0);self.assertEqual(w.stock['Mì tươi'],1)
+
+    def test_custom_menu_ticket_snapshot_cost_and_rating(self):
+        w=World()
+        self.assertTrue(w.save_menu_item('Soba đôi trứng',65000,{'Trứng':2,'Hành':1}))
+        item=w.menu['Soba đôi trứng']
+        self.assertEqual(w.recipe_cost(item['toppings']),15000)
+        self.assertFalse(w.save_menu_item('Soba đôi trứng',10,{}))
+        self.assertFalse(w.save_menu_item('Lỗi',100,{'Trứng':7}))
+        self.assertFalse(w.save_menu_item('Lỗi',0,{}))
+        for name in list(RECIPES):self.assertTrue(w.delete_menu_item(name))
+        self.assertFalse(w.delete_menu_item('Soba đôi trứng'))
+        for name in ['Bát/đĩa',*STOCK_COST]:w.restock(name,10)
+        w.open_shop();w.spawn_left=100000
+        p=w.add_party(1);w.respond(p.id,'accept');w.update(8)
+        self.assertEqual(p.orders,['Soba đôi trứng']);self.assertEqual(p.paid,65000)
+        self.assertFalse(w.save_menu_item('Món khác',10000,{}))
+        w.collect(p.id);w.seat(p.id,0);w.start_pot(0);w.update(210);w.lift(0)
+        b=w.bowls[0];w.move_prep(b.id,0)
+        for name in p.recipes[0]:w.topping(b.id,name)
+        w.serve(b.id,0);w.update(35)
+        self.assertIn('5/5',w.reviews[-1])
+
+    def test_migrate_v2_keeps_old_tables_and_active_tickets(self):
+        import json
+        w,p=self.ready_party(2);w.seat(p.id,0)
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'save.json';w.save(path);data=json.loads(path.read_text())
+            data['version']=2
+            for key in ['menu','floors','stock_value','contract_until','deliveries']:data.pop(key)
+            data['tables']=[{'capacity':4,'group':p.id if i==0 else 0,'dirty':0,'needs_wipe':False} for i in range(6)]
+            for party in data['parties']:
+                for key in ['seats','prices','recipes']:party.pop(key)
+            path.write_text(json.dumps(data));loaded=World.load(path)
+        self.assertEqual(len(loaded.tables),6)
+        self.assertEqual(loaded.cash,w.cash)
+        self.assertEqual(loaded.group(p.id).seats,[0,1])
+        self.assertEqual(loaded.tables[-1].slot,5)
+        self.assertEqual(loaded.unit_cost('Mì tươi'),6000)
 
 
 if __name__ == '__main__':

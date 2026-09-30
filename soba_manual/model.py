@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 import random
+import calendar
+from datetime import datetime, timedelta
 from vn_calendar import vn_now, holiday_name, VIETNAM
 
 COOK_SECONDS = 210.0
@@ -17,7 +19,10 @@ RECIPES = {
 PRICES = {'Kake soba': 35000, 'Soba tôm': 45000, 'Soba bò': 50000, 'Soba trứng': 42000}
 STOCK_COST = {'Mì tươi': 6000, 'Nước dùng': 3000, 'Hành': 1000, 'Tôm': 8000, 'Bò': 10000, 'Trứng': 4000}
 DISH_COST = 15000
-DIRT_POS = [(95, 315), (330, 510), (570, 715), (746, 868)]
+TABLE_COST = 800_000
+CHAIR_COST = 150_000
+FLOOR_COST = {2: 3_000_000, 3: 5_000_000}
+DIRT_POS = [(65, 585), (330, 510), (570, 715), (746, 868)]
 
 def vnd(amount):
     return f'{round(amount):,}'.replace(',', '.') + ' VND'
@@ -43,6 +48,9 @@ class Party:
     table: int = -1
     meals: list = field(default_factory=list)
     paid: int = 0
+    seats: list = field(default_factory=list)
+    recipes: list = field(default_factory=list)
+    prices: list = field(default_factory=list)
 
 
 @dataclass
@@ -60,6 +68,8 @@ class Table:
     group: int = 0
     dirty: int = 0
     needs_wipe: bool = False
+    floor: int = 0
+    slot: int = 0
 
 
 class World:
@@ -80,7 +90,12 @@ class World:
         self.pots = [None] * 6
         self.bowls = []
         self.parties = []
-        self.tables = [Table(cap) for _, _, cap in TABLE_LAYOUT]
+        self.tables = [Table(4)]
+        self.floors = 1
+        self.menu = {name: {"price": PRICES[name], "toppings": list(recipe)} for name, recipe in RECIPES.items()}
+        self.stock_value = {name: 0 for name in STOCK_COST}
+        self.contract_until = None
+        self.deliveries = []
         self.walkers = []
         self.spawn_left = .2
         self.next_group = 1
@@ -140,15 +155,31 @@ class World:
     def add_party(self, size=None):
         size = size or self.rng.choices([1, 2, 3, 4], [42, 32, 18, 8])[0]
         p = Party(self.next_group, size,
-                  [self.rng.choice(list(RECIPES)) for _ in range(size)],
+                  [self.rng.choice(list(self.menu)) for _ in range(size)],
                   [self.rng.choice(['Dễ tính', 'Bình thường', 'Khó tính']) for _ in range(size)])
+        p.recipes = [self.menu[name]["toppings"][:] for name in p.orders]
+        p.prices = [self.menu[name]["price"] for name in p.orders]
         self.next_group += 1
         self.parties.append(p)
         self.note(f'Nhóm {p.id:03}: Chúng tôi có {size} người. Quán còn chỗ không?')
         return p
 
+    def at_table(self, index):
+        return [p for p in self.parties if p.table == index and p.phase in ('seated', 'eating')]
+
+    def table_position(self, index):
+        t = self.tables[index]
+        return TABLE_LAYOUT[t.slot][:2]
+
+    def free_seats(self, index):
+        t = self.tables[index]
+        if t.dirty or t.needs_wipe:
+            return []
+        used = {seat for p in self.at_table(index) for seat in p.seats}
+        return [seat for seat in range(t.capacity) if seat not in used]
+
     def can_fit(self, size):
-        return any(t.capacity >= size and not t.group and not t.needs_wipe and not t.dirty for t in self.tables)
+        return any(len(self.free_seats(i)) >= size for i in range(len(self.tables)))
 
     def respond(self, gid, action):
         p = self.group(gid)
@@ -190,17 +221,21 @@ class World:
 
     def seat(self, gid, index):
         p = self.group(gid)
+        if not 0 <= index < len(self.tables):
+            return False
         t = self.tables[index]
         if not p or p.phase != 'ready' or not p.ticket_read:
             self.note('Phải nhấp nhận phiếu từ máy trước khi xếp bàn.')
             return False
-        if t.group or t.dirty or t.needs_wipe:
+        if t.dirty or t.needs_wipe:
             self.note('Bàn này chưa sẵn sàng: cần trống, dọn bát và lau sạch.')
             return False
-        if t.capacity < p.size:
-            self.note(f'Nhóm có {p.size} người nhưng bàn chỉ có {t.capacity} ghế.')
+        seats = self.free_seats(index)
+        if len(seats) < p.size:
+            self.note(f'Nhóm có {p.size} người nhưng bàn chỉ còn {len(seats)} ghế sạch.')
             return False
-        t.group = p.id
+        p.seats = seats[:p.size]
+        t.group = t.group or p.id
         p.table, p.phase, p.phase_time = index, 'seated', 0
         self.note(f'Nhóm {p.id:03} ngồi bàn {index+1}. Hãy nấu đúng từng món trên phiếu.')
         return True
@@ -215,8 +250,7 @@ class World:
         if self.stock['Mì tươi'] <= 0:
             self.note('Hết mì tươi. Chỉ mua thêm ở Chợ sau khi đóng quán.')
             return False
-        self.stock['Mì tươi'] -= 1
-        self.record('ingredients', STOCK_COST['Mì tươi'])
+        self.consume('Mì tươi')
         self.record('gas', 800)
         self.pots[index] = 0.0
         self.note(f'Nồi {index+1}: bắt đầu luộc 3 phút 30 giây. Vớt trong 10 giây sau khi chín.')
@@ -275,16 +309,19 @@ class World:
         if len(b.toppings) >= 12:
             self.note('Bát đã đầy topping.')
             return False
-        self.stock[name] -= 1
-        self.record('ingredients', STOCK_COST[name])
+        self.consume(name)
         b.toppings.append(name)
         self.note(f'Bát {b.id}: đã thêm {name.lower()}. Sai hoặc thừa topping vẫn có thể phục vụ.')
         return True
 
-    def serve(self, bid, index):
+    def serve(self, bid, index, gid=None):
         b = next((b for b in self.bowls if b.id == bid), None)
         t = self.tables[index]
-        p = self.group(t.group)
+        waiting = [p for p in self.at_table(index) if p.phase == 'seated' and len(p.meals) < p.size]
+        p = next((p for p in waiting if p.id == gid), None) if gid is not None else (waiting[0] if len(waiting) == 1 else None)
+        if not p and len(waiting) > 1:
+            self.note('Bàn ghép: nhấp tên nhóm cần phục vụ rồi thả bát vào bàn.')
+            return False
         if not b or b.stage != 'prep' or not p or p.phase != 'seated' or len(p.meals) >= p.size:
             self.note('Hãy thả bát vào bàn có khách còn đang đợi món.')
             return False
@@ -309,7 +346,7 @@ class World:
 
     def clear_table(self, index):
         t = self.tables[index]
-        if t.group or not t.dirty:
+        if not t.dirty:
             return False
         self.sink += t.dirty
         t.dirty = 0
@@ -318,7 +355,7 @@ class World:
 
     def wipe(self, index):
         t = self.tables[index]
-        if t.group or t.dirty or not t.needs_wipe:
+        if t.dirty or not t.needs_wipe:
             return False
         t.needs_wipe = False
         self.note(f'Bàn {index+1} đã sạch, có thể đón nhóm mới.')
@@ -339,7 +376,7 @@ class World:
         from collections import Counter
         scores = []
         for i, meal in enumerate(p.meals):
-            need, actual = Counter(RECIPES[p.orders[i]]), Counter(meal['toppings'])
+            need, actual = Counter(p.recipes[i]), Counter(meal['toppings'])
             errors = sum((need - actual).values()) + sum((actual - need).values())
             strict = {'Dễ tính': .55, 'Bình thường': .9, 'Khó tính': 1.25}[p.temper[i]]
             score = max(1, min(5, round(5 - errors * strict - (1.4 * strict if meal['mushy'] else 0)
@@ -353,7 +390,7 @@ class World:
             self.reviews.append(f'Nhóm {p.id:03}, khách {i+1} ({p.temper[i]}): {score}/5 — {reason}')
             scores.append(score)
         self.reviews = self.reviews[-18:]
-        self.mark_dirty()
+        self.mark_dirty(self.tables[p.table].floor)
         self.note(f'Nhóm {p.id:03} ăn xong: {sum(scores)/max(1,len(scores)):.1f}/5. Danh tiếng {self.reputation:.2f}%.')
 
     def record(self, field, amount):
@@ -392,16 +429,159 @@ class World:
             self.record('equipment', cost)
         else:
             self.stock[name] += count
+            self.stock_value[name] += cost
             self.record('purchases', cost)
         self.cash -= cost
         self.note(f'Đã mua {count} {name.lower()}: {vnd(cost)}.')
         return True
 
+    def unit_cost(self, name):
+        return self.stock_value[name] / self.stock[name] if self.stock[name] else STOCK_COST[name]
+
+    def consume(self, name):
+        cost = self.unit_cost(name)
+        self.stock[name] -= 1
+        self.stock_value[name] = max(0, self.stock_value[name] - cost)
+        self.record('ingredients', cost)
+
+    def recipe_cost(self, toppings):
+        return self.unit_cost('Mì tươi') + sum(self.unit_cost(name) for name in toppings)
+
+    def save_menu_item(self, name, price, quantities, original=None):
+        if self.open:
+            self.note('Chỉ sửa menu khi đóng quán.')
+            return False
+        name = name.strip()
+        if not name or len(name) > 28 or not isinstance(price, int) or not 1 <= price <= 999_999_999:
+            self.note('Tên món cần 1–28 ký tự; giá bán là số nguyên từ 1 đến 999.999.999 VND.')
+            return False
+        if any(k not in STOCK_COST or k == 'Mì tươi' or type(v) is not int or not 0 <= v <= 6 for k,v in quantities.items()) or sum(quantities.values()) > 12:
+            self.note('Mỗi topping tối đa 6 phần, tổng tối đa 12 phần.')
+            return False
+        if name in self.menu and name != original:
+            self.note('Tên món đã có trong menu. Hãy dùng tên khác hoặc chọn Sửa.')
+            return False
+        if original is None and len(self.menu) >= 24:
+            self.note('Menu tối đa 24 món. Hãy sửa hoặc xóa món cũ.')
+            return False
+        if original and original != name:
+            self.menu.pop(original, None)
+        self.menu[name] = {'price': price, 'toppings': [k for k,v in quantities.items() for _ in range(v)]}
+        self.note(f'Đã lưu món {name}: {vnd(price)}. Khách có thể mua món này ở máy vé.')
+        return True
+
+    def delete_menu_item(self, name):
+        if self.open or name not in self.menu or len(self.menu) <= 1:
+            self.note('Menu phải còn ít nhất 1 món; chỉ xóa khi đóng quán.')
+            return False
+        del self.menu[name]
+        self.note('Đã xóa món khỏi menu.')
+        return True
+
+    def buy_table(self, floor):
+        if self.open or not 0 <= floor < self.floors:
+            return False
+        slots = {t.slot for t in self.tables if t.floor == floor}
+        if len(slots) >= 6 or self.cash < TABLE_COST:
+            self.note('Mỗi tầng tối đa 6 bàn; cần đủ ngân sách để mua.')
+            return False
+        self.cash -= TABLE_COST
+        self.record('equipment', TABLE_COST)
+        self.tables.append(Table(0, floor=floor, slot=next(i for i in range(6) if i not in slots)))
+        self.note('Đã mua bàn trống. Hãy mua ghế cho bàn trước khi đón khách.')
+        return True
+
+    def buy_chair(self, index):
+        if self.open or not 0 <= index < len(self.tables):
+            return False
+        t = self.tables[index]
+        if t.capacity >= 4 or self.cash < CHAIR_COST:
+            self.note('Bàn tối đa 4 ghế; cần đủ ngân sách để mua.')
+            return False
+        self.cash -= CHAIR_COST
+        t.capacity += 1
+        self.record('equipment', CHAIR_COST)
+        self.note(f'Đã thêm ghế: bàn {index+1} có {t.capacity}/4 ghế.')
+        return True
+
+    def build_floor(self):
+        if self.open or self.floors >= 3:
+            self.note('Chỉ xây khi đóng quán, tối đa tổng cộng 3 tầng.')
+            return False
+        cost = FLOOR_COST[self.floors+1]
+        if self.cash < cost:
+            self.note('Chưa đủ ngân sách xây tầng.')
+            return False
+        self.cash -= cost
+        self.record('equipment', cost)
+        self.floors += 1
+        self.note(f'Đã xây tầng {self.floors}. Mua bàn và ghế để sử dụng tầng mới.')
+        return True
+
+    @property
+    def contract_active(self):
+        return bool(self.contract_until and self.now.date().isoformat() < self.contract_until)
+
+    def sign_contract(self):
+        if self.open:
+            return False
+        if self.contract_active:
+            self.note('Hợp đồng hiện tại vẫn còn hiệu lực.')
+            return False
+        today = self.now.date()
+        month = today.month % 12 + 1
+        year = today.year + (today.month == 12)
+        self.contract_until = today.replace(year=year, month=month, day=min(today.day, calendar.monthrange(year,month)[1])).isoformat()
+        self.note(f'Đã ký hợp đồng 1 tháng, hết hạn ngày {self.contract_until}; đơn hàng tính giá lẻ +2%.')
+        return True
+
+    def place_order(self, quantities):
+        now = self.now
+        if self.open or not self.contract_active:
+            self.note('Đóng quán và ký hợp đồng còn hiệu lực trước khi đặt hàng.')
+            return False
+        if now.hour >= 23:
+            self.note('Đã qua hạn 23:00 Việt Nam. Hãy đặt đơn vào ngày mai.')
+            return False
+        if not quantities or any(k not in STOCK_COST or type(v) is not int or not 0 <= v <= 9999 for k,v in quantities.items()) or not any(quantities.values()):
+            self.note('Chọn số lượng nguyên liệu cần giao (1–9.999 phần mỗi loại).')
+            return False
+        delivery_at = (now + timedelta(days=1)).replace(hour=8,minute=0,second=0,microsecond=0)
+        today = now.date().isoformat()
+        if any(order['placed'] == today for order in self.deliveries):
+            self.note('Hôm nay đã đặt đơn. Mỗi ngày đặt 1 đơn cho sáng hôm sau.')
+            return False
+        cost = sum(STOCK_COST[k] * 102 // 100 * v for k,v in quantities.items())
+        if self.cash < cost:
+            self.note('Không đủ ngân sách thanh toán đơn hàng.')
+            return False
+        self.cash -= cost
+        self.record('purchases', cost)
+        self.deliveries.append({'placed': today, 'due': delivery_at.isoformat(),
+                                'quantities': dict(quantities), 'cost': cost, 'delivered': False})
+        self.note(f'Đã trả {vnd(cost)}; giao 08:00 ngày {delivery_at:%d/%m/%Y}.')
+        return True
+
+    def process_deliveries(self):
+        changed = False
+        now = self.now
+        for order in self.deliveries:
+            if not order['delivered'] and now >= datetime.fromisoformat(order['due']):
+                for name, quantity in order['quantities'].items():
+                    self.stock[name] += quantity
+                    self.stock_value[name] += quantity * STOCK_COST[name] * 102 // 100
+                order['delivered'] = True
+                changed = True
+                self.note('Nhà cung cấp đã giao đơn ' + order['placed'] + ' vào kho, không thu thêm tiền.')
+        return changed
+
     def open_shop(self):
         if self.open:
             return False
-        if self.clean < 1 or any(self.stock[name] < 1 for name in ('Mì tươi', 'Nước dùng', 'Hành')):
-            self.note('Cần ít nhất 1 bát sạch và 1 phần mì, nước dùng, hành để mở quán.')
+        from collections import Counter
+        available = any(all(self.stock[name] >= qty for name,qty in Counter(['Mì tươi', *item['toppings']]).items()) for item in self.menu.values())
+        if self.clean < 1 or not available:
+            self.note('Cần bát sạch và đủ nguyên liệu làm ít nhất 1 món trong menu để mở quán.')
             return False
         if self.cash < 0:
             self.note('Cần thanh toán chi phí còn thiếu trước khi mở quán.')
@@ -411,8 +591,9 @@ class World:
         self.note('Quán đã mở. Không mua hàng hoặc tạm dừng trong lúc kinh doanh.')
         return True
 
-    def mark_dirty(self):
-        for spot in range(len(DIRT_POS)):
+    def mark_dirty(self, floor=None):
+        floor = self.rng.randrange(self.floors) if floor is None else floor
+        for spot in range(floor * len(DIRT_POS), (floor+1) * len(DIRT_POS)):
             if spot not in self.dirt:
                 self.dirt.append(spot)
                 break
@@ -453,6 +634,7 @@ class World:
         return True
 
     def update(self, dt):
+        self.process_deliveries()
         if not self.open:
             return
         self.record('electricity', 6000 * dt / 3600)
@@ -517,7 +699,7 @@ class World:
                 target = (650, 374)
                 if p.phase == 'buying' and p.phase_time >= 8:
                     p.phase, p.phase_time = 'ticket', 0
-                    p.paid = sum(PRICES[o] for o in p.orders)
+                    p.paid = sum(p.prices)
                     self.cash += p.paid
                     self.record('revenue', p.paid)
                     self.sold_today += p.paid
@@ -526,13 +708,16 @@ class World:
                 idx = lobby.index(p)
                 target = (667, 452 + idx * 91)
             elif p.phase in ('seated', 'eating'):
-                tx, ty, _ = TABLE_LAYOUT[p.table]
+                tx, ty = self.table_position(p.table)
                 target = (tx, ty)
                 if p.phase == 'eating' and p.phase_time >= 35:
                     self.review(p)
                     table = self.tables[p.table]
-                    table.group, table.dirty, table.needs_wipe = 0, len(p.meals), True
+                    table.dirty += len(p.meals)
+                    table.needs_wipe = True
                     p.phase, p.phase_time = 'leaving', 0
+                    others = self.at_table(p.table)
+                    table.group = others[0].id if others else 0
             else:
                 target = (280, 205) if p.y > 250 else (-130, 190)
                 if p.x < -95:
@@ -549,7 +734,7 @@ class World:
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 2
+        data['version'] = 3
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -559,7 +744,8 @@ class World:
     @classmethod
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
-        if data.pop('version') != 2:
+        version = data.pop('version')
+        if version not in (2, 3):
             raise ValueError('Phiên bản lưu không phù hợp')
         obj = cls()
         for k, v in data.items():
@@ -569,7 +755,20 @@ class World:
         obj.parties = [Party(**p) for p in data['parties']]
         obj.bowls = [Bowl(**b) for b in data['bowls']]
         obj.tables = [Table(**t) for t in data['tables']]
-        if len(obj.pots) != 6 or len(obj.tables) != 6 or obj.reputation < 0:
+        if version == 2:
+            from shutil import copy2
+            backup=Path(path).with_suffix('.v2.bak')
+            if not backup.exists():copy2(path,backup)
+            obj.stock_value = {name: qty * STOCK_COST[name] for name, qty in obj.stock.items()}
+            for i, t in enumerate(obj.tables):
+                t.floor, t.slot = divmod(i, 6)
+            obj.floors = max(1, (len(obj.tables)+5)//6)
+            for party in obj.parties:
+                party.recipes = [list(RECIPES[name]) for name in party.orders]
+                party.prices = [PRICES[name] for name in party.orders]
+                if party.phase in ('seated', 'eating'):
+                    party.seats = list(range(party.size))
+        if len(obj.pots) != 6 or not 1 <= obj.floors <= 3 or not 1 <= len(obj.tables) <= 18 or obj.reputation < 0:
             raise ValueError('Dữ liệu lưu không hợp lệ')
         return obj
 

@@ -44,4 +44,8 @@ jobs:
           path: |
             smoke-windows.json
             smoke-windows.png
+            expansion-preview.png
+            supplier-preview.png
+            menu-preview.png
+            shared-preview.png
           if-no-files-found: error
