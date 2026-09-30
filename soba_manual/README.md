@@ -15,7 +15,7 @@ LẦN ĐẦU CHƠI
 QUY TRÌNH CHƠI
 1. Khách đi theo nhóm 1–4 người, có số thứ tự Nhóm 001, 002…
    Nhấp nhóm ở cửa và chọn: còn chỗ mời vào / hết chỗ xin đợi / hết nguyên liệu hẹn lần sau.
-2. Sau khi nhận khách, họ đến máy bán vé. Mỗi người chọn món 20–90 giây, thêm 10–25 giây thanh toán cho nhóm, rồi nhấp phiếu vàng bên máy.
+2. Sau khi nhận khách, họ đến máy bán vé. Mỗi người chọn món 12–54 giây, thêm 10–25 giây thanh toán cho nhóm, rồi nhấp phiếu vàng bên máy.
 3. Đọc món từng khách trong bảng bên phải. Kéo nhóm vào bàn sạch đủ GHẾ TRỐNG.
    Các nhóm được ghép bàn nhưng mỗi nhóm vẫn có tên/phiếu riêng. Nhấp N001/N002 trên bàn để chọn nhóm.
    Khi kéo khách hoặc bát, nhấn 1/2/3 để đổi tầng rồi thả vào bàn ở tầng đó.
@@ -25,8 +25,8 @@ QUY TRÌNH CHƠI
 7. Kéo từng topping xuống bát. Có thể thêm sai, thiếu hoặc thừa — game không ngăn nhưng khách sẽ đánh giá.
 8. Bàn ghép: nhấp tên nhóm cần phục vụ rồi kéo từng bát vào bàn.
    Khách trong nhóm nhận theo thứ tự 1, 2, 3, 4 trên phiếu. Không chọn nhóm thì bàn ghép chưa nhận món.
-9. Mỗi khách bắt đầu ăn ngay khi có bát của mình, ngẫu nhiên 5–20 phút. Cả nhóm rời đi khi mọi người ăn xong.
-10. Khi bàn báo bát bẩn, kéo mặt bàn vào bồn (kể cả còn nhóm khác đang ăn). Nhấp bàn sau khi dọn bát để lau trong 20–45 giây. Nhấp RỬA BÁT để rửa toàn bộ bát đang trong bồn: 15 giây chuẩn bị + 20–40 giây/bát.
+9. Mỗi khách bắt đầu ăn ngay khi có bát của mình, ngẫu nhiên 3–12 phút. Cả nhóm rời đi khi mọi người ăn xong.
+10. Khi bàn báo bát bẩn, kéo mặt bàn vào bồn (kể cả còn nhóm khác đang ăn). Nhấp bàn sau khi dọn bát để lau trong 12–27 giây. Nhấp RỬA BÁT để rửa toàn bộ bát đang trong bồn: 9 giây chuẩn bị + 12–24 giây/bát.
     Đưa vào bồn không tự rửa; còn bát sau một mẻ thì phải nhấp rửa tiếp.
 
 CÔNG THỨC

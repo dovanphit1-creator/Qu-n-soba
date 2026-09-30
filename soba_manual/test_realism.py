@@ -13,8 +13,8 @@ class RealismTests(unittest.TestCase):
     def test_profiles_and_paid_customers_wait(self):
         w=self.world();p=w.add_party(4)
         self.assertEqual(len(set(p.eat_seconds)),4)
-        self.assertTrue(all(300<=v<=1200 for v in p.eat_seconds))
-        self.assertTrue(all(20<=v<=90 for v in p.choose_seconds))
+        self.assertTrue(all(180<=v<=720 for v in p.eat_seconds))
+        self.assertTrue(all(12<=v<=54 for v in p.choose_seconds))
         w.respond(p.id,'accept');w.update(p.buy_seconds)
         self.assertEqual(p.phase,'ticket');cash=w.cash
         w.update(7200);self.assertEqual(p.phase,'ticket');self.assertEqual(w.cash,cash)
@@ -46,12 +46,12 @@ class RealismTests(unittest.TestCase):
 
     def test_wash_batch_and_wipe_are_timed(self):
         w=self.world();w.sink=4;clean=w.clean;w.wash()
-        self.assertTrue(95<=w.wash_left<=175)
+        self.assertTrue(57<=w.wash_left<=105)
         w.sink=2;w.update(w.wash_left-1);self.assertEqual(w.clean,clean)
         w.update(1);self.assertEqual(w.clean,clean+4);self.assertEqual(w.sink,2)
         self.assertEqual(w.washing,0)
         t=w.tables[0];t.needs_wipe=True;t.soil=4
-        w.wipe(0);self.assertTrue(35<=w.wipe_left<=45)
+        w.wipe(0);self.assertTrue(21<=w.wipe_left<=27)
         self.assertTrue(t.needs_wipe);self.assertFalse(w.wipe(0))
         w.update(w.wipe_left);self.assertFalse(t.needs_wipe)
 
@@ -75,3 +75,25 @@ class RealismTests(unittest.TestCase):
             data['wash_left']=3;path.write_text(json.dumps(data),encoding="utf-8");r=World.load(path)
             self.assertEqual(len(r.parties[0].eat_seconds),2)
             self.assertGreater(r.wash_left,3);self.assertEqual(r.cash,w.cash)
+
+    def test_existing_timers_scale_once_and_payment_is_unchanged(self):
+        w=self.world();p=w.add_party(1)
+        p.phase='buying';p.phase_time=30
+        p.eat_seconds=[600];p.choose_seconds=[50];p.buy_seconds=70
+        p.meals=[dict(eat_total=600,eat_left=400,spill_at=200,wait=90)]
+        w.wash_left=100;w.wipe_left=20
+        patience=p.door_patience[:]
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)/'old.json';w.save(path)
+            data=json.loads(path.read_text(encoding='utf-8'))
+            data.pop('service_time_scale')
+            path.write_text(json.dumps(data),encoding='utf-8')
+            r=World.load(path);q=r.parties[0]
+            self.assertEqual((q.eat_seconds,q.choose_seconds,q.buy_seconds),([360],[30],50))
+            self.assertEqual(q.phase_time,18)
+            self.assertEqual((q.meals[0]['eat_left'],q.meals[0]['spill_at'],q.meals[0]['wait']),(240,120,90))
+            self.assertEqual((r.wash_left,r.wipe_left),(60,12))
+            self.assertEqual(q.door_patience,patience)
+            r.save(path);again=World.load(path)
+            self.assertEqual(again.parties,r.parties)
+            self.assertEqual((again.wash_left,again.wipe_left),(60,12))

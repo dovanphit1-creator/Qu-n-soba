@@ -584,7 +584,7 @@ class App(ManagementUI):
                 '2. Nhận phiếu, kéo nhóm vào bàn đủ ghế trống. Có thể ghép nhiều nhóm.',
                 '3. Kéo mì vào 6 nồi. Luộc 210 giây, vớt trong 10 giây, quá giờ sẽ nhão.',
                 '4. Thêm topping. Bàn ghép: nhấp N001/N002 chọn nhóm rồi kéo bát ra bàn.',
-                '5. Khách ăn 5–20 phút. Dọn bát vào bồn, nhấp rửa (20–40s/bát + 15s), lau bàn 20–45s.',
+                '5. Khách ăn 3–12 phút. Dọn bát vào bồn, nhấp rửa (12–24s/bát + 9s), lau bàn 12–27s.',
                 '6. Bấm Đóng quán: ngừng đón nhóm mới nhưng khách và bếp vẫn hoạt động.',
                 '7. Dọn sạch, xử lý hết khách và mì rồi xác nhận đóng để xem lợi nhuận.',
                 'Giờ và lịch theo Việt Nam. Cao điểm: 11–14h, 17–20h. Cuối tuần: thứ Sáu–CN.',

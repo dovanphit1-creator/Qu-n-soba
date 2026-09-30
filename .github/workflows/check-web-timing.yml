@@ -1,0 +1,15 @@
+name: Check web-first timing adjustment
+on:
+  push:
+    branches: [web-first-1.1.0-timing]
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pygame-ce==2.5.7 holidays==0.105 pillow==11.3.0
+      - run: python soba_manual/build_brand_assets.py
+      - run: python -m unittest discover -s soba_manual -p 'test*.py'

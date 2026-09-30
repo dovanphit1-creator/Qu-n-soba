@@ -10,6 +10,7 @@ from vn_calendar import vn_now, holiday_name, VIETNAM
 
 COOK_SECONDS = 210.0
 LIFT_WINDOW = 10.0
+SERVICE_TIME_SCALE = 0.6  # 40% shorter service actions; cooking and patience unchanged.
 RECIPES = {
     'Kake soba': ('Nước dùng', 'Hành'),
     'Soba tôm': ('Nước dùng', 'Hành', 'Tôm'),
@@ -92,6 +93,7 @@ class World:
         self.rng = random.Random(seed)
         self.day = 1
         self.elapsed = 0.0
+        self.service_time_scale = SERVICE_TIME_SCALE
         self.reputation = 7.0
         self.cash = 10_000_000
         self.stock = {name: 0 for name in STOCK_COST}
@@ -184,8 +186,8 @@ class World:
     def assign_personality(self, p):
         if p.eat_seconds:return
         for temper in p.temper:
-            p.eat_seconds.append(self.rng.triangular(300,1200,660))
-            p.choose_seconds.append(self.rng.triangular(20,90,40))
+            p.eat_seconds.append(self.rng.triangular(300,1200,660)*SERVICE_TIME_SCALE)
+            p.choose_seconds.append(self.rng.triangular(20,90,40)*SERVICE_TIME_SCALE)
             factor={'Dễ tính':1.25,'Bình thường':1.0,'Khó tính':.75}[temper]
             p.door_patience.append(self.rng.uniform(80,240)*factor)
             p.wait_patience.append(self.rng.uniform(240,960)*factor)
@@ -397,7 +399,7 @@ class World:
         if t.dirty or not t.needs_wipe or self.wipe_table>=0:
             return False
         self.wipe_table=index
-        self.wipe_left=min(45,10+5*max(1,t.soil)+self.rng.uniform(5,15))
+        self.wipe_left=SERVICE_TIME_SCALE*min(45,10+5*max(1,t.soil)+self.rng.uniform(5,15))
         self.note(f'Đang lau bàn {index+1}: khoảng {self.wipe_left:.0f} giây.')
         return True
 
@@ -408,7 +410,7 @@ class World:
         self.washing = self.sink
         self.sink = 0
         self.record('water', self.washing * 200)
-        self.wash_left = 15 + sum(self.rng.uniform(20,40) for _ in range(self.washing))
+        self.wash_left = SERVICE_TIME_SCALE*(15 + sum(self.rng.uniform(20,40) for _ in range(self.washing)))
         self.note(f'Rửa {self.washing} bát: khoảng {self.wash_left:.0f} giây. Bát thêm sau cần bấm rửa lượt mới.')
         return True
 
@@ -844,6 +846,26 @@ class World:
                 party.prices = [PRICES[name] for name in party.orders]
                 if party.phase in ('seated', 'eating'):
                     party.seats = list(range(party.size))
+        # Convert stored durations once; new legacy profiles already use the new scale.
+        previous_scale = data.get('service_time_scale', 1.0)
+        ratio = SERVICE_TIME_SCALE / previous_scale
+        if ratio != 1:
+            for party in obj.parties:
+                old_choices = sum(party.choose_seconds)
+                party.eat_seconds = [v*ratio for v in party.eat_seconds]
+                party.choose_seconds = [v*ratio for v in party.choose_seconds]
+                party.buy_seconds = max(0, party.buy_seconds-old_choices+sum(party.choose_seconds))
+                if party.phase == 'buying':
+                    # Preserve choice progress; payment time stays unchanged.
+                    elapsed_choice = min(party.phase_time, old_choices)
+                    party.phase_time = elapsed_choice*ratio + max(0,party.phase_time-old_choices)
+                for meal in party.meals:
+                    for key in ('eat_total','eat_left','spill_at'):
+                        if meal.get(key,-1)>=0:meal[key]*=ratio
+            if version>=4:
+                obj.wash_left*=ratio
+                obj.wipe_left*=ratio
+        obj.service_time_scale = SERVICE_TIME_SCALE
         for party in obj.parties:
             obj.assign_personality(party)
             for i,meal in enumerate(party.meals):
@@ -856,7 +878,7 @@ class World:
             for spot in obj.dirt:obj.dirt_reasons[str(spot)]='Vết bẩn còn lại từ phiên bản trước'
             for t in obj.tables:t.soil=max(t.dirty,1 if t.needs_wipe else 0)
             if obj.washing:
-                obj.wash_left=(15+30*obj.washing)*min(1,obj.wash_left/(2+obj.washing))
+                obj.wash_left=SERVICE_TIME_SCALE*(15+30*obj.washing)*min(1,obj.wash_left/(2+obj.washing))
         if len(obj.pots) != 6 or not 1 <= obj.floors <= 3 or not 1 <= len(obj.tables) <= 18 or obj.reputation < 0:
             raise ValueError('Dữ liệu lưu không hợp lệ')
         return obj
