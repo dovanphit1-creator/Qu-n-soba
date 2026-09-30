@@ -26,7 +26,12 @@ function Install-Game {
   foreach ($link in @($desktop,$start)) {
     if (-not (Test-Path $link)) { throw "Missing shortcut: $link" }
     $shortcut=$shell.CreateShortcut($link)
-    if ($shortcut.TargetPath -ne (Join-Path $installDir 'Quán Mì Của Tôi.exe')) { throw 'Incorrect shortcut target' }
+    # Windows may resolve a shortcut using an 8.3 path; compare file identities.
+    Write-Output ('Shortcut target: ' + $shortcut.TargetPath)
+    $env:QUANMI_LINK_TARGET = [Environment]::ExpandEnvironmentVariables($shortcut.TargetPath)
+    $env:QUANMI_INSTALLED_EXE = Join-Path $installDir 'Quán Mì Của Tôi.exe'
+    python -c "import os; assert os.path.samefile(os.environ['QUANMI_LINK_TARGET'],os.environ['QUANMI_INSTALLED_EXE'])"
+    if ($LASTEXITCODE -ne 0) { throw 'Incorrect shortcut target' }
   }
 }
 Install-Game
