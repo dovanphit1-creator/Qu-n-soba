@@ -38,7 +38,8 @@ def dist(a, b):
 
 
 class App(ManagementUI):
-    def __init__(self, headless=False):
+    def __init__(self, headless=False, persistent=True):
+        self.persistent=persistent
         if sys.platform=='win32':
             import ctypes
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
@@ -68,7 +69,7 @@ class App(ManagementUI):
         self.auto_save = 0
         self.animation = 0
         self.load_error = ''
-        self.has_save = save_path().exists()
+        self.has_save = self.persistent and save_path().exists()
         if not self.has_save:self.modal='welcome'
         self.last_warning = ''
         self.scale = 1
@@ -430,7 +431,7 @@ class App(ManagementUI):
         self.text(vnd(w.cash), (55, 207), 40, INK, True)
         self.text(f'Danh tiếng {w.reputation:.2f}%', (650, 214), 26, GREEN, True)
         self.button((1030, 173, 260, 82), 'MỞ QUÁN', ('open',))
-        self.button((1305, 173, 253, 82), 'Lưu và thoát', ('quit',), color='#7c674b')
+        self.button((1305, 173, 253, 82), 'Lưu và thoát' if self.persistent else 'Chơi lại từ đầu', ('quit',) if self.persistent else ('modal','confirm_new'), color='#7c674b')
         tabs = [('overview','Tổng quan'), ('inventory','Kho nguyên liệu'), ('market','Chợ'),
                 ('expansion','Bàn / tầng'), ('supplier','Nhà cung cấp'), ('menu','Tạo menu'),
                 ('day','Theo ngày'), ('month','Theo tháng'), ('year','Theo năm')]
@@ -510,7 +511,7 @@ class App(ManagementUI):
                 'Quán có 1 tầng, 1 bàn và 4 ghế. Kho nguyên liệu và bát đĩa đang trống.',
                 'Vào Chợ mua bát, mì và topping trước khi mở quán.',
                 'Tự đón khách, nhận phiếu, nấu mì, phục vụ và dọn sạch khi kết ca.',
-                'Tiến trình được lưu riêng trên tài khoản Windows của bạn.',
+                'Tiến trình được lưu riêng trên tài khoản Windows của bạn.' if self.persistent else 'Bản web không lưu. Đóng tab hoặc tải lại trang sẽ chơi từ đầu.',
                 'Giờ và ngày lễ theo Việt Nam. Không có chế độ tạm dừng.',
             ]
             y=329
@@ -713,6 +714,7 @@ class App(ManagementUI):
             self.world.clear_table(ident)
 
     def persist(self):
+        if not self.persistent:return
         try:
             path = save_path()
             self.world.save(path)
