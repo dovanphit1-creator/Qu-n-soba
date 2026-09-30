@@ -63,6 +63,9 @@ jobs:
       - name: Verify install, reinstall and uninstall preserve player saves
         shell: pwsh
         run: ./soba_manual/installer/verify-install.ps1
+      - name: Verify update while released old game is running
+        shell: pwsh
+        run: ./soba_manual/installer/verify-live-upgrade.ps1
       - name: Upload standalone installer
         uses: actions/upload-artifact@v4
         with:
@@ -84,6 +87,7 @@ jobs:
         with:
           name: Windows-verification
           path: |
+            live-upgrade-verification.json
             installer-verification.json
             new-player.json
             new-player.png
