@@ -1,0 +1,33 @@
+name: Verify public Windows download
+on:
+  push:
+    paths: ['docs/index.html', '.github/workflows/verify-download.yml']
+permissions:
+  contents: read
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check published buttons and installer bytes
+        run: |
+          python3 - <<'PY'
+          import hashlib, time, urllib.request
+          root='https://dovanphit1-creator.github.io/Qu-n-soba/'
+          path='downloads/1.0.0/QuanMiCuaToi-Setup.exe'
+          for attempt in range(30):
+              try:
+                  with urllib.request.urlopen(root+'?verify='+str(time.time()),timeout=20) as r:
+                      page=r.read().decode()
+                  assert page.count('href="'+path+'" download="QuanMiCuaToi-Setup.exe"')==3
+                  with urllib.request.urlopen(root+path,timeout=90) as r:
+                      assert r.status==200
+                      data=r.read()
+                  assert len(data)==21157843
+                  assert hashlib.sha256(data).hexdigest()=='6b41eff153f6430d635ad2ae94d57e9b8bcc7c3f8d175405f6110ba5df75696d'
+                  print('PASS: three same-origin download buttons; installer HTTP 200; exact release 1.0.0 SHA256.')
+                  break
+              except Exception as error:
+                  if attempt==29:raise
+                  print('Waiting for Pages publication:',type(error).__name__,flush=True)
+                  time.sleep(10)
+          PY
