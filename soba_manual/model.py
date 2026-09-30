@@ -162,7 +162,7 @@ class World:
                 self.note('Khu mua phiếu đã đông. Hãy xếp bàn cho các nhóm trước.')
                 return False
             if self.stock['Mì tươi'] + sum(t is not None for t in self.pots) + len(self.bowls) < p.size:
-                self.note('Không đủ phần mì cho nhóm này. Có thể nhập thêm hoặc từ chối khách.')
+                self.note('Không đủ phần mì cho nhóm này. Hãy từ chối khách và mua thêm sau khi đóng quán.')
                 return False
             p.phase, p.phase_time = 'queue', 0
             self.note(f'Nhóm {p.id:03} đang đến máy mua phiếu. Đợi phiếu xuất hiện rồi nhấp nhận.')
@@ -213,7 +213,7 @@ class World:
             self.note('Nồi đang có mì. Hãy vớt hoặc đổ bỏ trước.')
             return False
         if self.stock['Mì tươi'] <= 0:
-            self.note('Hết mì tươi. Mở Nhập hàng để mua thêm.')
+            self.note('Hết mì tươi. Chỉ mua thêm ở Chợ sau khi đóng quán.')
             return False
         self.stock['Mì tươi'] -= 1
         self.record('ingredients', STOCK_COST['Mì tươi'])
