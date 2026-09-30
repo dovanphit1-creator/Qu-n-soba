@@ -22,16 +22,21 @@ function Install-Game {
   foreach ($file in @('Quán Mì Của Tôi.exe','HUONG_DAN.txt','PHAT_HANH.txt','SHA256.txt','unins000.exe')) {
     if (-not (Test-Path (Join-Path $installDir $file))) { throw "Missing installed file: $file" }
   }
-  $shell = New-Object -ComObject WScript.Shell
   foreach ($link in @($desktop,$start)) {
     if (-not (Test-Path $link)) { throw "Missing shortcut: $link" }
-    $shortcut=$shell.CreateShortcut($link)
-    # Windows may resolve a shortcut using an 8.3 path; compare file identities.
-    Write-Output ('Shortcut target: ' + $shortcut.TargetPath)
-    $env:QUANMI_LINK_TARGET = [Environment]::ExpandEnvironmentVariables($shortcut.TargetPath)
-    $env:QUANMI_INSTALLED_EXE = Join-Path $installDir 'Quán Mì Của Tôi.exe'
-    python -c "import os; assert os.path.samefile(os.environ['QUANMI_LINK_TARGET'],os.environ['QUANMI_INSTALLED_EXE'])"
-    if ($LASTEXITCODE -ne 0) { throw 'Incorrect shortcut target' }
+    # Verify the user's actual launch path instead of WScript's empty TargetPath
+    # for Unicode shell links on the hosted Windows runner.
+    $shortcutReport = Join-Path $PWD ('shortcut-' + [guid]::NewGuid().ToString('N') + '.json')
+    $launch = Start-Process -FilePath $link -ArgumentList @('--verify-new-player', $shortcutReport) -PassThru
+    if ($null -ne $launch -and -not $launch.WaitForExit(60000)) {
+      $launch.Kill()
+      throw 'Shortcut launch timed out'
+    }
+    for ($attempt=0; $attempt -lt 50 -and -not (Test-Path $shortcutReport); $attempt++) { Start-Sleep -Milliseconds 200 }
+    if (-not (Test-Path $shortcutReport)) { throw 'Shortcut did not launch the game' }
+    $shortcutResult=Get-Content $shortcutReport -Raw | ConvertFrom-Json
+    if (-not $shortcutResult.ok -or -not $shortcutResult.frozen) { throw 'Shortcut launched an invalid application' }
+    Assert-Save
   }
 }
 Install-Game
