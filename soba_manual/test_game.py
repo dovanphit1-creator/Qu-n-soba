@@ -313,13 +313,13 @@ class RulesTest(unittest.TestCase):
         import json
         w,p=self.ready_party(2);w.seat(p.id,0)
         with tempfile.TemporaryDirectory() as d:
-            path=Path(d)/'save.json';w.save(path);data=json.loads(path.read_text())
+            path=Path(d)/'save.json';w.save(path);data=json.loads(path.read_text(encoding='utf-8'))
             data['version']=2
             for key in ['menu','floors','stock_value','contract_until','deliveries']:data.pop(key)
             data['tables']=[{'capacity':4,'group':p.id if i==0 else 0,'dirty':0,'needs_wipe':False} for i in range(6)]
             for party in data['parties']:
                 for key in ['seats','prices','recipes']:party.pop(key)
-            path.write_text(json.dumps(data));loaded=World.load(path)
+            path.write_text(json.dumps(data),encoding='utf-8');loaded=World.load(path)
         self.assertEqual(len(loaded.tables),6)
         self.assertEqual(loaded.cash,w.cash)
         self.assertEqual(loaded.group(p.id).seats,[0,1])
