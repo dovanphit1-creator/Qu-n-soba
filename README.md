@@ -2,7 +2,7 @@
 <h1 align="center">Quán Mì của tôi</h1>
 <p align="center"><strong>Một quán nhỏ. Từng bát mì. Câu chuyện của bạn.</strong></p>
 <p align="center">Game mô phỏng kinh doanh quán mì bằng tiếng Việt, tự tay thao tác bằng chuột.</p>
-<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.0.0/Quan.Mi.c.a.toi.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
+<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.0.0/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
 
 ![Giao diện thật của Quán Mì của tôi](docs/assets/gameplay.png)
 
@@ -21,7 +21,7 @@ Bạn bắt đầu với **10.000.000 VND**, **7% danh tiếng**, **1 bàn 4 ch�
 
 | | Web | Windows |
 |---|---|---|
-| Bắt đầu | Mở link và chơi trên trình duyệt | Tải tệp `.exe`, mở để chơi; không cần Python |
+| Bắt đầu | Mở link và chơi trên trình duyệt | Tải bộ cài `.exe`, cài đặt rồi mở game; không cần Python |
 | Tiến trình | Không lưu; tải lại hoặc đóng trang là chơi lại | Tự lưu trên máy, lần sau tiếp tục |
 | Thiết bị | Máy tính có chuột và bàn phím | Máy tính Windows |
 | Chi phí | Miễn phí | Miễn phí |
