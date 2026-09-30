@@ -1,0 +1,73 @@
+name: Build and verify Windows game
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build dependencies
+        run: python -m pip install pyinstaller pygame-ce==2.5.7 holidays==0.105 pillow==11.3.0
+      - name: Check service cycle and gameplay rules
+        run: python soba_manual/test_game.py
+      - name: Build permanent noodle bowl icon
+        run: python soba_manual/build_brand_assets.py
+      - name: Build standalone graphical application
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name "Quán Mì của tôi" --icon soba_manual/assets/game.ico --version-file soba_manual/assets/version.txt --add-data "soba_manual/assets;assets" --paths soba_manual --collect-all holidays soba_manual/main.py
+      - name: Run the actual Windows executable through a service cycle
+        shell: pwsh
+        run: |
+          $report = Join-Path $PWD 'smoke-windows.json'
+          $process = Start-Process -FilePath '.\dist\Quán Mì của tôi.exe' -ArgumentList @('--smoke-test', $report) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Executable test failed: $($process.ExitCode)" }
+          python -c "import pefile; p=pefile.PE('dist/Quán Mì của tôi.exe'); ids={e.id for e in p.DIRECTORY_ENTRY_RESOURCE.entries}; assert {3,14} <= ids"
+          if ($LASTEXITCODE -ne 0) { throw 'Missing Windows icon resources' }
+          $info = (Get-Item '.\dist\Quán Mì của tôi.exe').VersionInfo
+          if ($info.ProductName -ne 'Quán Mì của tôi') { throw 'Incorrect permanent product name' }
+          $result = Get-Content $report -Raw | ConvertFrom-Json
+          if (-not $result.ok -or -not $result.frozen -or $result.platform -ne 'win32') { throw 'Invalid executable verification report' }
+          $fresh = Join-Path $PWD 'new-player.json'
+          $process = Start-Process -FilePath '.\dist\Quán Mì của tôi.exe' -ArgumentList @('--verify-new-player', $fresh) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'New player verification failed' }
+          $newPlayer = Get-Content $fresh -Raw | ConvertFrom-Json
+          if (-not $newPlayer.ok -or -not $newPlayer.frozen) { throw 'Invalid new player report' }
+          $signature = Get-AuthenticodeSignature '.\dist\Quán Mì của tôi.exe'
+          Write-Output ('Authenticode status: ' + $signature.Status)
+          Copy-Item 'soba_manual\HUONG_DAN.txt' 'dist\HUONG_DAN.txt'
+          Copy-Item 'soba_manual\PHAT_HANH.txt' 'dist\PHAT_HANH.txt'
+          $hash = (Get-FileHash '.\dist\Quán Mì của tôi.exe' -Algorithm SHA256).Hash
+          Set-Content -Path 'dist\SHA256.txt' -Encoding utf8 -Value ($hash + '  Quán Mì của tôi.exe')
+          $unexpected = Get-ChildItem dist -File | Where-Object { $_.Name -notin @('Quán Mì của tôi.exe','HUONG_DAN.txt','PHAT_HANH.txt','SHA256.txt') }
+          if ($unexpected) { throw 'Unexpected files in release folder' }
+      - name: Upload ready-to-play Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuanMiCuaToi-Windows
+          path: |
+            dist/Quán Mì của tôi.exe
+            dist/HUONG_DAN.txt
+            dist/PHAT_HANH.txt
+            dist/SHA256.txt
+          if-no-files-found: error
+      - name: Upload verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-verification
+          path: |
+            new-player.json
+            new-player.png
+            smoke-windows.json
+            smoke-windows.png
+            expansion-preview.png
+            supplier-preview.png
+            menu-preview.png
+            shared-preview.png
+          if-no-files-found: error
