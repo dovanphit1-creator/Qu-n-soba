@@ -332,6 +332,7 @@ class App(ManagementUI):
                 self.box((cx-17,cy-17,34,32),'#52765a',5)
             self.box((x-92,y-50,184,96),'#edce8e',10,'#a27b47',4)
             label=f'B{i+1} · {table.dirty} bát bẩn' if table.dirty else (f'B{i+1} · LAU BÀN' if table.needs_wipe else f'B{i+1} · {len(world.free_seats(i))}/{table.capacity} trống')
+            if world.wipe_table==i:label=f'B{i+1} · Lau {math.ceil(world.wipe_left)}s'
             self.text(label,(x,y-32),14,RED if table.dirty or table.needs_wipe else INK,True,True)
             groups=world.at_table(i)
             if groups:
@@ -359,12 +360,20 @@ class App(ManagementUI):
                         tx,ty=world.table_position(p.table)
                         meal=p.meals[j]
                         self.bowl((cx+(25 if cx<tx else -25),cy+(14 if cy<ty else -14)),meal['toppings'],meal['mushy'],12)
+                        left=math.ceil(meal['eat_left'])
+                        self.text(f'{left//60}:{left%60:02}' if left else 'Ăn xong',(cx,cy-36 if cy<ty else cy+32),13,GREEN,True,True)
 
             else:
                 for j in range(p.size):
                     self.person(p.x+(j-(p.size-1)/2)*24, p.y+(j%2)*5, PEOPLE[(p.id+j)%6], self.animation*7+j)
                 status = {'door':'hỏi chỗ', 'waiting':'đợi bàn', 'queue':'đợi mua vé', 'buying':'mua phiếu',
                           'ticket':'nhận phiếu!', 'ready':'kéo vào bàn', 'leaving':'tạm biệt'}[p.phase]
+                if p.phase=='buying':status=f'Chọn món / trả tiền {math.ceil(max(0,p.buy_seconds-p.phase_time))}s'
+                elif p.phase in ('door','waiting','queue'):
+                    patience={'door':p.door_patience,'waiting':p.wait_patience,'queue':p.queue_patience}[p.phase]
+                    status+=f' · {math.ceil(max(0,min(patience)-p.phase_time))}s'
+                elif p.phase=='ticket':status='Đã trả tiền · nhận phiếu'
+                elif p.phase=='ready':status='Đã trả tiền · xếp bàn'
                 self.label_party(p, p.x, p.y-48, status)
         p = next((p for p in world.parties if p.phase == 'ticket'), None)
         if p:
@@ -374,6 +383,9 @@ class App(ManagementUI):
             self.text('NHẬN', (TICKET.centerx, TICKET.y-13), 15, RED, True, True)
         self.box((29, 950, 1140, 37), '#334e3d', 8)
         message = world.logs[-1] if world.logs else ''
+        for spot in world.dirt:
+            if spot//len(DIRT_POS)==self.floor and dist(self.mouse,DIRT_POS[spot%len(DIRT_POS)])<40:
+                message=world.dirt_reasons.get(str(spot),'Vết bẩn từ phiên bản trước')+' · Nhấp LAU để dọn'
         size = 20 if self.font(20).size(message)[0] < 1112 else 17
         self.text(message, (42, 956), size, CREAM)
 
@@ -572,7 +584,7 @@ class App(ManagementUI):
                 '2. Nhận phiếu, kéo nhóm vào bàn đủ ghế trống. Có thể ghép nhiều nhóm.',
                 '3. Kéo mì vào 6 nồi. Luộc 210 giây, vớt trong 10 giây, quá giờ sẽ nhão.',
                 '4. Thêm topping. Bàn ghép: nhấp N001/N002 chọn nhóm rồi kéo bát ra bàn.',
-                '5. Khách ăn xong: kéo bát vào bồn, nhấp rửa; nhấp bàn và các chữ LAU ở sàn.',
+                '5. Khách ăn 5–20 phút. Dọn bát vào bồn, nhấp rửa (20–40s/bát + 15s), lau bàn 20–45s.',
                 '6. Bấm Đóng quán: ngừng đón nhóm mới nhưng khách và bếp vẫn hoạt động.',
                 '7. Dọn sạch, xử lý hết khách và mì rồi xác nhận đóng để xem lợi nhuận.',
                 'Giờ và lịch theo Việt Nam. Cao điểm: 11–14h, 17–20h. Cuối tuần: thứ Sáu–CN.',
@@ -874,7 +886,7 @@ def smoke_test(output):
     app.modal = None
     app.draw()
     app.click((1300, 360))
-    app.world.update(8)
+    app.world.update(app.world.parties[0].buy_seconds)
     app.draw()
     app.click(TICKET.center)
     party = app.world.parties[0]
@@ -900,13 +912,13 @@ def smoke_test(output):
             app.drop(('topping', topping), BOWL_POS[bowl.slot])
         app.drop(('bowl', bowl.id), TABLE_LAYOUT[0][:2])
     assert party.phase == 'eating'
-    app.world.update(35)
+    app.world.update(app.world.eating_remaining(party)+1)
     app.drop(('dirty', 0), SINK.center)
     app.draw()
     app.click(TABLE_LAYOUT[0][:2])
     app.draw()
     app.click((1050, 310))
-    app.world.update(4)
+    app.world.update(app.world.wash_left+1)
     assert app.world.clean == 24 and not app.world.tables[0].needs_wipe
     assert not app.world.close_shop()
     for spot in app.world.dirt[:]:

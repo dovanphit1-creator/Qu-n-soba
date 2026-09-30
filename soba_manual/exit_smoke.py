@@ -18,7 +18,7 @@ def check_window_exit(App):
             w.spawn_left=100000
             party=w.add_party(2)
             assert w.respond(party.id,'accept')
-            w.update(8)
+            w.update(party.buy_seconds)
             assert w.collect(party.id)
             assert w.seat(party.id,0)
             assert w.start_pot(0)

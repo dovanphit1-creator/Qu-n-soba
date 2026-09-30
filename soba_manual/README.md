@@ -15,7 +15,7 @@ LẦN ĐẦU CHƠI
 QUY TRÌNH CHƠI
 1. Khách đi theo nhóm 1–4 người, có số thứ tự Nhóm 001, 002…
    Nhấp nhóm ở cửa và chọn: còn chỗ mời vào / hết chỗ xin đợi / hết nguyên liệu hẹn lần sau.
-2. Sau khi nhận khách, họ đến máy bán vé. Đợi khoảng 8 giây rồi nhấp phiếu vàng bên máy.
+2. Sau khi nhận khách, họ đến máy bán vé. Mỗi người chọn món 20–90 giây, thêm 10–25 giây thanh toán cho nhóm, rồi nhấp phiếu vàng bên máy.
 3. Đọc món từng khách trong bảng bên phải. Kéo nhóm vào bàn sạch đủ GHẾ TRỐNG.
    Các nhóm được ghép bàn nhưng mỗi nhóm vẫn có tên/phiếu riêng. Nhấp N001/N002 trên bàn để chọn nhóm.
    Khi kéo khách hoặc bát, nhấn 1/2/3 để đổi tầng rồi thả vào bàn ở tầng đó.
@@ -25,8 +25,8 @@ QUY TRÌNH CHƠI
 7. Kéo từng topping xuống bát. Có thể thêm sai, thiếu hoặc thừa — game không ngăn nhưng khách sẽ đánh giá.
 8. Bàn ghép: nhấp tên nhóm cần phục vụ rồi kéo từng bát vào bàn.
    Khách trong nhóm nhận theo thứ tự 1, 2, 3, 4 trên phiếu. Không chọn nhóm thì bàn ghép chưa nhận món.
-9. Khi đủ món, nhóm ăn trong khoảng 35 giây rồi rời đi và đánh giá.
-10. Khi bàn báo bát bẩn, kéo mặt bàn vào bồn (kể cả còn nhóm khác đang ăn). Nhấp bàn trống để lau. Nhấp RỬA BÁT để rửa một mẻ tối đa 6 bát.
+9. Mỗi khách bắt đầu ăn ngay khi có bát của mình, ngẫu nhiên 5–20 phút. Cả nhóm rời đi khi mọi người ăn xong.
+10. Khi bàn báo bát bẩn, kéo mặt bàn vào bồn (kể cả còn nhóm khác đang ăn). Nhấp bàn sau khi dọn bát để lau trong 20–45 giây. Nhấp RỬA BÁT để rửa toàn bộ bát đang trong bồn: 15 giây chuẩn bị + 20–40 giây/bát.
     Đưa vào bồn không tự rửa; còn bát sau một mẻ thì phải nhấp rửa tiếp.
 
 CÔNG THỨC
@@ -48,7 +48,7 @@ LƯỢNG KHÁCH VÀ LỊCH
 
 ĐÓNG/MỞ QUÁN VÀ LƯU
 Nhấp Đóng quán để ngừng nhận nhóm mới. Phục vụ hết khách đã nhận, xử lý hết mì,
-dọn bàn, rửa hết bát và nhấp các vết bẩn LAU trên sàn. Quán bẩn dần khi hoạt động.
+dọn bàn, rửa hết bát và nhấp các vết bẩn LAU trên sàn. Vết bẩn chỉ xuất hiện do giày mang bụi, phục vụ/rơi thức ăn, dọn bát bị nhỏ nước hoặc nước rửa bắn ra. Rê chuột lên vết bẩn để xem nguyên nhân.
 Nhấp xác nhận đóng khi đã sạch để xem báo cáo lợi nhuận, rồi trở về trang quản lý.
 Bạn chủ động mở/đóng quán; không tự khóa theo giờ. Chỉ lưu và thoát sau khi đóng quán.
 
@@ -123,3 +123,10 @@ Lần chạy đầu có màn hình chào mừng và khởi tạo quán trống; 
 Mỗi người dùng Windows lưu tiến trình độc lập. Máy đã chơi tiếp tục bản lưu của máy đó.
 Muốn chơi lại từ đầu, đóng quán rồi chọn Tạo ván mới và xác nhận.
 Xem PHAT_HANH.txt: EXE hiện chưa có chữ ký nhà phát hành, Windows vẫn có thể cảnh báo.
+
+BẢN 1.1.0 — NHỊP PHỤC VỤ
+Thời gian là giây/phút thực, các khoảng mô phỏng được chọn cho game.
+Mỗi người có tính kiên nhẫn riêng: hỏi chỗ 1–5 phút; đợi bàn 3–20 phút; xếp hàng mua vé 1–10 phút. Nhóm rời đi khi người đầu tiên hết kiên nhẫn.
+Đã thanh toán thì khách luôn ở lại chờ được xếp chỗ và phục vụ. Thời gian ăn không bị tính thành chậm phục vụ.
+Bát đưa vào bồn khi đang rửa chờ mẻ sau; người chơi phải nhấp Rửa bát lần nữa.
+Thời gian ăn, rửa và lau đang dở được lưu khi thoát Windows và tiếp tục khi mở lại.

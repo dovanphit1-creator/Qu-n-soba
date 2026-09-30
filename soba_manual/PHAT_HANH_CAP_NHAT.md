@@ -1,6 +1,6 @@
 # Phát hành để người chơi nhận thông báo
 
-Bản EXE có kiểm tra cập nhật dùng `GAME_VERSION` trong `soba_manual/brand.py` (hiện 1.0.0).
+Bản EXE có kiểm tra cập nhật dùng `GAME_VERSION` trong `soba_manual/brand.py` (hiện 1.1.0).
 Mỗi lần mở, game gửi một GET công khai tới GitHub Releases ở luồng nền, timeout 5 giây.
 Không gửi dữ liệu chơi, không yêu cầu tài khoản hoặc token, không tự cài hay ghi đè EXE.
 Khi offline, hết hạn mức GitHub hoặc dữ liệu không hợp lệ, người chơi tiếp tục chơi.

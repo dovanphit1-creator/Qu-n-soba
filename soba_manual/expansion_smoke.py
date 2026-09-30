@@ -53,7 +53,7 @@ def check_expansion_ui(app, output):
     button(('open',));w.spawn_left=100000
     app.floor=0
     for size in (2,2):
-        p=w.add_party(size);w.respond(p.id,'accept');w.update(8);w.collect(p.id)
+        p=w.add_party(size);w.respond(p.id,'accept');w.update(p.buy_seconds);w.collect(p.id)
         app.selected=p.id;app.drop(('party',p.id),w.table_position(0))
     first,second=w.parties[:2]
     assert not set(first.seats)&set(second.seats)
@@ -69,7 +69,7 @@ def check_expansion_ui(app, output):
         app.drop(('bowl',b.id),w.table_position(0))
     assert len(first.meals)==0 and len(second.meals)==2
     screenshot('shared-preview')
-    p=w.add_party(1);w.respond(p.id,'accept');w.update(8);w.collect(p.id)
+    p=w.add_party(1);w.respond(p.id,'accept');w.update(p.buy_seconds);w.collect(p.id)
     app.drag=('party',p.id)
     app.event(pg.event.Event(pg.KEYDOWN,key=pg.K_2))
     assert app.floor==1 and app.drag==('party',p.id)

@@ -56,6 +56,13 @@ class Party:
     seats: list = field(default_factory=list)
     recipes: list = field(default_factory=list)
     prices: list = field(default_factory=list)
+    eat_seconds: list = field(default_factory=list)
+    choose_seconds: list = field(default_factory=list)
+    door_patience: list = field(default_factory=list)
+    wait_patience: list = field(default_factory=list)
+    queue_patience: list = field(default_factory=list)
+    buy_seconds: float = 0
+    paid_age: float = 0
 
 
 @dataclass
@@ -75,6 +82,7 @@ class Table:
     needs_wipe: bool = False
     floor: int = 0
     slot: int = 0
+    soil: int = 0
 
 
 class World:
@@ -92,6 +100,9 @@ class World:
         self.sink = 0
         self.washing = 0
         self.wash_left = 0.0
+        self.wipe_table = -1
+        self.wipe_left = 0.0
+        self.dirt_reasons = {}
         self.pots = [None] * 6
         self.bowls = []
         self.parties = []
@@ -162,12 +173,27 @@ class World:
         p = Party(self.next_group, size,
                   [self.rng.choice(list(self.menu)) for _ in range(size)],
                   [self.rng.choice(['Dễ tính', 'Bình thường', 'Khó tính']) for _ in range(size)])
+        self.assign_personality(p)
         p.recipes = [self.menu[name]["toppings"][:] for name in p.orders]
         p.prices = [self.menu[name]["price"] for name in p.orders]
         self.next_group += 1
         self.parties.append(p)
         self.note(f'Nhóm {p.id:03}: Chúng tôi có {size} người. Quán còn chỗ không?')
         return p
+
+    def assign_personality(self, p):
+        if p.eat_seconds:return
+        for temper in p.temper:
+            p.eat_seconds.append(self.rng.triangular(300,1200,660))
+            p.choose_seconds.append(self.rng.triangular(20,90,40))
+            factor={'Dễ tính':1.25,'Bình thường':1.0,'Khó tính':.75}[temper]
+            p.door_patience.append(self.rng.uniform(80,240)*factor)
+            p.wait_patience.append(self.rng.uniform(240,960)*factor)
+            p.queue_patience.append(self.rng.uniform(80,480)*factor)
+        p.buy_seconds=sum(p.choose_seconds)+self.rng.uniform(10,25)
+
+    def eating_remaining(self,p):
+        return max((m.get('eat_left',0) for m in p.meals),default=0)
 
     def at_table(self, index):
         return [p for p in self.parties if p.table == index and p.phase in ('seated', 'eating')]
@@ -201,6 +227,7 @@ class World:
                 self.note('Không đủ phần mì cho nhóm này. Hãy từ chối khách và mua thêm sau khi đóng quán.')
                 return False
             p.phase, p.phase_time = 'queue', 0
+            if self.rng.random()<.12:self.mark_dirty(0,f'Dấu giày nhóm {p.id:03} mang bụi vào quán',0)
             self.note(f'Nhóm {p.id:03} đang đến máy mua phiếu. Đợi phiếu xuất hiện rồi nhấp nhận.')
         elif action == 'wait':
             if p.phase == 'waiting':
@@ -330,7 +357,13 @@ class World:
         if not b or b.stage != 'prep' or not p or p.phase != 'seated' or len(p.meals) >= p.size:
             self.note('Hãy thả bát vào bàn có khách còn đang đợi món.')
             return False
-        p.meals.append({'mushy': b.mushy, 'toppings': b.toppings[:]})
+        duration=p.eat_seconds[len(p.meals)]
+        p.meals.append({'mushy': b.mushy, 'toppings': b.toppings[:],
+                        'eat_left':duration,'eat_total':duration,
+                        'wait':max(0,p.age-p.paid_age),
+                        'spill_at':duration*self.rng.uniform(.25,.75) if self.rng.random()<.18 else -1})
+        if self.rng.random()<.08:
+            self.mark_dirty(t.floor,f'Nước dùng rơi khi phục vụ nhóm {p.id:03}, bàn {index+1}',t.slot%4)
         self.bowls.remove(b)
         self.served += 1
         if len(p.meals) == p.size:
@@ -353,6 +386,7 @@ class World:
         t = self.tables[index]
         if not t.dirty:
             return False
+        if self.rng.random()<.12:self.mark_dirty(t.floor,f'Nước dùng nhỏ xuống khi thu bát bàn {index+1}',t.slot%4)
         self.sink += t.dirty
         t.dirty = 0
         self.note(f'Bát bẩn đã vào bồn. Nhấp bàn {index+1} để lau và nhấp Rửa bát ở bồn.')
@@ -360,21 +394,22 @@ class World:
 
     def wipe(self, index):
         t = self.tables[index]
-        if t.dirty or not t.needs_wipe:
+        if t.dirty or not t.needs_wipe or self.wipe_table>=0:
             return False
-        t.needs_wipe = False
-        self.note(f'Bàn {index+1} đã sạch, có thể đón nhóm mới.')
+        self.wipe_table=index
+        self.wipe_left=min(45,10+5*max(1,t.soil)+self.rng.uniform(5,15))
+        self.note(f'Đang lau bàn {index+1}: khoảng {self.wipe_left:.0f} giây.')
         return True
 
     def wash(self):
         if self.washing or not self.sink:
             self.note('Bồn đang rửa.' if self.washing else 'Chưa có bát bẩn trong bồn.')
             return False
-        self.washing = min(6, self.sink)
-        self.sink -= self.washing
+        self.washing = self.sink
+        self.sink = 0
         self.record('water', self.washing * 200)
-        self.wash_left = 2 + self.washing
-        self.note(f'Bắt đầu rửa {self.washing} bát. Các mẻ sau cũng cần nhấp Rửa bát.')
+        self.wash_left = 15 + sum(self.rng.uniform(20,40) for _ in range(self.washing))
+        self.note(f'Rửa {self.washing} bát: khoảng {self.wash_left:.0f} giây. Bát thêm sau cần bấm rửa lượt mới.')
         return True
 
     def review(self, p):
@@ -385,17 +420,16 @@ class World:
             errors = sum((need - actual).values()) + sum((actual - need).values())
             strict = {'Dễ tính': .55, 'Bình thường': .9, 'Khó tính': 1.25}[p.temper[i]]
             score = max(1, min(5, round(5 - errors * strict - (1.4 * strict if meal['mushy'] else 0)
-                                      - max(0, p.age - 600) / 300)))
+                                      - max(0, meal.get('wait',0) - 600) / 300)))
             delta = {1: -.8, 2: -.4, 3: 0, 4: .35, 5: .7}[score]
             self.reputation = max(0, self.reputation + delta)
             reason = 'Đúng món, ngon!' if not errors and not meal['mushy'] else ', '.join(
                 x for x in ('Sai/thừa/thiếu topping' if errors else '', 'Mì nhão' if meal['mushy'] else '') if x)
-            if p.age > 600:
+            if meal.get('wait',0) > 600:
                 reason += ' · Đợi hơi lâu'
             self.reviews.append(f'Nhóm {p.id:03}, khách {i+1} ({p.temper[i]}): {score}/5 — {reason}')
             scores.append(score)
         self.reviews = self.reviews[-18:]
-        self.mark_dirty(self.tables[p.table].floor)
         self.note(f'Nhóm {p.id:03} ăn xong: {sum(scores)/max(1,len(scores)):.1f}/5. Danh tiếng {self.reputation:.2f}%.')
 
     def record(self, field, amount):
@@ -602,17 +636,25 @@ class World:
         self.note('Quán đã mở. Không mua hàng hoặc tạm dừng trong lúc kinh doanh.')
         return True
 
-    def mark_dirty(self, floor=None):
-        floor = self.rng.randrange(self.floors) if floor is None else floor
-        for spot in range(floor * len(DIRT_POS), (floor+1) * len(DIRT_POS)):
+    def mark_dirty(self, floor=0, reason='Vết bẩn còn lại từ phiên bản trước', preferred=0):
+        floor=0 if floor is None else floor
+        spots=list(range(floor*len(DIRT_POS),(floor+1)*len(DIRT_POS)))
+        preferred=floor*len(DIRT_POS)+preferred%len(DIRT_POS)
+        spots.sort(key=lambda spot:spot!=preferred)
+        for spot in spots:
             if spot not in self.dirt:
                 self.dirt.append(spot)
-                break
+                self.dirt_reasons[str(spot)]=reason
+                self.note('Sàn bẩn: '+reason+'.')
+                return spot
+        self.note('Sàn đã bẩn thêm: '+reason+'.')
+        return None
 
     def sweep(self, spot):
         if spot not in self.dirt:
             return False
         self.dirt.remove(spot)
+        self.dirt_reasons.pop(str(spot),None)
         self.record('water', 500)
         self.note(f'Đã lau sàn. Còn {len(self.dirt)} chỗ bẩn.')
         return True
@@ -627,7 +669,7 @@ class World:
         if self.bowls or any(p is not None for p in self.pots):
             self.note('Cần xử lý hết mì trong nồi và các bát mì ở quầy trước khi đóng quán.')
             return False
-        if any(t.dirty or t.needs_wipe for t in self.tables) or self.sink or self.washing or self.dirt:
+        if any(t.dirty or t.needs_wipe for t in self.tables) or self.sink or self.washing or self.wipe_table>=0 or self.dirt:
             self.note('Chưa thể đóng: hãy rửa hết bát, lau các bàn và nhấp LAU ở các vết bẩn trên sàn.')
             return False
         payment = 0
@@ -649,11 +691,6 @@ class World:
         if not self.open:
             return
         self.record('electricity', 6000 * dt / 3600)
-        if not self.closing:
-            self.dirt_clock += dt
-            if self.dirt_clock >= 120:
-                self.dirt_clock %= 120
-                self.mark_dirty()
         self.elapsed += dt
         today = self.now.date().isoformat()
         if self.date_key != today:
@@ -670,7 +707,17 @@ class World:
             if self.wash_left <= 0:
                 self.clean += self.washing
                 self.washing = 0
+                self.wash_left = 0
+                if self.rng.random()<.15:self.mark_dirty(0,'Nước rửa bát bắn ra cạnh bồn',3)
                 self.note('Đã rửa xong mẻ bát. Bát còn lại trong bồn cần nhấp rửa tiếp.')
+        if self.wipe_table>=0:
+            self.wipe_left=max(0,self.wipe_left-dt)
+            if self.wipe_left==0:
+                t=self.tables[self.wipe_table]
+                t.needs_wipe=bool(t.dirty)
+                if not t.dirty:t.soil=0
+                self.note(f'Đã lau xong bàn {self.wipe_table+1}.')
+                self.wipe_table=-1
         self.spawn_left -= dt
         if self.spawn_left <= 0:
             self.spawn_left += self.rng.uniform(2.0, 3.0)
@@ -692,40 +739,54 @@ class World:
             if w['x'] < -180 or w['x'] > 1370:
                 self.walkers.remove(w)
         queued = sorted([p for p in self.parties if p.phase == 'queue'], key=lambda p:p.id)
-        if queued and not any(p.phase in ('buying', 'ticket') for p in self.parties):
+        if queued and not any(p.phase == 'buying' for p in self.parties):
             queued[0].phase, queued[0].phase_time = 'buying', 0
+        for p in self.parties:
+            if p.phase=='queue' and p.phase_time+dt>=min(p.queue_patience):
+                p.phase,p.phase_time='leaving',0
+                self.reputation=max(0,self.reputation-.15)
+                self.note(f'Nhóm {p.id:03} hết kiên nhẫn xếp hàng mua phiếu và rời đi (chưa trả tiền).')
         outside = [p for p in self.parties if p.phase in ('door', 'waiting')]
-        lobby = [p for p in self.parties if p.phase in ('queue', 'ready')]
+        lobby = [p for p in self.parties if p.phase in ('queue', 'ready', 'ticket')]
         for p in self.parties[:]:
             p.age += dt
             p.phase_time += dt
             if p.phase in ('door', 'waiting'):
                 idx = outside.index(p)
                 target = (260 + idx * 190, 225)
-                if p.phase_time > (480 if p.phase == 'waiting' else 300):
+                if p.phase_time > min(p.wait_patience if p.phase == 'waiting' else p.door_patience):
                     p.phase, p.phase_time = 'leaving', 0
                     self.reputation = max(0, self.reputation - .15)
                     self.note(f'Nhóm {p.id:03} đã đợi quá lâu và rời đi.')
-            elif p.phase in ('buying', 'ticket'):
+            elif p.phase == 'buying':
                 target = (650, 374)
-                if p.phase == 'buying' and p.phase_time >= 8:
+                if p.phase == 'buying' and p.phase_time >= p.buy_seconds:
                     p.phase, p.phase_time = 'ticket', 0
+                    p.paid_age=p.age
                     p.paid = sum(p.prices)
                     self.cash += p.paid
                     self.record('revenue', p.paid)
                     self.sold_today += p.paid
                     self.note(f'Máy in phiếu nhóm {p.id:03}. Nhấp phiếu vàng để nhận.')
-            elif p.phase in ('queue', 'ready'):
+            elif p.phase in ('queue', 'ready', 'ticket'):
                 idx = lobby.index(p)
                 target = (667, 452 + idx * 91)
             elif p.phase in ('seated', 'eating'):
                 tx, ty = self.table_position(p.table)
                 target = (tx, ty)
-                if p.phase == 'eating' and p.phase_time >= 35:
+                for i,meal in enumerate(p.meals):
+                    old=meal['eat_left']
+                    meal['eat_left']=max(0,old-dt)
+                    if old>meal.get('spill_at',-1)>=meal['eat_left']:
+                        meal['spill_at']=-1
+                        self.mark_dirty(self.tables[p.table].floor,
+                            f'Khách {i+1} nhóm {p.id:03} làm rơi mì/nước dùng khi ăn',self.tables[p.table].slot%4)
+                if len(p.meals)==p.size and all(m['eat_left']<=0 for m in p.meals):
                     self.review(p)
                     table = self.tables[p.table]
                     table.dirty += len(p.meals)
                     table.needs_wipe = True
+                    table.soil += len(p.meals)
                     p.phase, p.phase_time = 'leaving', 0
                     others = self.at_table(p.table)
                     table.group = others[0].id if others else 0
@@ -745,7 +806,7 @@ class World:
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 3
+        data['version'] = 4
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -756,8 +817,12 @@ class World:
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
         version = data.pop('version')
-        if version not in (2, 3):
+        if version not in (2, 3, 4):
             raise ValueError('Phiên bản lưu không phù hợp')
+        if version == 3:
+            from shutil import copy2
+            backup=Path(path).with_suffix('.v3.bak')
+            if not backup.exists():copy2(path,backup)
         obj = cls()
         for k, v in data.items():
             if k not in obj.__dict__ or k in ('rng', '_clock'):
@@ -779,6 +844,19 @@ class World:
                 party.prices = [PRICES[name] for name in party.orders]
                 if party.phase in ('seated', 'eating'):
                     party.seats = list(range(party.size))
+        for party in obj.parties:
+            obj.assign_personality(party)
+            for i,meal in enumerate(party.meals):
+                duration=party.eat_seconds[i]
+                meal.setdefault('eat_total',duration)
+                meal.setdefault('eat_left',duration*max(0,1-party.phase_time/35) if party.phase=='eating' else duration)
+                meal.setdefault('wait',max(0,party.age-party.phase_time))
+                meal.setdefault('spill_at',-1)
+        if version<4:
+            for spot in obj.dirt:obj.dirt_reasons[str(spot)]='Vết bẩn còn lại từ phiên bản trước'
+            for t in obj.tables:t.soil=max(t.dirty,1 if t.needs_wipe else 0)
+            if obj.washing:
+                obj.wash_left=(15+30*obj.washing)*min(1,obj.wash_left/(2+obj.washing))
         if len(obj.pots) != 6 or not 1 <= obj.floors <= 3 or not 1 <= len(obj.tables) <= 18 or obj.reputation < 0:
             raise ValueError('Dữ liệu lưu không hợp lệ')
         return obj
