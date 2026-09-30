@@ -11,9 +11,9 @@ jobs:
       - name: Check published buttons and installer bytes
         run: |
           python3 - <<'PY'
-          import hashlib, time, urllib.request
+          import hashlib, time, urllib.request, json, sys, types
           root='https://dovanphit1-creator.github.io/Qu-n-soba/'
-          path='downloads/1.0.0/QuanMiCuaToi-Setup.exe'
+          path='downloads/1.1.0/QuanMiCuaToi-Setup.exe'
           for attempt in range(30):
               try:
                   with urllib.request.urlopen(root+'?verify='+str(time.time()),timeout=20) as r:
@@ -22,9 +22,20 @@ jobs:
                   with urllib.request.urlopen(root+path,timeout=90) as r:
                       assert r.status==200
                       data=r.read()
-                  assert len(data)==21157843
-                  assert hashlib.sha256(data).hexdigest()=='6b41eff153f6430d635ad2ae94d57e9b8bcc7c3f8d175405f6110ba5df75696d'
-                  print('PASS: three same-origin download buttons; installer HTTP 200; exact release 1.0.0 SHA256.')
+                  assert len(data)==21164101
+                  assert hashlib.sha256(data).hexdigest()=='8642d2420ae9461ff225c1030826356079d1acb4896842c1c322af35954115ba'
+                  print('PASS: three same-origin download buttons; installer HTTP 200; exact release 1.1.0 SHA256.')
+                  with urllib.request.urlopen('https://api.github.com/repos/dovanphit1-creator/Qu-n-soba/releases/latest',timeout=20) as r:
+                      release=json.load(r)
+                  assert release['tag_name']=='1.1.0' and not release['prerelease']
+                  with urllib.request.urlopen('https://raw.githubusercontent.com/dovanphit1-creator/Qu-n-soba/8a4594d8d097cc332b1640d3e62a037277e80d72/soba_manual/updates.py',timeout=20) as r:
+                      updater=r.read().decode()
+                  brand=types.ModuleType('brand');brand.GAME_VERSION='1.0.0';sys.modules['brand']=brand
+                  namespace={};exec(compile(updater,'updates.py','exec'),namespace)
+                  notification=namespace['release_update'](release)
+                  assert notification and notification['version']=='1.1.0' and '3–12' in notification['notes']
+                  assert namespace['release_update'](release,'1.1.0') is None
+                  print('PASS: original 1.0.0 updater recognizes live 1.1.0 release and displays its notes.')
                   break
               except Exception as error:
                   if attempt==29:raise

@@ -2,7 +2,7 @@
 <h1 align="center">Quán Mì của tôi</h1>
 <p align="center"><strong>Một quán nhỏ. Từng bát mì. Câu chuyện của bạn.</strong></p>
 <p align="center">Game mô phỏng kinh doanh quán mì bằng tiếng Việt, tự tay thao tác bằng chuột.</p>
-<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.0.0/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
+<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.1.0/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
 
 ![Giao diện thật của Quán Mì của tôi](docs/assets/gameplay.png)
 
@@ -28,7 +28,7 @@ Bạn bắt đầu với **10.000.000 VND**, **7% danh tiếng**, **1 bàn 4 ch�
 
 Bản Windows lưu trong `%LOCALAPPDATA%\QuanSobaManual\save-vnd.json`. Hai phiên bản không đồng bộ dữ liệu.
 
-Bản `1.0.0` hiện được đánh dấu **Pre-release** trên GitHub. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
+Bản chính thức mới nhất là **1.1.0**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
 
 ## Góp ý và cập nhật
 
