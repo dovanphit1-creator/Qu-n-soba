@@ -15,7 +15,7 @@ from model import (World, RECIPES, STOCK_COST, TABLE_LAYOUT, POT_POS, BOWL_POS,
 
 from vn_calendar import WEEKDAYS
 from management import ManagementUI
-from brand import GAME_TITLE, WINDOWS_APP_ID, GAME_VERSION
+from brand import GAME_TITLE, WINDOWS_APP_ID, GAME_VERSION, PUBLISHER
 
 W, H = 1600, 1000
 INK = '#26372e'
@@ -618,6 +618,8 @@ class App(ManagementUI):
         if self.last_warning:
             self.box((280, 897, 1040, 43), RED, 6)
             self.text(self.last_warning, (300, 906), 18, 'white')
+        self.text(f'Phiên bản {GAME_VERSION} · Nhà phát hành {PUBLISHER}',
+                  (W//2,989),14,'#aeb8a8' if self.modal else '#596b56',center=True)
         self.update_size()
         scaled = pg.transform.smoothscale(self.canvas, (int(W*self.scale),int(H*self.scale)))
         self.display.fill('#18291e')

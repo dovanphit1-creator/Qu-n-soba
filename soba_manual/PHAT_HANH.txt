@@ -1,4 +1,5 @@
-Quán Mì của tôi — phiên bản 1.0.2 cho Windows 64-bit
+Quán Mì của tôi — phiên bản 1.0.0 cho Windows 64-bit
+Nhà phát hành: Đỗ Văn Phi
 
 CÁCH CHƠI
 Giải nén toàn bộ gói tải về. Mở Quán Mì của tôi.exe.
@@ -18,10 +19,10 @@ Muốn phân phối qua Microsoft Store cần tài khoản nhà phát triển v�
 Ký số bằng chứng thư tin cậy xác minh nhà phát hành nhưng không bảo đảm hết mọi cảnh báo.
 SHA256.txt dùng kiểm tra tệp tải; mã SHA256 không thay thế chữ ký số.
 
-SỬA LỖI 1.0.1
+TÍNH NĂNG TRONG BẢN ĐẦU TIÊN 1.0.0
 Cho phép đóng cửa sổ khi quán đang mở. Lưu nguyên ca đang làm để tiếp tục khi mở lại.
 Giữ nguyên dữ liệu cũ, tên game và biểu tượng bát mì.
 
-BẢN 1.0.2
+THÔNG BÁO CẬP NHẬT
 Tự kiểm tra bản phát hành chính thức mới khi mở game nếu có Internet.
 Thông báo gồm Tải bản mới và Để sau; không tự cài hay thay thế tệp.

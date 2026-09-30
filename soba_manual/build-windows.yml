@@ -32,6 +32,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Missing Windows icon resources' }
           $info = (Get-Item '.\dist\Quán Mì của tôi.exe').VersionInfo
           if ($info.ProductName -ne 'Quán Mì của tôi') { throw 'Incorrect permanent product name' }
+          if ($info.ProductVersion -ne '1.0.0') { throw 'Incorrect release version' }
+          if ($info.CompanyName -ne 'Đỗ Văn Phi') { throw 'Incorrect publisher credit' }
           $result = Get-Content $report -Raw | ConvertFrom-Json
           if (-not $result.ok -or -not $result.frozen -or $result.platform -ne 'win32') { throw 'Invalid executable verification report' }
           $fresh = Join-Path $PWD 'new-player.json'
