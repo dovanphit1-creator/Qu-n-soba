@@ -3,9 +3,10 @@ QUÁN SOBA — TỰ TAY VẬN HÀNH (Windows 64-bit)
 Giải nén toàn bộ rồi nhấp đúp QuanSoba.exe. Không cần Python, trình duyệt hay Internet.
 
 LẦN ĐẦU CHƠI
-- Chọn Luyện tập để có sẵn nhóm 2 người ở cửa. Thời gian luộc vẫn là 3 phút 30 giây.
-- Hoặc chọn Mở quán để bắt đầu với danh tiếng 2%. Khách vào ngẫu nhiên, có thể phải đợi.
-- Space: tạm dừng. F1: hướng dẫn. Khi đổi sang cửa sổ khác, game tự tạm dừng.
+- Bắt đầu tại màn hình đóng quán: 10.000.000 VND, danh tiếng 7%, không có nguyên liệu hay bát đĩa.
+- Vào Chợ mua bát/đĩa, mì tươi và topping rồi chọn MỞ QUÁN. Chỉ mua hàng khi quán đã đóng hoàn toàn.
+- Trang quản lý có ngân sách, kho tồn và lịch sử doanh thu/chi phí/lợi nhuận theo ngày, tháng, năm.
+- Không có tạm dừng. F1 mở hướng dẫn nhưng khách và nồi vẫn chạy, kể cả khi chuyển cửa sổ.
 
 QUY TRÌNH CHƠI
 1. Khách đi theo nhóm 1–4 người, có số thứ tự Nhóm 001, 002…
@@ -31,19 +32,30 @@ Mỗi topping dùng 1 lần. Thả bát vào thùng rác để bỏ món; bát b
 LƯỢNG KHÁCH VÀ LỊCH
 - Mỗi nhóm đi ngang cửa được xét ghé quán đúng một lần. Khoảng 2–3 giây có một nhóm người đi bộ mới.
 - Giờ cao điểm là 11:00–14:00 và 17:00–20:00.
-- Ngày thường: danh tiếng + 0 điểm phần trăm; cao điểm + 10.
-- Thứ Sáu, Bảy, Chủ nhật: danh tiếng + 5; cao điểm + 20.
-- Ngày lễ Việt Nam (cả Tết và Giỗ Tổ tính theo âm lịch): danh tiếng + 15; cao điểm + 30.
-- Danh tiếng khởi đầu 2%, tối thiểu 0%, tăng không giới hạn. Xác suất ghé quán tối đa 100%.
+- Ngày thường: danh tiếng - 5 điểm phần trăm; cao điểm bằng danh tiếng.
+- Thứ Sáu, Bảy, Chủ nhật: bằng danh tiếng; cao điểm + 5 điểm phần trăm.
+- Ngày lễ Việt Nam (cả Tết và Giỗ Tổ tính theo âm lịch): danh tiếng + 5 điểm phần trăm; cao điểm + 10.
+- Danh tiếng khởi đầu 7%, tối thiểu 0%, tăng không giới hạn. Xác suất ghé quán tối đa 100%.
 - Mỗi khách có mức dễ tính/bình thường/khó tính. Công thức, mì nhão và thời gian đợi ảnh hưởng điểm đánh giá.
 - Đồng hồ quán hiển thị ngày giờ thực tế Việt Nam UTC+7. Thời gian nấu vẫn là 210 giây thực khi game đang chạy.
 
 ĐÓNG/MỞ QUÁN VÀ LƯU
-Nhập nguyên liệu bằng nút Nhập hàng. Ngừng đón khách, phục vụ hết nhóm đã nhận,
-xử lý hết mì, dọn sạch bàn và rửa hết bát rồi nhấp Mở lại quán.
-Bạn chủ động ngừng hoặc mở lại quán; không tự khóa quán theo giờ thực.
-Tiến trình tự lưu mỗi 15 giây và khi thoát trong %LOCALAPPDATA%\QuanSobaManual\save.json.
-Luyện tập dùng tệp practice.json riêng, không ghi đè tiến trình kinh doanh thường.
+Nhấp Đóng quán để ngừng nhận nhóm mới. Phục vụ hết khách đã nhận, xử lý hết mì,
+dọn bàn, rửa hết bát và nhấp các vết bẩn LAU trên sàn. Quán bẩn dần khi hoạt động.
+Nhấp xác nhận đóng khi đã sạch để xem báo cáo lợi nhuận, rồi trở về trang quản lý.
+Bạn chủ động mở/đóng quán; không tự khóa theo giờ. Chỉ lưu và thoát sau khi đóng quán.
 
-Đồng hồ lấy giờ hệ thống quy đổi UTC+7: cần đặt đúng ngày giờ trên máy. Tạm dừng chỉ dừng khách và nồi mì, lịch vẫn là hiện tại. Bản cập nhật đọc được tiến trình cũ.
-Lịch lễ dùng python-holidays 0.105, bổ sung 24/11 từ 2026 và các ngày hoán đổi đã xác nhận của năm 2026. Quyết định nghỉ hoán đổi của năm sau có thể cần cập nhật.
+KINH TẾ VND
+Giá bán: Kake 35.000; tôm 45.000; bò 50.000; trứng 42.000 VND.
+Tiền mua hàng trừ ngay lúc mua. Bát/đĩa là dụng cụ tái sử dụng.
+Lợi nhuận = doanh thu - nguyên liệu đã dùng hoặc làm hỏng - điện - nước - ga.
+Hàng còn trong kho chưa tính vào giá vốn. Không trừ tiền nguyên liệu lần thứ hai lúc đóng quán.
+Chi phí mô phỏng: điện 6.000 VND/giờ mở quán; ga 800 VND/nồi; nước rửa 200 VND/bát;
+lau sàn 500 VND/vết. Điện nước ga được thanh toán khi hoàn tất đóng quán.
+Báo cáo hôm nay cộng các lần mở quán cùng ngày; lịch sử dùng ngày thực tế Việt Nam.
+
+Tiến trình tự lưu mỗi 15 giây và khi thoát tại %LOCALAPPDATA%\QuanSobaManual\save-vnd.json.
+Bản VND tạo tiến trình mới với vốn và kho đúng quy định; không ghi đè save.json của bản cũ.
+Đồng hồ lấy giờ hệ thống quy đổi UTC+7: cần đặt đúng ngày giờ trên máy.
+Lịch lễ dùng python-holidays 0.105, bổ sung 24/11 từ 2026 và các ngày hoán đổi đã xác nhận của năm 2026.
+Quyết định nghỉ hoán đổi của năm sau có thể cần cập nhật.

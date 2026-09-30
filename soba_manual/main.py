@@ -11,7 +11,7 @@ if '--smoke-test' in sys.argv:
     os.environ['SDL_AUDIODRIVER'] = 'dummy'
 import pygame as pg
 from model import (World, RECIPES, STOCK_COST, TABLE_LAYOUT, POT_POS, BOWL_POS,
-                   COOK_SECONDS, LIFT_WINDOW, save_path)
+                   COOK_SECONDS, LIFT_WINDOW, save_path, vnd, DISH_COST, DIRT_POS)
 
 from vn_calendar import WEEKDAYS
 
@@ -54,8 +54,9 @@ class App:
         self.down = None
         self.mouse = (0, 0)
         self.buttons = []
-        self.paused = False
-        self.modal = 'start'
+        self.modal = None
+        self.manager_tab = 'overview'
+        self.history_page = 0
         self.running = True
         self.auto_save = 0
         self.animation = 0
@@ -65,6 +66,11 @@ class App:
         self.scale = 1
         self.offset = (0, 0)
         self.update_size()
+        if self.has_save:
+            try:
+                self.world = World.load(save_path())
+            except (OSError, ValueError, KeyError, TypeError):
+                self.last_warning = 'Không đọc được bản lưu VND; hãy sao lưu tệp trước khi tạo ván mới.'
 
     def font(self, size=22, bold=False):
         key = (size, bold)
@@ -171,10 +177,10 @@ class App:
         now = world.now
         self.text(f'{now:%d/%m/%Y  %H:%M:%S}', (350, 15), 25, CREAM, True)
         self.text(WEEKDAYS[now.weekday()] + ' · VN UTC+7' + (' · Cao điểm' if world.peak else ''), (350, 52), 17, '#c4d6ba')
-        self.text(f'{world.cash:,} xu', (720, 15), 28, GOLD, True)
-        self.text(f'Bát sạch: {world.clean} / 24', (722, 54), 19, '#c4d6ba')
+        self.text(vnd(world.cash), (720, 15), 23, GOLD, True)
+        self.text(f'Bát sạch: {world.clean} / {world.dishes_owned}', (722, 54), 19, '#c4d6ba')
         self.text(f'Danh tiếng {world.reputation:.2f}%', (1000, 21), 25, CREAM, True)
-        self.button((1386, 18, 185, 49), 'Tiếp tục' if self.paused else 'Tạm dừng', ('pause',), small=True)
+        self.button((1386, 18, 185, 49), 'Đóng quán', ('close',), small=True, color=RED)
         # Street and sidewalk.
         self.box((0, 97, 1177, 48), '#6c7876', 0)
         for x in range(8, 1177, 95):
@@ -207,6 +213,12 @@ class App:
         self.text('LỐI VÀO', (230, 293), 18, INK, True)
         self.text('KHU BÀN ĂN', (63, 329), 23, '#67492e', True)
         self.text('BẾP 6 NỒI', (844, 253), 20, CREAM, True)
+        for spot in world.dirt:
+            x, y = DIRT_POS[spot]
+            for dx, dy in [(-12, 2), (3, -4), (12, 5)]:
+                pg.draw.ellipse(self.canvas, '#907049', (x+dx-8, y+dy-5, 19, 12))
+            self.box((x-24, y+12, 48, 23), '#8e553f', 4)
+            self.text('LAU', (x, y+24), 14, 'white', True, True)
         # Ticket machine.
         self.box(MACHINE.move(5, 5), '#6c624e', 8)
         self.box(MACHINE, '#345854', 8, '#203d35')
@@ -351,7 +363,7 @@ class App:
         self.box((1189, 105, 389, 881), '#fff3d9', 14, '#b7b793')
         self.text('KHÁCH & PHIẾU ĂN', (1207, 120), 25, INK, True)
         self.text(f'Tỷ lệ ghé quán: {w.chance:.2f}%', (1208, 165), 23, GREEN, True)
-        self.text(f'Danh tiếng {w.reputation:.2f}% + {w.bonus} điểm %', (1208, 196), 18, '#6b705b')
+        self.text(f'Danh tiếng {w.reputation:.2f}% {w.bonus:+d} điểm %', (1208, 196), 18, '#6b705b')
         self.text((w.holiday or w.kind)[:43], (1208, 222), 16, '#6b705b')
         waiting = [p for p in w.parties if p.phase in ('door', 'waiting')]
         selected = w.group(self.selected)
@@ -381,81 +393,142 @@ class App:
             self.wrap(f'Nhóm {selected.id:03} chưa giao phiếu. Chờ khách mua ở máy rồi nhấp phiếu màu vàng.', (1208, 551), 340, 22)
         else:
             self.wrap('Nhấp nhóm hoặc bàn để xem đúng món của từng người. Giao bát theo thứ tự 1, 2, 3, 4 trên phiếu.', (1208, 551), 340, 22)
-        self.button((1207, 825, 169, 45), 'Nhập hàng', ('modal','stock'), small=True)
+        self.text(f'Sàn: {len(w.dirt)} chỗ bẩn', (1207, 837), 19, RED if w.dirt else GREEN, True)
         self.button((1384, 825, 175, 45), 'Đánh giá', ('modal','reviews'), small=True, color='#836647')
-        self.button((1207, 879, 352, 45), 'Ngừng đón khách' if w.open else 'Dọn xong · mở lại quán', ('close',), small=True, color='#785b42')
+        self.button((1207, 879, 352, 45), 'Dọn xong · xác nhận đóng' if w.closing else 'Đóng quán / kết thúc ca', ('close',), small=True, color='#785b42')
         self.button((1207, 936, 169, 35), 'F1 · Cách chơi', ('modal','help'), small=True, color='#687357')
-        self.button((1384, 936, 175, 35), 'Lưu và thoát', ('quit',), small=True, color='#687357')
+        self.text('Đang dọn cuối ca' if w.closing else 'Quán đang mở', (1384, 945), 16, GREEN, True)
+
+    def render_closed(self):
+        w = self.world
+        self.canvas.fill('#e6e9da')
+        self.box((0, 0, W, 135), '#233d32', 0)
+        self.text('QUÁN SOBA · QUẢN LÝ', (45, 25), 35, CREAM, True)
+        self.text('ĐANG ĐÓNG CỬA', (47, 83), 21, GOLD, True)
+        self.text(f'{w.now:%d/%m/%Y  %H:%M:%S} · Việt Nam', (1025, 34), 23, CREAM)
+        self.text(WEEKDAYS[w.now.weekday()] + ' · ' + (w.holiday or w.kind), (1025, 80), 18, '#c4d6ba')
+        self.box((35, 155, 960, 128), '#fff3d9', 12)
+        self.text('NGÂN SÁCH HIỆN TẠI', (57, 172), 18, '#6b7357', True)
+        self.text(vnd(w.cash), (55, 207), 40, INK, True)
+        self.text(f'Danh tiếng {w.reputation:.2f}%', (650, 214), 26, GREEN, True)
+        self.button((1030, 173, 260, 82), 'MỞ QUÁN', ('open',))
+        self.button((1305, 173, 253, 82), 'Lưu và thoát', ('quit',), color='#7c674b')
+        tabs = [('overview','Tổng quan'), ('inventory','Kho nguyên liệu'), ('market','Chợ'),
+                ('day','Theo ngày'), ('month','Theo tháng'), ('year','Theo năm')]
+        for i, (key, label) in enumerate(tabs):
+            self.button((36+i*255, 305, 243, 52), label, ('tab',key),
+                        color=GREEN if self.manager_tab==key else '#7c876d')
+        self.box((35, 380, 1525, 520), '#fff3d9', 12)
+        if self.manager_tab in ('inventory','market'):
+            market = self.manager_tab=='market'
+            self.text('CHỢ · CHỈ MUA KHI ĐÓNG QUÁN' if market else 'KHO NGUYÊN LIỆU TỒN', (60, 398), 25, INK, True)
+            for i, name in enumerate(['Bát/đĩa', *STOCK_COST]):
+                y = 448+i*61
+                count = w.clean if name=='Bát/đĩa' else w.stock[name]
+                cost = DISH_COST if name=='Bát/đĩa' else STOCK_COST[name]
+                self.text(name, (62, y+8), 23, INK, True)
+                self.text(f'Tồn: {count}', (285, y+9), 22, GREEN)
+                self.text(vnd(cost) + '/cái' if name=='Bát/đĩa' else vnd(cost)+'/phần', (440, y+10), 19)
+                if market:
+                    for j, amount in enumerate([1,10,50]):
+                        self.button((755+j*252,y,240,44), f'Mua {amount} · {vnd(cost*amount)}',
+                                    ('buy',name,amount), w.cash>=cost*amount, small=True)
+            if not market:
+                self.wrap('Bát/đĩa là dụng cụ dùng lại sau khi rửa. Nguyên liệu tồn chưa sử dụng không bị tính vào giá vốn hôm nay.',
+                          (880, 475), 580, 25, '#687259')
+                self.button((885, 650, 450, 57), 'Đến chợ mua hàng', ('tab','market'))
+        elif self.manager_tab in ('day','month','year'):
+            rows = sorted(w.totals(self.manager_tab).items(), reverse=True)
+            self.text('LỊCH SỬ KINH DOANH · VND', (60, 398), 25, INK, True)
+            for text, x in [('Kỳ',60),('Doanh thu',310),('Nguyên liệu đã dùng',590),('Điện + nước + ga',925),('Lợi nhuận',1270)]:
+                self.text(text, (x,455), 20, GREEN, True)
+            start = self.history_page*7
+            for i,(key,row) in enumerate(rows[start:start+7]):
+                y=501+i*43
+                values=[key,vnd(row['revenue']),vnd(row['ingredients']),vnd(row['utilities']),vnd(row['profit'])]
+                for value,x in zip(values,[60,310,590,925,1270]):
+                    self.text(value,(x,y),20, RED if x==1270 and row['profit']<0 else INK)
+            if not rows:
+                self.text('Chưa có giao dịch. Mua nguyên liệu ở Chợ để bắt đầu.',(62, 532),24)
+            self.text('Giá vốn gồm phần đã nấu / thêm topping, kể cả phần đổ bỏ. Không trừ lại tiền mua kho.',(60,851),18,'#6b7357')
+            self.button((1210,834,145,43),'Trước',('page',-1),self.history_page>0,small=True)
+            self.button((1380,834,145,43),'Sau',('page',1),start+7<len(rows),small=True)
+        else:
+            today=w.totals().get(w.now.date().isoformat(),{})
+            self.text('HÔM NAY', (60,410),28,INK,True)
+            y=470
+            for label, key in [('Doanh thu','revenue'),('Nguyên liệu đã sử dụng','ingredients'),('Điện, nước, ga','utilities'),('Lợi nhuận','profit')]:
+                self.text(label,(60,y),24)
+                self.text(vnd(today.get(key,0)),(480,y),24,GREEN,True)
+                y+=67
+            self.wrap('Chuẩn bị trước khi mở quán', (880, 415),570,28,INK,True)
+            self.wrap('Mua bát/đĩa và nguyên liệu ở Chợ. Khi mở quán, bạn phải tự vận hành và không thể mua thêm hàng.',(880,470),585,25)
+            self.wrap('Kết ca: bấm Đóng quán để ngừng nhận nhóm mới, phục vụ hết khách, xử lý hết mì, rửa bát và lau bàn/sàn. Bấm xác nhận đóng để nhận tổng kết.',(880,605),585,23)
+            self.text(f'Tiền mua kho hôm nay: {vnd(today.get("purchases",0))}',(60,779),20)
+            self.text(f'Tiền mua dụng cụ: {vnd(today.get("equipment",0))}',(60,815),20)
+            self.button((950,803,265,46),'Cách chơi',('modal','help'),small=True)
+            self.button((1230,803,265,46),'Tạo ván mới',('modal','confirm_new'),small=True,color='#98734c')
+        self.box((35,924,1525,52),'#334e3d',8)
+        self.text(w.logs[-1] if w.logs else '',(51,938),20,CREAM)
 
     def render_modal(self):
-        if not self.modal and not self.paused:
+        if not self.modal:
             return
-        shade = pg.Surface((W, H), pg.SRCALPHA)
-        shade.fill((10, 28, 23, 190))
-        self.canvas.blit(shade, (0, 0))
-        self.buttons = []
-        self.box((280, 125, 1040, 760), '#fff0d1', 20, '#bfa36b', 3)
-        if self.modal == 'start':
-            self.text('QUÁN SOBA', (800, 230), 58, INK, True, True)
-            self.text('Đón từng nhóm khách. Tự tay làm từng bát mì.', (800, 308), 27, '#5e7354', False, True)
-            self.wrap('Một quán nhỏ nhìn từ trên cao. Khách mua phiếu, bạn nhận đơn, xếp bàn và nấu mì bằng chuột. Mỗi nồi cần đúng 3 phút 30 giây.', (400, 369), 800, 25)
-            self.button((480, 500, 640, 64), 'Tiếp tục quán đã lưu' if self.has_save else 'Mở quán · danh tiếng 2%', ('continue',))
-            self.button((480, 582, 640, 64), 'Luyện tập · có sẵn nhóm khách đầu tiên', ('new','practice'), color='#937141')
-            if self.has_save:
-                self.button((480, 664, 640, 55), 'Ván mới · danh tiếng 2%', ('confirm_new',), color='#896d51')
-            self.wrap('Luyện tập chỉ tạo sẵn nhóm đầu tiên; thời gian nấu và thao tác giống ván thường. Bấm Space để tạm dừng, F1 để xem cách chơi.', (400, 746), 800, 20, '#6b725a')
-            if self.load_error:
-                self.text(self.load_error, (400, 820), 18, RED)
-        elif self.modal == 'confirm_new':
-            self.text('Chơi lại từ đầu?', (800, 320), 38, INK, True, True)
-            self.text('Tiến trình cũ sẽ được thay bằng ván mới.', (800, 410), 24, INK, False, True)
-            self.button((460, 520, 320, 60), 'Bắt đầu ván mới', ('new','normal'))
-            self.button((820, 520, 320, 60), 'Quay lại', ('modal','start'), color='#8c7856')
-        elif self.modal == 'stock':
-            self.text('NHẬP NGUYÊN LIỆU', (330, 162), 34, INK, True)
-            self.text(f'Tiền mặt: {self.world.cash:,} xu', (330, 214), 26, GREEN, True)
-            y = 278
-            for name, cost in STOCK_COST.items():
-                self.text(f'{name} · còn {self.world.stock[name]} phần', (337, y+9), 25)
-                self.button((878, y, 370, 48), f'Mua 10 · {cost*10:,} xu', ('buy',name), self.world.cash >= cost*10)
-                y += 75
-            self.button((910, 795, 340, 52), 'Trở lại quán', ('dismiss',))
-        elif self.modal == 'reviews':
-            self.text('ĐÁNH GIÁ CỦA KHÁCH', (330, 164), 34, INK, True)
-            lines = self.world.reviews[-10:] or ['Chưa có đánh giá. Khách sẽ đánh giá sau khi ăn xong.']
-            y = 239
-            for line in lines:
-                y = self.wrap(line, (333, y), 910, 20) + 12
-            self.button((910, 795, 340, 52), 'Trở lại quán', ('dismiss',))
-        elif self.modal == 'help':
-            self.text('MỘT CA LÀM Ở QUÁN SOBA', (330, 160), 34, INK, True)
-            lines = [
-                '1  Trả lời khách ở cửa: mời vào, mời đợi hoặc từ chối vì hết nguyên liệu.',
-                '2  Khách tự mua vé. Nhấp phiếu vàng bên máy, xem đơn ở bên phải.',
-                '3  Kéo nhóm đã nhận phiếu vào bàn sạch đủ ghế. Tên nhóm đánh số thứ tự.',
-                '4  Kéo mì tươi vào 1 trong 6 nồi. Đợi 3:30, nhấp nồi để vớt trong 10 giây.',
-                '5  Mì nhão vẫn vớt dùng được. Nhấp phải nồi để đổ bỏ và luộc lại.',
-                '6  Kéo bát vừa vớt xuống quầy, thêm topping rồi kéo từng bát ra bàn.',
-                '7  Khách ăn xong: kéo bát bẩn vào bồn, nhấp bàn để lau, nhấp Rửa bát.',
-                'Giờ cao điểm: 11–14h và 17–20h. Cuối tuần: thứ Sáu, Bảy, Chủ nhật.',
-                'Đồng hồ và lịch theo ngày giờ Việt Nam (UTC+7), tính cả ngày lễ âm lịch.',
-                'Khách thường: +0/+10; cuối tuần: +5/+20; ngày lễ: +15/+30 điểm phần trăm.',
-                'Mỗi nhóm đi ngang cửa được xét một lần. Danh tiếng ≥ 0, không có trần.',
-                'Space: tạm dừng. F1: trợ giúp. Esc: đóng bảng. Tiến trình tự lưu mỗi 15 giây.',
-            ]
-            y = 226
-            for line in lines:
-                y = self.wrap(line, (332, y), 930, 20, INK) + 11
-            self.button((910, 806, 340, 49), 'Đã hiểu · trở lại quán', ('dismiss',))
+        shade=pg.Surface((W,H),pg.SRCALPHA); shade.fill((10,28,23,190)); self.canvas.blit(shade,(0,0))
+        self.buttons=[]
+        self.box((260,110,1080,785),'#fff0d1',20,'#bfa36b',3)
+        if self.modal=='report':
+            row=self.world.last_report
+            self.text('TỔNG KẾT KINH DOANH HÔM NAY',(310,149),34,INK,True)
+            self.text(row['date']+' · Đã đóng quán',(310,207),24,GREEN,True)
+            y=262
+            for label,key in [('Doanh thu bán phiếu','revenue'),('Giá vốn nguyên liệu đã dùng / hỏng','ingredients'),
+                              ('Điện','electricity'),('Nước','water'),('Ga','gas'),('LỢI NHUẬN','profit')]:
+                self.text(label,(312,y),24,INK,key=='profit')
+                self.text(vnd(row[key]),(995,y),25,GREEN if row[key]>=0 else RED,True)
+                y+=57
+            self.text('Ngân sách còn lại: '+vnd(row['cash']),(310,625),27,GREEN,True)
+            self.wrap('Tiền nhập kho đã trừ khi mua; giá vốn không bị trừ lần nữa. Điện/nước/ga thanh toán lần này: '+vnd(row['payment']), (312,677),960,20)
+            self.button((855,811,420,55),'Về trang đóng quán',('dismiss',))
+        elif self.modal=='confirm_new':
+            self.text('TẠO VÁN VND MỚI?',(800,280),36,INK,True,True)
+            self.wrap('Thay tiến trình VND hiện tại bằng 10.000.000 VND, danh tiếng 7%, không có nguyên liệu hoặc bát.',(440,365),730,25)
+            self.button((440,540,340,63),'Tạo ván mới',('new',))
+            self.button((825,540,340,63),'Quay lại',('dismiss',),color='#8a7352')
+        elif self.modal=='reviews':
+            self.text('ĐÁNH GIÁ CỦA KHÁCH',(310,155),32,INK,True)
+            y=225
+            for line in self.world.reviews[-9:] or ['Chưa có đánh giá.']:
+                y=self.wrap(line,(310,y),970,20)+10
+            self.button((950,817,330,49),'Trở lại quán',('dismiss',))
         else:
-            self.text('QUÁN ĐANG TẠM DỪNG', (800, 385), 39, INK, True, True)
-            self.text('Khách và nồi mì dừng. Ngày giờ Việt Nam vẫn theo thực tế.', (800, 455), 24, '#697459', False, True)
-            self.button((530, 555, 540, 63), 'Tiếp tục chơi', ('pause',))
+            self.text('CÁCH CHƠI · QUÁN KHÔNG TẠM DỪNG',(308,152),30,INK,True)
+            lines=[
+                '1. Khi đóng quán: mua bát, mì và topping tại Chợ rồi bấm Mở quán.',
+                '2. Trả lời nhóm khách, nhận phiếu vàng, kéo nhóm vào bàn đủ ghế.',
+                '3. Kéo mì vào 6 nồi. Luộc 210 giây, vớt trong 10 giây, quá giờ sẽ nhão.',
+                '4. Kéo bát xuống quầy, thêm topping theo phiếu, kéo từng bát ra bàn.',
+                '5. Khách ăn xong: kéo bát vào bồn, nhấp rửa; nhấp bàn và các chữ LAU ở sàn.',
+                '6. Bấm Đóng quán: ngừng đón nhóm mới nhưng khách và bếp vẫn hoạt động.',
+                '7. Dọn sạch, xử lý hết khách và mì rồi xác nhận đóng để xem lợi nhuận.',
+                'Giờ và lịch theo Việt Nam. Cao điểm: 11–14h, 17–20h. Cuối tuần: thứ Sáu–CN.',
+                'Tỷ lệ: ngày thường -5/0; cuối tuần 0/+5; ngày lễ +5/+10 điểm phần trăm.',
+                'Giá giả lập: điện 6.000 VND/giờ; ga 800 VND/nồi; nước 200 VND/bát rửa.',
+                'Lau sàn dùng nước 500 VND/vết. Tiền mua bát ghi riêng là mua dụng cụ.',
+                'Không có tạm dừng: khách và nồi vẫn chạy khi xem bảng hoặc chuyển cửa sổ.',
+                'F1 / Esc: mở hoặc đóng hướng dẫn. Mua hàng chỉ khi đã đóng quán sạch sẽ.',
+            ]
+            y=219
+            for line in lines:y=self.wrap(line,(310,y),970,20)+11
+            self.button((950,819,330,49),'Trở lại',('dismiss',))
 
     def draw(self):
         self.buttons = []
-        self.render_floor()
-        self.render_side()
+        if self.world.open:
+            self.render_floor()
+            self.render_side()
+        else:
+            self.render_closed()
         if self.drag:
             kind, ident = self.drag
             x, y = self.mouse
@@ -535,8 +608,12 @@ class App:
             if rect.collidepoint(point):
                 self.action(action)
                 return
-        if self.modal or self.paused:
+        if self.modal or not self.world.open:
             return
+        for spot in self.world.dirt[:]:
+            if dist(point,DIRT_POS[spot]) < 35:
+                self.world.sweep(spot)
+                return
         if TICKET.collidepoint(point):
             p = next((p for p in self.world.parties if p.phase == 'ticket'), None)
             if p:
@@ -596,110 +673,87 @@ class App:
 
     def persist(self):
         try:
-            path = save_path().with_name('practice.json') if self.world.practice else save_path()
+            path = save_path()
             self.world.save(path)
             self.last_warning = ''
         except OSError:
             self.last_warning = 'Không lưu được tiến trình. Kiểm tra quyền ghi trong thư mục tài khoản Windows.'
 
     def action(self, action):
-        kind, *args = action
-        if kind == 'pause':
-            self.paused = not self.paused
-            self.drag = None
-        elif kind == 'modal':
-            self.modal = args[0]
-        elif kind == 'dismiss':
-            self.modal = None
-        elif kind == 'continue':
-            if self.has_save:
-                try:
-                    self.world = World.load(save_path())
-                except (OSError, ValueError, KeyError, TypeError):
-                    self.load_error = 'Không đọc được bản lưu. Chọn ván mới nếu muốn chơi lại.'
-                    return
-            self.modal = None
-        elif kind == 'confirm_new':
-            self.modal = 'confirm_new'
-        elif kind == 'new':
-            if self.has_save and args[0] == 'practice' and self.modal != 'confirm_new':
-                # Practice is separate and does not overwrite an existing normal save.
-                self.world = World(practice=True)
-            else:
-                self.world = World(practice=args[0]=='practice')
-            self.selected = self.world.parties[0].id if self.world.parties else 0
-            self.modal = None
-        elif kind == 'answer':
-            self.selected = args[0]
-            self.world.respond(*args)
-        elif kind == 'wash':
+        kind,*args=action
+        if kind=='tab':
+            self.manager_tab=args[0]; self.history_page=0
+        elif kind=='page':
+            self.history_page=max(0,self.history_page+args[0])
+        elif kind=='modal':
+            self.modal=args[0]
+        elif kind=='dismiss':
+            self.modal=None
+        elif kind=='new' and not self.world.open:
+            self.world=World(); self.modal=None; self.manager_tab='overview'; self.persist()
+        elif kind=='open':
+            if self.world.open_shop():self.persist()
+        elif kind=='answer':
+            self.selected=args[0]; self.world.respond(*args)
+        elif kind=='wash':
             self.world.wash()
-        elif kind == 'buy':
-            self.world.restock(args[0])
-        elif kind == 'close':
+        elif kind=='buy':
+            if self.world.restock(args[0],args[1]):self.persist()
+        elif kind=='close':
+            if self.world.close_shop():
+                self.modal='report'; self.manager_tab='overview'; self.persist()
+        elif kind=='quit':
             if self.world.open:
-                self.world.open = False
-                self.world.note('Đã ngừng nhận khách mới. Phục vụ và dọn xong rồi nhấp mở lại quán.')
+                self.world.note('Hãy kết ca, dọn sạch và đóng quán trước khi thoát. Tiến trình vẫn tự lưu.')
             else:
-                self.world.next_day()
-        elif kind == 'quit':
-            self.persist()
-            self.running = False
+                self.persist(); self.running=False
 
-    def event(self, event):
-        if event.type == pg.QUIT:
-            if self.modal != 'start':
-                self.persist()
-            self.running = False
-        elif event.type == pg.WINDOWFOCUSLOST and self.modal != 'start':
-            self.paused = True
-            self.drag = None
-        elif event.type == pg.VIDEORESIZE:
-            self.display = pg.display.set_mode((max(800,event.w),max(500,event.h)),pg.RESIZABLE)
+    def event(self,event):
+        if event.type==pg.QUIT:
+            self.action(('quit',))
+        elif event.type==pg.WINDOWFOCUSLOST:
+            self.drag=self.down=None
+            self.persist()
+        elif event.type==pg.VIDEORESIZE:
+            self.display=pg.display.set_mode((max(800,event.w),max(500,event.h)),pg.RESIZABLE)
             self.update_size()
-        elif event.type == pg.KEYDOWN:
-            if event.key == pg.K_F1:
-                self.modal = None if self.modal == 'help' else 'help'
-            elif event.key == pg.K_ESCAPE:
-                if self.modal and self.modal != 'start':
-                    self.modal = None
-                else:
-                    self.paused = not self.paused
-            elif event.key == pg.K_SPACE and not self.modal:
-                self.paused = not self.paused
-            self.drag = None
-        elif event.type == pg.MOUSEMOTION:
-            self.mouse = self.point(event.pos)
-            if self.down and not self.modal and not self.paused and dist(self.mouse,self.down)>7:
-                if self.drag is None:
-                    self.drag = self.pending_drag
-        elif event.type == pg.MOUSEBUTTONDOWN:
-            self.mouse = self.point(event.pos)
-            if event.button == 1:
-                self.down = self.mouse
-                self.pending_drag = self.source(self.mouse) if not self.modal and not self.paused else None
-            elif event.button == 3 and not self.modal and not self.paused:
+        elif event.type==pg.KEYDOWN:
+            if event.key==pg.K_F1 and self.modal!='report':
+                self.modal=None if self.modal=='help' else 'help'
+            elif event.key==pg.K_ESCAPE and self.modal not in ('report',):
+                self.modal=None
+            self.drag=None
+        elif event.type==pg.MOUSEMOTION:
+            self.mouse=self.point(event.pos)
+            if self.down and not self.modal and self.world.open and dist(self.mouse,self.down)>7:
+                if self.drag is None:self.drag=self.pending_drag
+        elif event.type==pg.MOUSEBUTTONDOWN:
+            self.mouse=self.point(event.pos)
+            if event.button==1:
+                self.down=self.mouse
+                self.pending_drag=self.source(self.mouse) if not self.modal and self.world.open else None
+            elif event.button==3 and not self.modal and self.world.open:
                 self.click(self.mouse,True)
-        elif event.type == pg.MOUSEBUTTONUP and event.button == 1:
-            self.mouse = self.point(event.pos)
-            if self.drag and not self.modal and not self.paused:
-                self.drop(self.drag,self.mouse)
-            else:
-                self.click(self.mouse)
-            self.drag = self.down = None
+        elif event.type==pg.MOUSEBUTTONUP and event.button==1:
+            self.mouse=self.point(event.pos)
+            if self.drag and not self.modal and self.world.open:self.drop(self.drag,self.mouse)
+            else:self.click(self.mouse)
+            self.drag=self.down=None
+
+    def step(self,dt):
+        # Help panels and lost window focus never pause an open restaurant.
+        if self.world.open:
+            self.world.update(dt)
+            self.animation+=dt
+        self.auto_save+=dt
+        if self.auto_save>=15:
+            self.persist(); self.auto_save=0
 
     def run(self):
         while self.running:
-            dt = min(.1,self.clock.tick(60)/1000)
-            for event in pg.event.get():
-                self.event(event)
-            if not self.modal and not self.paused:
-                self.world.update(dt)
-                self.animation += dt
-                self.auto_save += dt
-                if self.auto_save >= 15:
-                    self.persist()
-                    self.auto_save = 0
+            dt=self.clock.tick(60)/1000
+            for event in pg.event.get():self.event(event)
+            self.step(dt)
             self.draw()
         pg.quit()
 
@@ -713,7 +767,14 @@ def smoke_test(output):
     probe = World(clock=lambda: datetime(2026, 9, 29, 17, 30, tzinfo=timezone.utc))
     assert probe.now.date() == date(2026, 9, 30) and probe.minute == 30
     app = App(headless=True)
-    app.world = World(seed=7, practice=True)
+    app.world = World(seed=7)
+    assert app.world.cash == 10000000 and app.world.clean == 0 and not app.world.open
+    app.draw()
+    for name in ['Bát/đĩa', *STOCK_COST]:
+        app.world.restock(name,24)
+    assert app.world.open_shop()
+    assert not app.world.restock('Mì tươi',1)
+    app.world.add_party(2)
     app.world.spawn_left = 100000
     app.modal = None
     app.draw()
@@ -729,7 +790,9 @@ def smoke_test(output):
     assert app.world.tables[0].group == 1
     for i in range(2):
         app.drop(('raw', 0), POT_POS[i])
-    app.world.update(209)
+    app.modal='help'
+    app.step(209)
+    app.modal=None
     assert app.world.pot_state(0) == 'cooking'
     app.world.update(1)
     assert app.world.pot_state(0) == 'ready'
@@ -750,12 +813,21 @@ def smoke_test(output):
     app.click((1050, 310))
     app.world.update(4)
     assert app.world.clean == 24 and not app.world.tables[0].needs_wipe
+    assert not app.world.close_shop()
+    for spot in app.world.dirt[:]:
+        app.click(DIRT_POS[spot])
+    app.action(('close',))
+    assert not app.world.open and app.modal == 'report'
+    assert 'profit' in app.world.last_report
+    app.draw()
+    pg.image.save(app.canvas, str(Path(output).with_name('report-preview.png')))
+    app.action(('dismiss',))
     app.draw()
     pg.image.save(app.canvas, str(Path(output).with_suffix('.png')))
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 

@@ -1,50 +1,73 @@
-# Quán Soba — Tự tay vận hành
+# Quán Soba — kinh doanh thủ công bằng Python
 
-Game Python 2D nhìn từ trên xuống, thao tác chuột. Có người đi bộ ngoài phố và nhóm 1–4 khách vào hỏi chỗ. Người chơi trả lời khách, nhận phiếu ở máy bán vé, kéo nhóm vào bàn đủ ghế, nấu từng bát mì rồi phục vụ và vệ sinh quán.
+QUÁN SOBA — TỰ TAY VẬN HÀNH (Windows 64-bit)
 
-## Chơi trên Windows
+Giải nén toàn bộ rồi nhấp đúp QuanSoba.exe. Không cần Python, trình duyệt hay Internet.
 
-Giải nén bản `QuanSoba-Manual-Windows`, nhấp đúp `QuanSoba.exe`. Không cần Python hay Internet. Bản Windows được tạo bằng GitHub Actions và chính tệp exe được chạy kiểm tra chu trình phục vụ trước khi phát hành gói tải.
+LẦN ĐẦU CHƠI
+- Bắt đầu tại màn hình đóng quán: 10.000.000 VND, danh tiếng 7%, không có nguyên liệu hay bát đĩa.
+- Vào Chợ mua bát/đĩa, mì tươi và topping rồi chọn MỞ QUÁN. Chỉ mua hàng khi quán đã đóng hoàn toàn.
+- Trang quản lý có ngân sách, kho tồn và lịch sử doanh thu/chi phí/lợi nhuận theo ngày, tháng, năm.
+- Không có tạm dừng. F1 mở hướng dẫn nhưng khách và nồi vẫn chạy, kể cả khi chuyển cửa sổ.
 
-## Chạy từ mã nguồn
+QUY TRÌNH CHƠI
+1. Khách đi theo nhóm 1–4 người, có số thứ tự Nhóm 001, 002…
+   Nhấp nhóm ở cửa và chọn: còn chỗ mời vào / hết chỗ xin đợi / hết nguyên liệu hẹn lần sau.
+2. Sau khi nhận khách, họ đến máy bán vé. Đợi khoảng 8 giây rồi nhấp phiếu vàng bên máy.
+3. Đọc món từng khách trong bảng bên phải. Kéo nhóm vào bàn sạch đủ ghế.
+4. Kéo MÌ TƯƠI vào một trong 6 nồi. Luộc đúng 210 giây thực, nhấp nồi để vớt trong 10 giây tiếp theo.
+5. Sau 10 giây đó, mì bị nhão. Có thể nhấp vớt để dùng, hoặc nhấp phải nồi để đổ bỏ và luộc lại.
+6. Bát vừa vớt nằm trên vị trí nồi. KÉO BÁT XUỐNG Ô TRỐNG Ở QUẦY TOPPING bên dưới.
+7. Kéo từng topping xuống bát. Có thể thêm sai, thiếu hoặc thừa — game không ngăn nhưng khách sẽ đánh giá.
+8. Kéo từng bát vào đúng bàn. Khách nhận theo thứ tự 1, 2, 3, 4 trên phiếu của nhóm.
+9. Khi đủ món, nhóm ăn trong khoảng 35 giây rồi rời đi và đánh giá.
+10. Kéo chồng bát bẩn trên bàn vào bồn. Nhấp bàn trống để lau. Nhấp RỬA BÁT để rửa một mẻ tối đa 6 bát.
+    Đưa vào bồn không tự rửa; còn bát sau một mẻ thì phải nhấp rửa tiếp.
+
+CÔNG THỨC
+- Kake soba: Nước dùng + Hành.
+- Soba tôm: Nước dùng + Hành + Tôm.
+- Soba bò: Nước dùng + Hành + Bò.
+- Soba trứng: Nước dùng + Hành + Trứng.
+Mỗi topping dùng 1 lần. Thả bát vào thùng rác để bỏ món; bát bẩn chuyển vào bồn để rửa.
+
+LƯỢNG KHÁCH VÀ LỊCH
+- Mỗi nhóm đi ngang cửa được xét ghé quán đúng một lần. Khoảng 2–3 giây có một nhóm người đi bộ mới.
+- Giờ cao điểm là 11:00–14:00 và 17:00–20:00.
+- Ngày thường: danh tiếng - 5 điểm phần trăm; cao điểm bằng danh tiếng.
+- Thứ Sáu, Bảy, Chủ nhật: bằng danh tiếng; cao điểm + 5 điểm phần trăm.
+- Ngày lễ Việt Nam (cả Tết và Giỗ Tổ tính theo âm lịch): danh tiếng + 5 điểm phần trăm; cao điểm + 10.
+- Danh tiếng khởi đầu 7%, tối thiểu 0%, tăng không giới hạn. Xác suất ghé quán tối đa 100%.
+- Mỗi khách có mức dễ tính/bình thường/khó tính. Công thức, mì nhão và thời gian đợi ảnh hưởng điểm đánh giá.
+- Đồng hồ quán hiển thị ngày giờ thực tế Việt Nam UTC+7. Thời gian nấu vẫn là 210 giây thực khi game đang chạy.
+
+ĐÓNG/MỞ QUÁN VÀ LƯU
+Nhấp Đóng quán để ngừng nhận nhóm mới. Phục vụ hết khách đã nhận, xử lý hết mì,
+dọn bàn, rửa hết bát và nhấp các vết bẩn LAU trên sàn. Quán bẩn dần khi hoạt động.
+Nhấp xác nhận đóng khi đã sạch để xem báo cáo lợi nhuận, rồi trở về trang quản lý.
+Bạn chủ động mở/đóng quán; không tự khóa theo giờ. Chỉ lưu và thoát sau khi đóng quán.
+
+KINH TẾ VND
+Giá bán: Kake 35.000; tôm 45.000; bò 50.000; trứng 42.000 VND.
+Tiền mua hàng trừ ngay lúc mua. Bát/đĩa là dụng cụ tái sử dụng.
+Lợi nhuận = doanh thu - nguyên liệu đã dùng hoặc làm hỏng - điện - nước - ga.
+Hàng còn trong kho chưa tính vào giá vốn. Không trừ tiền nguyên liệu lần thứ hai lúc đóng quán.
+Chi phí mô phỏng: điện 6.000 VND/giờ mở quán; ga 800 VND/nồi; nước rửa 200 VND/bát;
+lau sàn 500 VND/vết. Điện nước ga được thanh toán khi hoàn tất đóng quán.
+Báo cáo hôm nay cộng các lần mở quán cùng ngày; lịch sử dùng ngày thực tế Việt Nam.
+
+Tiến trình tự lưu mỗi 15 giây và khi thoát tại %LOCALAPPDATA%\QuanSobaManual\save-vnd.json.
+Bản VND tạo tiến trình mới với vốn và kho đúng quy định; không ghi đè save.json của bản cũ.
+Đồng hồ lấy giờ hệ thống quy đổi UTC+7: cần đặt đúng ngày giờ trên máy.
+Lịch lễ dùng python-holidays 0.105, bổ sung 24/11 từ 2026 và các ngày hoán đổi đã xác nhận của năm 2026.
+Quyết định nghỉ hoán đổi của năm sau có thể cần cập nhật.
+
+## Chạy mã nguồn
 
 ```sh
-python -m pip install pygame-ce==2.5.7 holidays==0.105
+pip install pygame-ce==2.5.7 holidays==0.105
 python soba_manual/main.py
-```
-
-## Thao tác
-
-- Chọn **Luyện tập** để có sẵn nhóm đầu tiên; hoặc mở quán thường với danh tiếng 2%.
-- Trả lời khách ở cửa; sau khi chấp nhận, đợi máy in phiếu rồi nhấp phiếu vàng.
-- Kéo nhóm đã nhận phiếu đến bàn sạch đủ số ghế. Nhấp tên nhóm hoặc bàn để đọc món theo thứ tự khách trên phiếu.
-- Kéo mì tươi vào một trong **6 nồi**. Mỗi nồi luộc **210 giây thực**, sau đó có **10 giây** để nhấp vớt. Mì quá thời gian bị nhão, vẫn có thể dùng; nhấp phải nồi để đổ bỏ.
-- Kéo bát vừa vớt từ nồi xuống ô quầy topping. Kéo từng topping vào bát, rồi kéo từng bát đến bàn. Làm sai món vẫn giao được nhưng khách chấm điểm theo tính cách.
-- Khách ăn xong: kéo bát bẩn đến bồn, nhấp bàn để lau, nhấp **Rửa bát** để rửa từng mẻ tối đa 6 bát. Bồn không tự rửa.
-- Nhập hàng, ngừng đón khách và dọn sạch quán trước khi mở lại.
-- **Space** tạm dừng; **F1** mở hướng dẫn. Game tự tạm dừng khi mất tiêu điểm.
-
-## Lượng khách
-
-Mỗi nhóm đi ngang cửa được xét ghé quán một lần. Công thức là danh tiếng cộng điểm phần trăm:
-
-| Loại ngày | Giờ thường | Cao điểm |
-| --- | --- | --- |
-| Thứ Hai–Năm | +0 | +10 |
-| Thứ Sáu–Chủ nhật | +5 | +20 |
-| Ngày lễ | +15 | +30 |
-
-Cao điểm: 11–14h và 17–20h theo giờ thực tế Việt Nam (UTC+7). Ngày/thứ theo lịch hiện tại ở Việt Nam, kể cả máy đang ở múi giờ khác. Ngày lễ dùng lịch Việt Nam, bao gồm Tết âm lịch, Giỗ Tổ Hùng Vương, Quốc khánh và ngày nghỉ bù; bổ sung Ngày Văn hóa Việt Nam 24/11 từ 2026. Danh tiếng bắt đầu 2%, không giảm dưới 0 và không giới hạn khi tăng. Xác suất khách vào tối đa 100%. Đồng hồ lấy thời gian hệ thống quy đổi UTC+7, không chạy nhanh hoặc lùi về ngày trong bản lưu. Nấu mì vẫn 210 giây chơi. Tạm dừng chỉ dừng khách và nồi mì; lịch thực vẫn cập nhật. Người chơi chủ động đóng/mở quán, không bị chặn sau 22h. Các ngày nghỉ hoán đổi theo quyết định hằng năm có thể cần cập nhật bản game.
-
-Tiến trình lưu tại `%LOCALAPPDATA%\QuanSobaManual\save.json`; luyện tập dùng `practice.json` riêng.
-
-## Kiểm tra
-
-```sh
 python soba_manual/test_game.py
-python soba_manual/main.py --smoke-test smoke.json
 ```
 
-Kiểm tra bao gồm chu trình nhận phiếu, kéo nhóm vào bàn, nấu/vớt/di chuyển bát, thêm topping, phục vụ, dọn/rửa thủ công, giới hạn ghế, thời điểm mì nhão, công thức lượng khách và lưu/đọc ván chơi. Bản dòng lệnh cũ vẫn ở `soba_game.py`; giao diện quản lý cũ ở `soba_gui.py`.
-
-Nguồn lịch: python-holidays 0.105 (Vietnam); thông báo 9441/TB-BNV năm 2026; Nghị quyết 28/2026/QH16; lịch hoán đổi Tết Dương lịch 2026 theo Công văn 12729/VPCP-KGVX. Máy cần đặt đúng đồng hồ hệ thống.
+GitHub Actions xây dựng Windows EXE độc lập và chạy kiểm tra toàn bộ quy trình trên chính EXE.

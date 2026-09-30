@@ -14,8 +14,14 @@ RECIPES = {
     'Soba bò': ('Nước dùng', 'Hành', 'Bò'),
     'Soba trứng': ('Nước dùng', 'Hành', 'Trứng'),
 }
-PRICES = {'Kake soba': 300, 'Soba tôm': 450, 'Soba bò': 480, 'Soba trứng': 380}
-STOCK_COST = {'Mì tươi': 40, 'Nước dùng': 25, 'Hành': 10, 'Tôm': 70, 'Bò': 80, 'Trứng': 35}
+PRICES = {'Kake soba': 35000, 'Soba tôm': 45000, 'Soba bò': 50000, 'Soba trứng': 42000}
+STOCK_COST = {'Mì tươi': 6000, 'Nước dùng': 3000, 'Hành': 1000, 'Tôm': 8000, 'Bò': 10000, 'Trứng': 4000}
+DISH_COST = 15000
+DIRT_POS = [(95, 315), (330, 510), (570, 715), (746, 868)]
+
+def vnd(amount):
+    return f'{round(amount):,}'.replace(',', '.') + ' VND'
+
 TABLE_LAYOUT = [(180, 485, 2), (455, 485, 4), (180, 665, 4),
                 (455, 665, 2), (180, 845, 4), (455, 845, 4)]
 POT_POS = [(836 + col * 118, 396 + row * 102) for row in range(2) for col in range(3)]
@@ -63,10 +69,11 @@ class World:
         self.rng = random.Random(seed)
         self.day = 1
         self.elapsed = 0.0
-        self.reputation = 2.0
-        self.cash = 3200
-        self.stock = {'Mì tươi': 40, 'Nước dùng': 40, 'Hành': 40, 'Tôm': 12, 'Bò': 12, 'Trứng': 12}
-        self.clean = 24
+        self.reputation = 7.0
+        self.cash = 10_000_000
+        self.stock = {name: 0 for name in STOCK_COST}
+        self.clean = 0
+        self.dishes_owned = 0
         self.sink = 0
         self.washing = 0
         self.wash_left = 0.0
@@ -78,16 +85,18 @@ class World:
         self.spawn_left = .2
         self.next_group = 1
         self.next_bowl = 1
-        self.open = True
+        self.open = False
+        self.closing = False
+        self.dirt = []
+        self.dirt_clock = 0.0
+        self.ledger = {}
+        self.last_report = None
         self.practice = practice
         self.logs = []
         self.reviews = []
         self.served = 0
         self.sold_today = 0
-        self.note('Kéo mì tươi vào nồi để nấu. F1 để xem hướng dẫn.')
-        if practice:
-            self.add_party(2)
-            self.note('Luyện tập: nhóm đầu tiên được tạo sẵn. Thời gian nấu vẫn là 3:30.')
+        self.note('Quán đang đóng. Hãy mua bát và nguyên liệu ở Chợ trước khi mở quán.')
 
     def note(self, text):
         self.logs.append(text)
@@ -119,7 +128,7 @@ class World:
 
     @property
     def bonus(self):
-        return {'Ngày thường': (0, 10), 'Cuối tuần': (5, 20), 'Ngày lễ': (15, 30)}[self.kind][self.peak]
+        return {'Ngày thường': (-5, 0), 'Cuối tuần': (0, 5), 'Ngày lễ': (5, 10)}[self.kind][self.peak]
 
     @property
     def chance(self):
@@ -207,6 +216,8 @@ class World:
             self.note('Hết mì tươi. Mở Nhập hàng để mua thêm.')
             return False
         self.stock['Mì tươi'] -= 1
+        self.record('ingredients', STOCK_COST['Mì tươi'])
+        self.record('gas', 800)
         self.pots[index] = 0.0
         self.note(f'Nồi {index+1}: bắt đầu luộc 3 phút 30 giây. Vớt trong 10 giây sau khi chín.')
         return True
@@ -265,6 +276,7 @@ class World:
             self.note('Bát đã đầy topping.')
             return False
         self.stock[name] -= 1
+        self.record('ingredients', STOCK_COST[name])
         b.toppings.append(name)
         self.note(f'Bát {b.id}: đã thêm {name.lower()}. Sai hoặc thừa topping vẫn có thể phục vụ.')
         return True
@@ -318,6 +330,7 @@ class World:
             return False
         self.washing = min(6, self.sink)
         self.sink -= self.washing
+        self.record('water', self.washing * 200)
         self.wash_left = 2 + self.washing
         self.note(f'Bắt đầu rửa {self.washing} bát. Các mẻ sau cũng cần nhấp Rửa bát.')
         return True
@@ -340,32 +353,114 @@ class World:
             self.reviews.append(f'Nhóm {p.id:03}, khách {i+1} ({p.temper[i]}): {score}/5 — {reason}')
             scores.append(score)
         self.reviews = self.reviews[-18:]
+        self.mark_dirty()
         self.note(f'Nhóm {p.id:03} ăn xong: {sum(scores)/max(1,len(scores)):.1f}/5. Danh tiếng {self.reputation:.2f}%.')
 
+    def record(self, field, amount):
+        key = self.now.date().isoformat()
+        row = self.ledger.setdefault(key, {'revenue': 0, 'ingredients': 0, 'electricity': 0,
+                                          'water': 0, 'gas': 0, 'purchases': 0,
+                                          'equipment': 0, 'utility_paid': 0, 'closes': 0})
+        row[field] += amount
+
+    def totals(self, period='day'):
+        result = {}
+        for date_key, row in self.ledger.items():
+            key = date_key[:{'day': 10, 'month': 7, 'year': 4}[period]]
+            total = result.setdefault(key, {k: 0 for k in row})
+            for k, value in row.items():
+                total[k] += round(value) if k == 'electricity' else value
+        for total in result.values():
+            total['electricity'] = round(total['electricity'])
+            total['utilities'] = total['electricity'] + total['water'] + total['gas']
+            total['profit'] = total['revenue'] - total['ingredients'] - total['utilities']
+        return result
+
     def restock(self, name, count=10):
-        cost = STOCK_COST[name] * count
-        if self.cash < cost:
-            self.note('Chưa đủ tiền để nhập số lượng này.')
+        if self.open:
+            self.note('Chợ chỉ hoạt động khi quán đã đóng hoàn toàn.')
             return False
-        self.stock[name] += count
+        if not isinstance(count, int) or count <= 0 or name not in (*STOCK_COST, 'Bát/đĩa'):
+            return False
+        cost = (DISH_COST if name == 'Bát/đĩa' else STOCK_COST[name]) * count
+        if self.cash < cost:
+            self.note('Ngân sách không đủ cho lần mua này.')
+            return False
+        if name == 'Bát/đĩa':
+            self.clean += count
+            self.dishes_owned += count
+            self.record('equipment', cost)
+        else:
+            self.stock[name] += count
+            self.record('purchases', cost)
         self.cash -= cost
-        self.note(f'Đã nhập {count} phần {name.lower()} với giá {cost} xu.')
+        self.note(f'Đã mua {count} {name.lower()}: {vnd(cost)}.')
         return True
 
-    def next_day(self):
-        if any(p.phase != 'leaving' for p in self.parties) or self.bowls or any(p is not None for p in self.pots):
-            self.note('Hãy phục vụ hoặc từ chối hết khách, xử lý các nồi và bát mì trước khi mở lại quán.')
+    def open_shop(self):
+        if self.open:
             return False
-        if any(t.dirty or t.needs_wipe for t in self.tables) or self.sink or self.washing:
-            self.note('Cần dọn bàn, lau bàn và rửa hết bát trước khi mở lại quán.')
+        if self.clean < 1 or any(self.stock[name] < 1 for name in ('Mì tươi', 'Nước dùng', 'Hành')):
+            self.note('Cần ít nhất 1 bát sạch và 1 phần mì, nước dùng, hành để mở quán.')
             return False
-        self.day += 1
-        self.elapsed = 0
-        self.open = True
-        self.note(f'Đã mở lại quán. {self.now:%d/%m/%Y} · {self.kind}.')
+        if self.cash < 0:
+            self.note('Cần thanh toán chi phí còn thiếu trước khi mở quán.')
+            return False
+        self.open, self.closing = True, False
+        self.dirt_clock = 0
+        self.note('Quán đã mở. Không mua hàng hoặc tạm dừng trong lúc kinh doanh.')
+        return True
+
+    def mark_dirty(self):
+        for spot in range(len(DIRT_POS)):
+            if spot not in self.dirt:
+                self.dirt.append(spot)
+                break
+
+    def sweep(self, spot):
+        if spot not in self.dirt:
+            return False
+        self.dirt.remove(spot)
+        self.record('water', 500)
+        self.note(f'Đã lau sàn. Còn {len(self.dirt)} chỗ bẩn.')
+        return True
+
+    def close_shop(self):
+        if not self.open:
+            return False
+        self.closing = True
+        if any(p.phase != 'leaving' for p in self.parties):
+            self.note('Đã ngừng đón nhóm mới. Phục vụ hết khách và trả lời các nhóm đang chờ.')
+            return False
+        if self.bowls or any(p is not None for p in self.pots):
+            self.note('Cần xử lý hết mì trong nồi và các bát mì ở quầy trước khi đóng quán.')
+            return False
+        if any(t.dirty or t.needs_wipe for t in self.tables) or self.sink or self.washing or self.dirt:
+            self.note('Chưa thể đóng: hãy rửa hết bát, lau các bàn và nhấp LAU ở các vết bẩn trên sàn.')
+            return False
+        payment = 0
+        for row in self.ledger.values():
+            total = round(row['electricity']) + row['water'] + row['gas']
+            due = total - row['utility_paid']
+            payment += due
+            row['utility_paid'] = total
+        self.cash -= payment
+        self.record('closes', 1)
+        key = self.now.date().isoformat()
+        self.last_report = dict(self.totals()[key], date=key, cash=self.cash, payment=payment)
+        self.open, self.closing = False, False
+        self.note('Đã đóng quán và thanh toán điện, nước, ga. Xem tổng kết trước khi về quản lý.')
         return True
 
     def update(self, dt):
+        if not self.open:
+            return
+        self.record('electricity', 6000 * dt / 3600)
+        if not self.closing:
+            self.dirt_clock += dt
+            if self.dirt_clock >= 120:
+                self.dirt_clock %= 120
+                self.mark_dirty()
         self.elapsed += dt
         today = self.now.date().isoformat()
         if self.date_key != today:
@@ -396,7 +491,7 @@ class World:
             w['x'] += w['speed'] * dt
             if not w['checked'] and min(old, w['x']) <= 280 <= max(old, w['x']):
                 w['checked'] = True
-                if self.open and self.rng.random() * 100 < self.chance:
+                if self.open and not self.closing and self.rng.random() * 100 < self.chance:
                     if len([p for p in self.parties if p.phase in ('door', 'waiting')]) < 5:
                         self.add_party(w['size'])
                         self.walkers.remove(w)
@@ -424,6 +519,7 @@ class World:
                     p.phase, p.phase_time = 'ticket', 0
                     p.paid = sum(PRICES[o] for o in p.orders)
                     self.cash += p.paid
+                    self.record('revenue', p.paid)
                     self.sold_today += p.paid
                     self.note(f'Máy in phiếu nhóm {p.id:03}. Nhấp phiếu vàng để nhận.')
             elif p.phase in ('queue', 'ready'):
@@ -453,7 +549,7 @@ class World:
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 1
+        data['version'] = 2
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -463,7 +559,7 @@ class World:
     @classmethod
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
-        if data.pop('version') != 1:
+        if data.pop('version') != 2:
             raise ValueError('Phiên bản lưu không phù hợp')
         obj = cls()
         for k, v in data.items():
@@ -479,4 +575,4 @@ class World:
 
 
 def save_path():
-    return Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'QuanSobaManual' / 'save.json'
+    return Path(os.environ.get('LOCALAPPDATA', Path.home())) / 'QuanSobaManual' / 'save-vnd.json'
