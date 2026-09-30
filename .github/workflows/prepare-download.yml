@@ -9,18 +9,18 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify 1.0.0 installer and store its Git blob
+      - name: Verify 1.1.0 installer and store its Git blob
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
           import base64, hashlib, json, os, urllib.request
-          url='https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.0.0/QuanMiCuaToi-Setup.exe'
+          url='https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.1.0/QuanMiCuaToi-Setup.exe'
           with urllib.request.urlopen(url,timeout=90) as r:
               data=r.read()
-          assert len(data)==21157843
+          assert len(data)==21164101
           assert data[:2]==b'MZ'
-          assert hashlib.sha256(data).hexdigest()=='6b41eff153f6430d635ad2ae94d57e9b8bcc7c3f8d175405f6110ba5df75696d'
+          assert hashlib.sha256(data).hexdigest()=='8642d2420ae9461ff225c1030826356079d1acb4896842c1c322af35954115ba'
           request=urllib.request.Request(
               'https://api.github.com/repos/dovanphit1-creator/Qu-n-soba/git/blobs',
               data=json.dumps({'encoding':'base64','content':base64.b64encode(data).decode('ascii')}).encode(),
@@ -29,5 +29,15 @@ jobs:
           with urllib.request.urlopen(request,timeout=120) as r:
               blob=json.load(r)
           print('VERIFIED_INSTALLER_BLOB='+blob['sha'])
-          print('Verified release 1.0.0 installer: 21157843 bytes, SHA256 matches.')
+          print('Verified release 1.1.0 installer: 21164101 bytes, SHA256 matches.')
+          payload={'name':'Quán Mì Của Tôi 1.1.0','prerelease':False,'make_latest':'true','body':"Quán Mì Của Tôi 1.1.0: khách ăn 3–12 phút, chọn món 12–54 giây/người; lau bàn 12–27 giây; rửa bát 9 giây chuẩn bị + 12–24 giây/bát. Khách đã trả tiền luôn chờ được phục vụ. Vết bẩn có nguyên nhân. Giữ tiến trình cũ. Đóng game rồi chạy QuanMiCuaToi-Setup.exe để cập nhật."}
+          request=urllib.request.Request(
+              'https://api.github.com/repos/dovanphit1-creator/Qu-n-soba/releases/400329242',
+              data=json.dumps(payload,ensure_ascii=False).encode(),
+              headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+              method='PATCH')
+          with urllib.request.urlopen(request,timeout=30) as r:
+              release=json.load(r)
+          assert release['tag_name']=='1.1.0' and not release['prerelease'] and not release['draft']
+          print('Release 1.1.0 published for in-game update notifications.')
           PY
