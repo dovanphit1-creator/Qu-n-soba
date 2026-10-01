@@ -323,6 +323,7 @@ class RulesTest(unittest.TestCase):
         w.collect(p.id);w.seat(p.id,0);w.start_pot(0);w.update(210);w.lift(0)
         b=w.bowls[0];w.move_prep(b.id,0)
         for name in p.recipes[0]:w.topping(b.id,name)
+        for spot in w.dirt[:]:w.sweep(spot)
         w.serve(b.id,0)
         for drink in p.drinks:
             if drink:w.serve_drink(drink,0)
