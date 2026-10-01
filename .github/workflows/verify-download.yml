@@ -13,7 +13,7 @@ jobs:
           python3 - <<'PY'
           import hashlib, time, urllib.request, json, sys, types
           root='https://dovanphit1-creator.github.io/Qu-n-soba/'
-          path='downloads/1.5.0/QuanMiCuaToi-Setup.exe'
+          path='downloads/1.6.0/QuanMiCuaToi-Setup.exe'
           for attempt in range(30):
               try:
                   with urllib.request.urlopen(root+'?verify='+str(time.time()),timeout=20) as r:
@@ -22,20 +22,20 @@ jobs:
                   with urllib.request.urlopen(root+path,timeout=90) as r:
                       assert r.status==200
                       data=r.read()
-                  assert len(data)==28969921
-                  assert hashlib.sha256(data).hexdigest()=='c3711858c06fe2af9621e1cd8c2189afc5ac3c0d662f05ff80e5e7c0481f06bb'
-                  print('PASS: three same-origin download buttons; installer HTTP 200; exact release 1.5.0 SHA256.')
+                  assert len(data)==28981393
+                  assert hashlib.sha256(data).hexdigest()=='b98180685734aa46a21e1d3624b41a86f671645920ef8060de29129ffa599cb0'
+                  print('PASS: three same-origin download buttons; installer HTTP 200; exact release 1.6.0 SHA256.')
                   with urllib.request.urlopen('https://api.github.com/repos/dovanphit1-creator/Qu-n-soba/releases/latest',timeout=20) as r:
                       release=json.load(r)
-                  assert release['tag_name']=='1.5.0' and not release['prerelease']
+                  assert release['tag_name']=='1.6.0' and not release['prerelease']
                   with urllib.request.urlopen('https://raw.githubusercontent.com/dovanphit1-creator/Qu-n-soba/8a4594d8d097cc332b1640d3e62a037277e80d72/soba_manual/updates.py',timeout=20) as r:
                       updater=r.read().decode()
                   brand=types.ModuleType('brand');brand.GAME_VERSION='1.0.0';sys.modules['brand']=brand
                   namespace={};exec(compile(updater,'updates.py','exec'),namespace)
                   notification=namespace['release_update'](release)
-                  assert notification and notification['version']=='1.5.0' and 'Baito' in notification['notes']
-                  assert namespace['release_update'](release,'1.4.0') and namespace['release_update'](release,'1.5.0') is None
-                  print('PASS: original 1.0.0 updater recognizes live 1.5.0 release and displays its notes.')
+                  assert notification and notification['version']=='1.6.0' and 'Baito' in notification['notes']
+                  assert namespace['release_update'](release,'1.5.0') and namespace['release_update'](release,'1.6.0') is None
+                  print('PASS: original 1.0.0 updater recognizes live 1.6.0 release and displays its notes.')
                   break
               except Exception as error:
                   if attempt==29:raise
