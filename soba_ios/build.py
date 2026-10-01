@@ -4,6 +4,9 @@ import json
 import shutil
 import subprocess
 import sys
+import io
+import tarfile
+import zipfile
 import urllib.request
 from pathlib import Path
 
@@ -23,6 +26,7 @@ def build():
     shutil.copy2(ROOT / 'main.py', STAGE / 'main.py')
     app = (SOURCE / 'main.py').read_text().replace('noodle-ready.wav', 'noodle-ready.ogg')
     app = app.replace('tài khoản Windows', 'iPhone')
+    app = app.replace('pg.display.set_mode(size, pg.RESIZABLE)', 'pg.display.set_mode((1600, 1000))')
     (STAGE / 'app.py').write_text(app)
     brand = (STAGE / 'brand.py').read_text().replace("GAME_VERSION = '1.7.3'", "GAME_VERSION = '1.8.0'")
     (STAGE / 'brand.py').write_text(brand)
@@ -42,6 +46,22 @@ def build():
                     '-c:a', 'libvorbis', str(assets / 'noodle-ready.ogg')], check=True)
     subprocess.run([sys.executable, '-m', 'pygbag', '--build', '--no_opt', '--title', 'Quán Mì Của Tôi', str(STAGE)], check=True)
     shutil.copytree(STAGE / 'build/web', OUTPUT, dirs_exist_ok=True)
+    # Pygbag's gzip writer can leave its footer unfinished on process exit.
+    # Build a fully closed tar from the validated APK, then read every member.
+    with zipfile.ZipFile(OUTPUT / 'iphone.apk') as archive:
+        if archive.testzip() is not None:
+            raise ValueError('Corrupt game APK')
+        with tarfile.open(OUTPUT / 'iphone.tar.gz', 'w:gz') as tar:
+            for name in archive.namelist():
+                if name.endswith('/'):
+                    continue
+                data = archive.read(name)
+                info = tarfile.TarInfo(name); info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+    with tarfile.open(OUTPUT / 'iphone.tar.gz') as tar:
+        for member in tar:
+            if member.isfile():
+                tar.extractfile(member).read()
     html = (OUTPUT / 'index.html').read_text()
     html = html.replace('https://pygame-web.github.io/cdn/0.9.3/', './runtime/')
     html = html.replace('data-os="vtx,snd,gui"', 'data-os="stdout,snd,gui"')
@@ -51,13 +71,14 @@ def build():
     html = html.replace('navigator.serviceWorker.register(', 'Promise.reject(')
     html = html.replace('fb_ar   :  1.77', 'fb_ar   :  1.6').replace('fb_width : "1280"', 'fb_width : "1600"').replace('fb_height : "720"', 'fb_height : "1000"')
     html = html.replace('lang="en-us"', 'lang="vi"').replace('Ready to start ! Please click/touch page', 'Chạm để bắt đầu')
-    html = html.replace('</head>', '<style>html,body{margin:0;overflow:hidden;background:#26372e;color:#fff2d2;touch-action:none}canvas{touch-action:none}#pyconsole,#crt,#dlg,.iframe{display:none!important}</style></head>')
+    html = html.replace('</head>', '<style>html,body{margin:0;overflow:hidden;background:#26372e!important;color:#fff2d2;touch-action:none}canvas{touch-action:none}#stdout,#status,#progress,#spinner,#pyconsole,#crt,#dlg,.iframe{display:none!important}</style></head>')
     boot = (ROOT.parent / 'soba_web/boot-status.html').read_text()
     boot = re.sub(r'<a href="[^\"]+">Tải bản Windows</a>', '', boot)
     boot = boot.replace('Quán Mì của tôi', 'Quán Mì Của Tôi').replace('Bản web không lưu. Tải lại hoặc đóng trang là chơi từ đầu.', 'Bản iPhone · Tiến trình lưu riêng trên máy.')
     boot = boot.replace('Tải lại game', 'Mở lại game').replace('location.reload()', "window.webkit.messageHandlers.game.postMessage({kind:'reload'})")
-    html = html.replace('</body>', boot + '<script>const nativeStatus=window.sobaStatus;window.sobaStatus=(state,detail)=>{nativeStatus(state,detail);if(state==="ready")window.webkit.messageHandlers.game.postMessage({kind:"ready"})};</script></body>')
+    html = html.replace('</body>', boot + '<script>const nativeStatus=window.sobaStatus;window.sobaStatus=(state,detail)=>{nativeStatus(state,detail);if(state==="ready")window.webkit.messageHandlers.game.postMessage({kind:"ready"})};</script><script src="mobile-ui.js"></script></body>')
     (OUTPUT / 'index.html').write_text(html)
+    shutil.copy2(ROOT / 'mobile-ui.js', OUTPUT / 'mobile-ui.js')
     for entry in json.loads((ROOT / 'runtime-lock.json').read_text()):
         target = OUTPUT / entry['path']; target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists() or hashlib.sha256(target.read_bytes()).hexdigest() != entry['sha256']:

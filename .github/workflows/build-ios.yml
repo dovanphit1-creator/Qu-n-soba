@@ -6,6 +6,9 @@ on:
     paths: ['soba_ios/**', '.github/workflows/build-ios.yml']
 permissions:
   contents: read
+concurrency:
+  group: iphone-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   resources:
     runs-on: ubuntu-latest
@@ -53,6 +56,17 @@ jobs:
           PY
       - name: Test native saves and launch bundled Python game
         run: xcodebuild -project soba_ios/QuanMiCuaToi.xcodeproj -scheme QuanMiCuaToi -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" -resultBundlePath soba_ios/build/IPhoneTests.xcresult CODE_SIGNING_ALLOWED=NO test
+      - name: Verify gameplay reached native persistent storage
+        run: |
+          GAME_DATA_DIR=$(xcrun simctl get_app_container "$IPHONE_SIMULATOR" vn.dovanphi.quanmicuatoi data)
+          python3 - "$GAME_DATA_DIR/Library/Application Support/QuanMiCuaToi/save-vnd.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          world=json.loads(Path(sys.argv[1]).read_text())
+          assert world['version']==10
+          assert world['cash']==10000000
+          print('PASS: welcome touch saved the actual Python game into native Application Support')
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:

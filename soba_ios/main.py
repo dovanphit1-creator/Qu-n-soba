@@ -16,6 +16,11 @@ from model import save_path
 
 
 class IPhoneApp(App):
+    def event(self, event):
+        if event.type == pg.VIDEORESIZE:
+            return  # Fixed logical resolution; WebKit scales it without stretching.
+        super().event(event)
+
     def font(self, size=22, bold=False):
         key = (size, bold)
         if key not in self.fonts:

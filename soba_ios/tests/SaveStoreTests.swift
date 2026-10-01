@@ -9,7 +9,7 @@ final class SaveStoreTests: XCTestCase {
         XCTAssertEqual(try store.initialBase64(), "")
         let original = Data("broken save".utf8)
         try original.write(to: store.file)
-        let good = "{\"version\":10,\"money\":10000000}"
+        let good = "{\"version\":10,\"cash\":10000000}"
         try store.write(snapshot: good, backups: ["save-vnd.json.123.bak":original.base64EncodedString()])
         XCTAssertEqual(try Data(contentsOf: root.appendingPathComponent("save-vnd.json.123.bak")), original)
         XCTAssertEqual(try String(contentsOf: store.file), good)
