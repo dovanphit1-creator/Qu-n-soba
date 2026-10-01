@@ -1,6 +1,6 @@
 """Package the verified Python/mobile runtime as offline Android assets."""
 from pathlib import Path
-import io, json, shutil, tarfile, importlib.util
+import io, json, shutil, tarfile, importlib.util, zipfile, gzip
 ROOT=Path(__file__).resolve().parent
 IOS=ROOT.parent/'soba_ios'
 
@@ -11,25 +11,30 @@ def build():
     assets=ROOT/'app/src/main/assets/game'
     if assets.exists():shutil.rmtree(assets)
     shutil.copytree(IOS/'Game', assets)
-    archive=assets/'iphone.tar.gz'
+    archive=assets/'game-bundle.bin'
+    (assets/'iphone.tar.gz').unlink(missing_ok=True)
     members=[]
-    with tarfile.open(archive) as tar:
-        for member in tar:
-            if not member.isfile():continue
-            data=tar.extractfile(member).read()
-            if member.name.endswith('/app.py'):
+    with zipfile.ZipFile(assets/'iphone.apk') as bundle:
+        if bundle.testzip() is not None:raise ValueError('Corrupt source game bundle')
+        for name in bundle.namelist():
+            if name.endswith('/'):continue
+            data=bundle.read(name)
+            if name.endswith('/app.py'):
                 data=data.decode().replace('iPhone','Android').encode()
-            if member.name.endswith('/main.py'):
+            if name.endswith('/main.py'):
                 data=data.decode().replace('iPhone','Android').replace('/ios-save','/android-save').encode()
-            if member.name.endswith('/brand.py'):
+            if name.endswith('/brand.py'):
                 data=data.decode().replace("GAME_VERSION = '1.8.0'", "GAME_VERSION = '1.8.0-beta.1'").encode()
-            members.append((member.name,data))
-    with tarfile.open(archive,'w:gz') as tar:
+            members.append((name,data))
+    payload=io.BytesIO()
+    with tarfile.open(fileobj=payload,mode='w') as tar:
         for name,data in members:
             info=tarfile.TarInfo(name);info.size=len(data);tar.addfile(info,io.BytesIO(data))
+    archive.write_bytes(gzip.compress(payload.getvalue(),mtime=0))
+    assert gzip.decompress(archive.read_bytes())==payload.getvalue()
     # The runtime loads the tar, not its source ZIP. Remove duplicate sources.
     (assets/'iphone.apk').unlink(missing_ok=True)
-    html=(assets/'index.html').read_text().replace('Bản iPhone','Bản Android')
+    html=(assets/'index.html').read_text().replace('Bản iPhone','Bản Android').replace('iphone.tar.gz','game-bundle.bin')
     html=html.replace('/runtime/packages/', '/assets/game/runtime/packages/')
     rc=assets/'runtime/cpythonrc.py'
     rc.write_text(rc.read_text().replace('/runtime/packages/', '/assets/game/runtime/packages/'))
@@ -39,5 +44,14 @@ def build():
     shutil.copy2(ROOT/'bridge.js',assets/'native-bridge.js')
     icons=ROOT/'app/src/main/res/drawable';icons.mkdir(parents=True,exist_ok=True)
     shutil.copy2(ROOT.parent/'soba_manual/assets/game.png',icons/'game.png')
+    # Bundle dependency notices with the application, alongside the runtime.
+    import importlib.metadata as metadata
+    notices=assets/'licenses';shutil.copytree(ROOT/'licenses',notices,dirs_exist_ok=True)
+    for name in ('pygbag','holidays','python-dateutil','six'):
+        distribution=metadata.distribution(name)
+        for entry in distribution.files:
+            if 'license' in entry.name.lower() or entry.name=='CONTRIBUTORS':
+                shutil.copy2(distribution.locate_file(entry),notices/(name+'-'+entry.name))
+    shutil.copy2(ROOT/'THIRD_PARTY_NOTICES.md',assets/'THIRD_PARTY_NOTICES.md')
     print('Android offline assets:',assets)
 if __name__=='__main__':build()

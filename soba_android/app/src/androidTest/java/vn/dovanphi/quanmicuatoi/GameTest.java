@@ -38,7 +38,7 @@ public class GameTest {
         scenario.onActivity(a->a.web.evaluateJavascript("JSON.stringify({url:location.href,mm:!!window.MM,ume:window.MM&&window.MM.UME,message:document.querySelector('#boot-message')?.textContent,error:document.querySelector('#boot-detail')?.textContent,stdout:document.querySelector('#stdout')?.value})",result->{details[0]=result;diagnostic.countDown();}));
         diagnostic.await(10,java.util.concurrent.TimeUnit.SECONDS);
         Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(new java.io.File(ctx.getExternalFilesDir(null),"android-game.png"));
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).executeShellCommand("screencap -p /data/local/tmp/android-game.png");
         fail("Bundled Python must reach its first rendered frame. "+details[0]);
     }
     @Test public void offlineTouchZoomAndColdRestore() throws Exception {
@@ -69,7 +69,7 @@ public class GameTest {
             startGame(scenario);waitReady(scenario);
             scenario.onActivity(a->a.web.evaluateJavascript("window.sobaIOSCommands.push({kind:'save'})",null));Thread.sleep(1500);
             assertEquals(9876543,new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8)).getInt("cash"));
-            device.takeScreenshot(new java.io.File(ctx.getExternalFilesDir(null),"android-game.png"));
+            device.executeShellCommand("screencap -p /data/local/tmp/android-game.png");
         }
     }
 }

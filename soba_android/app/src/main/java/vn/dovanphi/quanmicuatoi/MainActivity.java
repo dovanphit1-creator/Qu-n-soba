@@ -18,6 +18,7 @@ public final class MainActivity extends Activity {
     WebView web;
     SaveStore store;
     TextToSpeech speech;
+    boolean vietnameseVoice=false;
     boolean gameReady=false;
     volatile boolean exitPending=false;
     private static final String ORIGIN="https://appassets.androidplatform.net";
@@ -26,7 +27,7 @@ public final class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         try { store=new SaveStore(getFilesDir()); }
         catch(Exception e) { showError(); return; }
-        speech=new TextToSpeech(this, status->{ if(status==TextToSpeech.SUCCESS) speech.setLanguage(Locale.forLanguageTag("vi-VN")); });
+        speech=new TextToSpeech(this, status->{ if(status==TextToSpeech.SUCCESS) vietnameseVoice=speech.setLanguage(Locale.forLanguageTag("vi-VN"))>=TextToSpeech.LANG_AVAILABLE; });
         web=new WebView(this);setContentView(web);
         WebSettings settings=web.getSettings();
         settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
@@ -50,6 +51,7 @@ public final class MainActivity extends Activity {
         });
         web.setWebChromeClient(new WebChromeClient(){@Override public boolean onConsoleMessage(ConsoleMessage message){android.util.Log.i("SobaRuntime",message.message()+" @"+message.sourceId()+":"+message.lineNumber());return true;}});
         web.addJavascriptInterface(new NativeBridge(),"NativeGame");
+        if(android.os.Build.VERSION.SDK_INT>=33)getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::showExit);
         web.loadUrl(ORIGIN+"/assets/game/index.html");
     }
     private void showError(){new AlertDialog.Builder(this).setMessage("Không đọc được dữ liệu đã lưu. Hãy kiểm tra dung lượng máy; dữ liệu cũ được giữ nguyên.").setPositiveButton("Đóng",(d,w)->finish()).setCancelable(false).show();}
@@ -59,7 +61,7 @@ public final class MainActivity extends Activity {
         @JavascriptInterface public boolean save(String snapshot,String backups){try{store.write(snapshot,backups);if(exitPending)runOnUiThread(()->{exitPending=false;finish();});return true;}catch(Exception e){return false;}}
         @JavascriptInterface public void ready(){runOnUiThread(()->gameReady=true);}
         @JavascriptInterface public void reload(){runOnUiThread(()->{gameReady=false;web.reload();});}
-        @JavascriptInterface public void speak(String text){runOnUiThread(()->{if(speech!=null)speech.speak(text,TextToSpeech.QUEUE_ADD,null,"order");});}
+        @JavascriptInterface public void speak(String text){runOnUiThread(()->{if(speech!=null && vietnameseVoice)speech.speak(text,TextToSpeech.QUEUE_ADD,null,"order");});}
         @JavascriptInterface public void edit(String field,String value){
             if(!field.equals("name")&&!field.equals("price")&&!field.equals("shift_name"))return;
             runOnUiThread(()->{
@@ -74,8 +76,9 @@ public final class MainActivity extends Activity {
         }
     }
     @Override protected void onPause(){if(gameReady)command("{\"kind\":\"save\"}");super.onPause();}
-    @Override public void onBackPressed(){
-        if(!gameReady){super.onBackPressed();return;}
+    @Override public void onBackPressed(){showExit();}
+    private void showExit(){
+        if(!gameReady){finish();return;}
         new AlertDialog.Builder(this).setMessage("Lưu và thoát game?").setPositiveButton("Thoát",(d,w)->{
             exitPending=true;
             command("{\"kind\":\"save\"}");
