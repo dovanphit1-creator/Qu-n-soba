@@ -56,6 +56,7 @@ class Party:
     table: int = -1
     meals: list = field(default_factory=list)
     paid: int = 0
+    refunded: int = 0
     seats: list = field(default_factory=list)
     recipes: list = field(default_factory=list)
     prices: list = field(default_factory=list)
@@ -252,6 +253,39 @@ class World(StaffMixin):
             self.note(f'Bạn: Hôm nay quán đã hết nguyên liệu, xin hẹn nhóm {p.id:03} lần sau.')
         else:
             return False
+        return True
+
+    def refund_amount(self,gid):
+        p=self.group(gid)
+        if not p or p.refunded or p.paid<=0 or p.phase not in ('ticket','ready','seated','eating'):return 0
+        waiting=len(p.meals)<p.size or any(d and p.drinks_served[i]!=d for i,d in enumerate(p.drinks))
+        return p.paid if waiting else 0
+
+    def refund_party(self,gid):
+        amount=self.refund_amount(gid)
+        if not amount:
+            self.note('Chỉ hoàn tiền cho nhóm đã mua phiếu và còn chờ món / đồ uống.');return False
+        p=self.group(gid)
+        # A paid ticket is a liability: refund even if the shop's cash goes negative.
+        # Used ingredients remain expenses; full-ticket refund is the shop's apology.
+        self.cash-=amount;self.record('refunds',amount);p.refunded=amount
+        p.phase,p.phase_time='leaving',0
+        if p.table>=0:
+            t=self.tables[p.table]
+            t.dirty+=len(p.meals);t.needs_wipe=True;t.soil+=max(1,len(p.meals))
+            other=self.at_table(p.table);t.group=other[0].id if other else 0
+        p.seats=[]
+        cancelled={int(k):o for k,o in self.staff_cooking.items() if o['gid']==gid}
+        bids={o['bid'] for o in cancelled.values() if 'bid' in o}
+        for e in self.employees:
+            action=e['job']['action'] if e['job'] else []
+            if not action:continue
+            kind=action[0]
+            matching=(kind in ('door','collect','seat') and action[1]==gid) or (kind=='start' and action[2]==gid) or (kind in ('serve','drink') and len(action)>3 and action[3]==gid) or (kind=='lift' and action[1] in cancelled) or (kind in ('prep','top') and action[1] in bids)
+            if matching:e['job']=None;e['status']='Phiếu đã hoàn tiền'
+        for k in cancelled:self.staff_cooking.pop(str(k),None)
+        # Pots / prepared bowls stay in the kitchen for reuse or disposal, never returned to stock.
+        self.note(f'Đã hoàn {vnd(amount)} cho nhóm {gid:03}. Xin lỗi vì không đủ nguyên liệu; khách đang ra về.')
         return True
 
     def collect(self, gid):
@@ -483,7 +517,9 @@ class World(StaffMixin):
         for total in result.values():
             total['electricity'] = round(total['electricity'])
             total['utilities'] = total['electricity'] + total['water'] + total['gas']
-            total['profit'] = total['revenue'] - total['ingredients'] - total['utilities'] - total.get('wages',0) - total.get('employer_insurance',0) - total.get('termination',0)
+            total['refunds']=total.get('refunds',0)
+            total['net_revenue']=total['revenue']-total['refunds']
+            total['profit'] = total['net_revenue'] - total['ingredients'] - total['utilities'] - total.get('wages',0) - total.get('employer_insurance',0) - total.get('termination',0)
         return result
 
     def restock(self, name, count=10):
@@ -845,7 +881,7 @@ class World(StaffMixin):
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 6
+        data['version'] = 7
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -856,8 +892,12 @@ class World(StaffMixin):
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
         version = data.pop('version')
-        if version not in (2, 3, 4, 5, 6):
+        if version not in (2, 3, 4, 5, 6, 7):
             raise ValueError('Phiên bản lưu không phù hợp')
+        if version == 6:
+            from shutil import copy2
+            backup=Path(path).with_suffix('.v6.bak')
+            if not backup.exists():copy2(path,backup)
         if version == 5:
             from shutil import copy2
             backup=Path(path).with_suffix('.v5.bak')

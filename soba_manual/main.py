@@ -432,7 +432,13 @@ class App(ManagementUI,StaffUI):
         selected = w.group(self.selected)
         door = selected if selected and selected.phase in ('door','waiting') else (waiting[0] if waiting else None)
         self.box((1203, 262, 361, 236), '#e9dfbd', 9)
-        if door:
+        refundable=selected if selected and w.refund_amount(selected.id) else None
+        if refundable:
+            self.text(f'Nhóm {refundable.id:03} đang chờ món',(1216,280),23,INK,True)
+            self.wrap('Hết nguyên liệu? Có thể hoàn toàn bộ tiền phiếu và mời nhóm ra về.',(1216,323),322,21)
+            self.text('Hoàn: '+vnd(w.refund_amount(refundable.id)),(1216,405),22,RED,True)
+            self.button((1215,436,337,44),'Hoàn tiền & mời khách về',('refund_review',refundable.id),small=True,color=RED)
+        elif door:
             self.text(f'Nhóm {door.id:03} · {door.size} người', (1216, 274), 23, INK, True)
             self.text('"Quán còn chỗ cho chúng tôi không?"', (1216, 311), 17)
             self.button((1215, 342, 337, 42), 'Còn chỗ, mời khách vào', ('answer',door.id,'accept'), small=True)
@@ -524,12 +530,12 @@ class App(ManagementUI,StaffUI):
             start = self.history_page*7
             for i,(key,row) in enumerate(rows[start:start+7]):
                 y=501+i*43
-                values=[key,vnd(row['revenue']),vnd(row['ingredients']),vnd(row['utilities']+row.get('wages',0)+row.get('employer_insurance',0)+row.get('termination',0)),vnd(row['profit'])]
+                values=[key,vnd(row['net_revenue']),vnd(row['ingredients']),vnd(row['utilities']+row.get('wages',0)+row.get('employer_insurance',0)+row.get('termination',0)),vnd(row['profit'])]
                 for value,x in zip(values,[60,310,590,925,1270]):
                     self.text(value,(x,y),20, RED if x==1270 and row['profit']<0 else INK)
             if not rows:
                 self.text('Chưa có giao dịch. Mua nguyên liệu ở Chợ để bắt đầu.',(62, 532),24)
-            self.text('Giá vốn gồm phần đã nấu / thêm topping, kể cả phần đổ bỏ. Không trừ lại tiền mua kho.',(60,851),18,'#6b7357')
+            self.text('Doanh thu đã trừ hoàn tiền. Giá vốn gồm cả nguyên liệu đã dùng / đổ bỏ, không trừ lại tiền mua kho.',(60,851),18,'#6b7357')
             self.button((1210,834,145,43),'Trước',('page',-1),self.history_page>0,small=True)
             self.button((1380,834,145,43),'Sau',('page',1),start+7<len(rows),small=True)
         else:
@@ -537,13 +543,14 @@ class App(ManagementUI,StaffUI):
             self.text('HÔM NAY', (60,410),28,INK,True)
             today['staff_cost']=today.get('wages',0)+today.get('employer_insurance',0)
             y=460
-            for label, key in [('Doanh thu','revenue'),('Nguyên liệu đã sử dụng','ingredients'),('Điện, nước, ga','utilities'),('Lương + BH quán','staff_cost'),('Lợi nhuận','profit')]:
+            for label, key in [('Doanh thu sau hoàn tiền','net_revenue'),('Nguyên liệu đã sử dụng','ingredients'),('Điện, nước, ga','utilities'),('Lương + BH quán','staff_cost'),('Lợi nhuận','profit')]:
                 self.text(label,(60,y),24)
                 self.text(vnd(today.get(key,0)),(480,y),24,GREEN,True)
                 y+=55
             self.wrap('Chuẩn bị trước khi mở quán', (880, 415),570,28,INK,True)
             self.wrap('Mua bát/đĩa và nguyên liệu ở Chợ. Khi mở quán, bạn phải tự vận hành và không thể mua thêm hàng.',(880,470),585,25)
             self.wrap('Kết ca: bấm Đóng quán để ngừng nhận nhóm mới, phục vụ hết khách, xử lý hết mì, rửa bát và lau bàn/sàn. Bấm xác nhận đóng để nhận tổng kết.',(880,605),585,23)
+            self.text('Đã hoàn tiền: '+vnd(today.get('refunds',0)),(60,739),20,RED)
             self.text(f'Tiền mua kho hôm nay: {vnd(today.get("purchases",0))}',(60,779),20)
             self.text(f'Tiền mua dụng cụ: {vnd(today.get("equipment",0))}',(60,815),20)
             self.button((950,803,265,46),'Cách chơi',('modal','help'),small=True)
@@ -559,6 +566,13 @@ class App(ManagementUI,StaffUI):
         self.box((260,110,1080,785),'#fff0d1',20,'#bfa36b',3)
         if self.modal in ('hire_contract','fire_staff','cover_shift'):
             self.render_staff_contract()
+        elif self.modal=='refund':
+            gid=self.refund_group;p=self.world.group(gid);amount=self.world.refund_amount(gid)
+            self.text('HOÀN TIỀN & MỜI KHÁCH VỀ',(310,185),34,INK,True)
+            self.wrap(f'Nhóm {gid:03}: hoàn toàn bộ tiền phiếu {vnd(amount)}. Khách sẽ rời quán sau khi bạn xác nhận.',(310,280),960,27)
+            self.wrap('Bát đã phục vụ vẫn phải dọn, rửa và lau bàn. Nguyên liệu đã dùng vẫn tính chi phí; mì còn trong bếp có thể dùng cho nhóm khác hoặc đổ bỏ.',(310,420),960,24)
+            self.button((330,680,440,65),'Xác nhận hoàn '+vnd(amount),('refund_confirm',gid),bool(amount),small=True,color=RED)
+            self.button((830,680,440,65),'Quay lại',('dismiss',),small=True,color='#8a7352')
         elif self.modal=='welcome':
             self.text(GAME_TITLE,(800,185),43,INK,True,True)
             self.text('CHÀO MỪNG CHỦ QUÁN MỚI',(800,253),28,GREEN,True,True)
@@ -590,13 +604,13 @@ class App(ManagementUI,StaffUI):
             row['staff_extra']=row.get('employer_insurance',0)+row.get('termination',0)
             row.setdefault('wages',0)
             y=250
-            for label,key in [('Doanh thu bán phiếu','revenue'),('Giá vốn nguyên liệu đã dùng / hỏng','ingredients'),
+            for label,key in [('Doanh thu sau hoàn tiền','net_revenue'),('Giá vốn nguyên liệu đã dùng / hỏng','ingredients'),
                               ('Điện','electricity'),('Nước','water'),('Ga','gas'),('Lương đã phát sinh','wages'),('BH quán / phạt','staff_extra'),('LỢI NHUẬN','profit')]:
                 self.text(label,(312,y),24,INK,key=='profit')
                 self.text(vnd(row[key]),(995,y),25,GREEN if row[key]>=0 else RED,True)
                 y+=43
             self.text('Ngân sách còn lại: '+vnd(row['cash']),(310,625),27,GREEN,True)
-            self.wrap('Tiền nhập kho đã trừ khi mua; giá vốn không bị trừ lần nữa. Điện/nước/ga thanh toán lần này: '+vnd(row['payment']), (312,677),960,20)
+            self.wrap('Đã hoàn khách: '+vnd(row.get('refunds',0))+'. Giá vốn không trừ lại tiền mua kho. Điện/nước/ga thanh toán lần này: '+vnd(row['payment']), (312,677),960,20)
             self.button((855,811,420,55),'Về trang đóng quán',('dismiss',))
         elif self.modal=='confirm_new':
             self.text('TẠO VÁN VND MỚI?',(800,280),36,INK,True,True)
@@ -833,6 +847,10 @@ class App(ManagementUI,StaffUI):
             if self.world.open_shop():self.persist()
         elif kind=='answer':
             self.selected=args[0]; self.world.respond(*args)
+        elif kind=='refund_review':
+            if self.world.refund_amount(args[0]):self.refund_group=args[0];self.modal='refund'
+        elif kind=='refund_confirm':
+            self.world.refund_party(args[0]);self.modal=None;self.persist()
         elif kind=='wash':
             self.world.wash()
         elif kind=='buy':
@@ -1000,6 +1018,8 @@ def smoke_test(output):
     from staff_smoke import check_staff_ui,check_windows_background
     check_staff_ui(app,output)
     check_windows_background(App,output)
+    from refund_smoke import check_refund_ui
+    check_refund_ui(app,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)
     from update_smoke import check_update_ui
@@ -1007,7 +1027,7 @@ def smoke_test(output):
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['refund-ui','refund-once','refund-save','staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 
