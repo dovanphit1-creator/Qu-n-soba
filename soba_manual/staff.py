@@ -63,7 +63,7 @@ class StaffMixin:
                 claims=list(traits) if self.rng.random()<.4 else ['Chăm','Cẩn thận','Nhanh']
                 self.candidates.append({'id':self.next_employee,'name':NAMES[self.rng.randrange(len(NAMES))],
                     'birth_year':self.now.year-self.rng.randint(19,45),'hometown':self.rng.choice(['Hà Nội','Đà Nẵng','Huế','Nghệ An','TP. Hồ Chí Minh','Cần Thơ','Hải Phòng','Bình Định']),
-                    'cv_traits':claims,'role':role,'wage':35000 if role=='baito' else 8_000_000,'traits':traits})
+                    'cv_traits':claims,'role':role,'wage':self.rng.choice([30000,35000,40000,45000,50000]) if role=='baito' else self.rng.choice([6500000,8000000,9500000,11000000]),'traits':traits})
                 self.next_employee+=1
         self.note('Đã đăng bài tuyển. Có 4 CV ứng tuyển; tính cách tự khai cần kiểm chứng khi làm.');return True
 
@@ -81,6 +81,7 @@ class StaffMixin:
         for c in self.candidates:
             c.setdefault('birth_year',self.now.year-25);c.setdefault('hometown','Hà Nội');c.setdefault('cv_traits',['Chăm','Cẩn thận'])
         for e in self.employees:
+            e.setdefault('agreed_wage',e['wage']);e['wage']=e['agreed_wage']
             e.setdefault('birth_year',self.now.year-25);e.setdefault('hometown','Hà Nội');e.setdefault('cv_traits',['Chăm','Cẩn thận'])
             e.setdefault('overtime_hours',max(0,e['shift_hours']-8) if e['role']=='contract' else 0)
             if e['role']=='contract':
@@ -92,7 +93,9 @@ class StaffMixin:
     def hire(self, cid, wage=None, months=12):
         c=next((c for c in self.applicants() if c['id']==cid),None)
         if not c or len(self.employees)>=8:return False
-        wage=c['wage'] if wage is None else wage
+        if wage is not None and wage!=c['wage']:
+            self.note('Lương mong muốn trong CV là cố định. Chỉ có thể đồng ý hoặc từ chối.');return False
+        wage=c['wage']
         if type(wage)!=int or wage<(MIN_HOURLY if c['role']=='baito' else MIN_MONTHLY):return False
         if months not in (3,6,12):return False
         today=self.now.date();until=(today.replace(day=1)+timedelta(days=32*months)).replace(day=1)
@@ -100,7 +103,7 @@ class StaffMixin:
         index=today.year*12+today.month-1+months
         year,month=divmod(index,12);month+=1
         until=today.replace(year=year,month=month,day=min(today.day,calendar.monthrange(year,month)[1]))
-        e=dict(c,wage=wage,hired=today.isoformat(),contract_until=until.isoformat(),
+        e=dict(c,wage=wage,agreed_wage=wage,hired=today.isoformat(),contract_until=until.isoformat(),
                shift_start=8*60,shift_hours=8,enabled=False,leaves={},leave_sent='',
                attendance={},paid_days=[],present=False,job=None,tasks=0,observed=[],
                x=700.,y=450.,floor=0,last_work_date='',status='Chưa cài ca',
@@ -355,6 +358,7 @@ class StaffMixin:
         key=day.isoformat()
         row=e['attendance'].setdefault(key,dict(seconds=0.,gross=0.,insurance=0.,employer=0.,ot_premium=0.))
         old=row['seconds'];normal=(0 if overtime else dt) if overtime is not None else min(dt,max(0,8*3600-old));overtime=dt-normal
+        e['wage']=e['agreed_wage']
         if e['role']=='baito':gross=e['wage']*dt/3600;premium=0;ins=emp=0
         else:
             hour=e['wage']/max(1,calendar.monthrange(day.year,day.month)[1]-9)/8

@@ -19,7 +19,7 @@ shutil.copy2(SOURCE/'assets/game.png',GAME/'assets/game.png')
 shutil.copy2(SOURCE/'assets/game.png',GAME/'favicon.png')
 (GAME/'assets/noodle-ready.wav').unlink(missing_ok=True)
 subprocess.run(['ffmpeg','-y','-loglevel','error','-i',str(SOURCE/'assets/noodle-ready.wav'),'-c:a','libvorbis',str(GAME/'assets/noodle-ready.ogg')],check=True)
-for name in ('model.py','management.py','brand.py','vn_calendar.py','staff.py','staff_ui.py','catalog.py','audio.py','background.py','operations.py'):
+for name in ('model.py','management.py','brand.py','vn_calendar.py','staff.py','staff_ui.py','catalog.py','audio.py','background.py','operations.py','finance.py','finance_ui.py'):
     shutil.copy2(SOURCE/name,GAME/name)
 (GAME/'app.py').write_text((SOURCE/'main.py').read_text().replace('noodle-ready.wav','noodle-ready.ogg'))
 subprocess.run([sys.executable,'-m','pygbag','--build','--no_opt','--title','Quán Mì Của Tôi','--icon',str(GAME/'favicon.png'),str(GAME)],check=True)

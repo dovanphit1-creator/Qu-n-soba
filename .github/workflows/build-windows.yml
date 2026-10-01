@@ -3,7 +3,7 @@ name: Build and verify Windows game
 on:
   pull_request:
   push:
-    branches: [main, build-windows-app, update-1.5.0]
+    branches: [main, build-windows-app, update-1.6.0]
   workflow_dispatch:
 
 permissions:
@@ -39,7 +39,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Missing Windows icon resources' }
           $info = (Get-Item '.\dist\Quán Mì Của Tôi.exe').VersionInfo
           if ($info.ProductName -ne 'Quán Mì Của Tôi') { throw 'Incorrect permanent product name' }
-          if ($info.ProductVersion -ne '1.5.0') { throw 'Incorrect release version' }
+          if ($info.ProductVersion -ne '1.6.0') { throw 'Incorrect release version' }
           if ($info.CompanyName -ne 'Đỗ Văn Phi') { throw 'Incorrect publisher credit' }
           $result = Get-Content $report -Raw | ConvertFrom-Json
           if (-not $result.ok -or -not $result.frozen -or $result.platform -ne 'win32') { throw 'Invalid executable verification report' }
@@ -94,6 +94,8 @@ jobs:
         with:
           name: Windows-verification
           path: |
+            finance-preview.png
+            finance-verification.json
             service-report-preview.png
             service-verification.json
             baito-kitchen-preview.png
@@ -115,13 +117,13 @@ jobs:
             shared-preview.png
           if-no-files-found: error
 
-      - name: Publish verified 1.5.0 release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/update-1.5.0'
+      - name: Publish verified 1.6.0 release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/update-1.6.0'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $hash = (Get-FileHash 'installer-output/QuanMiCuaToi-Setup.exe' -Algorithm SHA256).Hash.ToLower()
           Set-Content -Encoding utf8 -Path 'installer-output/SHA256.txt' -Value ($hash + '  QuanMiCuaToi-Setup.exe')
-          gh release create '1.5.0' 'installer-output/QuanMiCuaToi-Setup.exe' 'installer-output/SHA256.txt' --target '${{ github.sha }}' --title 'Quán Mì Của Tôi 1.5.0' --notes-file 'soba_manual/RELEASE_NOTES_1.5.0.md' --latest
+          gh release create '1.6.0' 'installer-output/QuanMiCuaToi-Setup.exe' 'installer-output/SHA256.txt' --target '${{ github.sha }}' --title 'Quán Mì Của Tôi 1.6.0' --notes-file 'soba_manual/RELEASE_NOTES_1.6.0.md' --latest
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }

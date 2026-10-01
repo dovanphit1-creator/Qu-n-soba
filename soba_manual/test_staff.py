@@ -50,7 +50,7 @@ class StaffTests(unittest.TestCase):
 
     def test_daily_pay_exact_once_and_shift_gate(self):
         w=self.world();a=self.hire(w,'baito');w.staff_auto_open=False
-        self.clock[0]+=timedelta(hours=1);w.update(3600);gross=35000
+        self.clock[0]+=timedelta(hours=1);w.update(3600);gross=a['agreed_wage']
         self.assertEqual(a['attendance']['2026-10-02']['gross'],gross)
         self.clock[0]=self.clock[0].replace(hour=19);before=w.cash
         w.update(0);self.assertEqual(w.cash,before-gross);self.assertEqual(w.payroll[-1]['net'],gross)
@@ -61,7 +61,7 @@ class StaffTests(unittest.TestCase):
         w=self.world();e=self.hire(w,'contract');w.staff_auto_open=False
         self.clock[0]=self.clock[0].replace(hour=8);w.update(0)
         self.clock[0]+=timedelta(hours=9,minutes=30);w.update(9.5*3600);r=e['attendance']['2026-10-02']
-        hour=8_000_000/22/8
+        hour=e['agreed_wage']/22/8
         self.assertAlmostEqual(r['gross'],hour*10) # Friday overtime 200%.
         self.assertAlmostEqual(r['insurance'],hour*8*.105)
         self.assertEqual(cycle_key(date(2026,10,17)),'2026-10')

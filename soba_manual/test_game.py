@@ -158,11 +158,11 @@ class RulesTest(unittest.TestCase):
         self.assertTrue(w.close_shop())
         report=w.last_report
         self.assertEqual(report['ingredients'],STOCK_COST['Mì tươi'])
-        self.assertEqual(report['gas'],800)
+        self.assertEqual(report['gas'],456)
         self.assertGreaterEqual(report['electricity'],350)
-        self.assertEqual(report['water'],500)
-        self.assertEqual(report['profit'],-STOCK_COST['Mì tươi']-report['utilities'])
-        self.assertEqual(w.cash,start_cash-report['utilities'])
+        self.assertEqual(report['water'],150)
+        self.assertEqual(report['profit'],-STOCK_COST['Mì tươi']-report['utilities']-report.get('rent',0))
+        self.assertEqual(w.cash,start_cash)
         cash=w.cash
         self.assertFalse(w.close_shop())
         self.assertEqual(w.cash,cash)

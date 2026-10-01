@@ -8,6 +8,7 @@ import calendar
 from datetime import datetime, timedelta
 from vn_calendar import vn_now, holiday_name, VIETNAM
 from staff import StaffMixin
+from finance import FinanceMixin
 from catalog import STOCK_COST, STOCK_UNITS, DRINKS, DRINK_PRICES
 
 COOK_SECONDS = 210.0
@@ -94,7 +95,7 @@ class Table:
     soil: int = 0
 
 
-class World(StaffMixin):
+class World(StaffMixin,FinanceMixin):
     def __init__(self, seed=None, practice=False, clock=None):
         self._clock = clock or vn_now
         self.date_key = self.now.date().isoformat()
@@ -103,6 +104,7 @@ class World(StaffMixin):
         self.elapsed = 0.0
         self.service_time_scale = SERVICE_TIME_SCALE
         self.init_staff()
+        self.init_finance()
         self.sound_events = []
         self.speech_events = []
         self.reputation = 7.0
@@ -361,7 +363,7 @@ class World(StaffMixin):
             self.note('Hết mì tươi. Chỉ mua thêm ở Chợ sau khi đóng quán.')
             return False
         self.consume('Mì tươi')
-        self.record('gas', 800)
+        self.use_utility('gas', .012)
         self.pots[index] = 0.0
         self.note(f'Nồi {index+1}: bắt đầu luộc 3 phút 30 giây. Vớt trong 10 giây sau khi chín.')
         return True
@@ -490,7 +492,7 @@ class World(StaffMixin):
         self.wash_owner=owner
         self.washing = self.sink
         self.sink = 0
-        self.record('water', self.washing * 200)
+        self.use_utility('water', self.washing * .005)
         self.wash_left = SERVICE_TIME_SCALE*(15 + sum(self.rng.uniform(20,40) for _ in range(self.washing)))
         self.note(f'Rửa {self.washing} bát: khoảng {self.wash_left:.0f} giây. Bát thêm sau cần bấm rửa lượt mới.')
         return True
@@ -557,7 +559,7 @@ class World(StaffMixin):
             total['average_stars']=total.get('star_sum',0)/total['rating_count'] if total['rating_count'] else None
             total['refunds']=total.get('refunds',0)
             total['net_revenue']=total['revenue']-total['refunds']
-            total['profit'] = total['net_revenue'] - total['ingredients'] - total['utilities'] - total.get('wages',0) - total.get('employer_insurance',0) - total.get('termination',0)
+            total['profit'] = total['net_revenue'] - total['ingredients'] - total['utilities'] - total.get('wages',0) - total.get('employer_insurance',0) - total.get('termination',0) - total.get('rent',0) - total.get('shop_tax',0)
         return result
 
     def restock(self, name, count=10):
@@ -741,6 +743,7 @@ class World(StaffMixin):
         if self.cash < 0:
             self.note('Cần thanh toán chi phí còn thiếu trước khi mở quán.')
             return False
+        if self.lease is None:self.sign_lease(0)
         self.open, self.closing = True, False
         self.dirt_clock = 0
         self.note('Quán đã mở. Không mua hàng hoặc tạm dừng trong lúc kinh doanh.')
@@ -787,26 +790,21 @@ class World(StaffMixin):
             self.note('Chưa thể đóng: hãy rửa hết bát, lau các bàn và nhấp LAU ở các vết bẩn trên sàn.')
             return False
         payment = 0
-        for row in self.ledger.values():
-            total = round(row['electricity']) + row['water'] + row['gas']
-            due = total - row['utility_paid']
-            payment += due
-            row['utility_paid'] = total
-        self.cash -= payment
         self.record('closes', 1)
         key = self.now.date().isoformat()
         self.last_report = dict(self.totals()[key], date=key, cash=self.cash, payment=payment)
         self.open, self.closing = False, False
-        self.note('Đã đóng quán và thanh toán điện, nước, ga. Xem tổng kết trước khi về quản lý.')
+        self.note('Đã đóng quán. Điện nước ga được chốt theo lịch hóa đơn; xem tổng kết và Chi phí.')
         return True
 
     def update(self, dt):
         dt=max(0,dt)
+        self.process_finance()
         self.process_deliveries()
         self.update_staff(dt)
         if not self.open:
             return
-        self.record('electricity', 6000 * dt / 3600)
+        self.use_utility('electricity', 2 * dt / 3600)
         self.elapsed += dt
         today = self.now.date().isoformat()
         if self.date_key != today:
@@ -841,7 +839,7 @@ class World(StaffMixin):
                 spot=self.sweep_spot
                 if spot in self.dirt:self.dirt.remove(spot)
                 self.dirt_reasons.pop(str(spot),None);self.sweep_spot=-1
-                self.record('water',500);self.note('Đã lau sạch vết bẩn trên sàn.')
+                self.use_utility('water',.01);self.note('Đã lau sạch vết bẩn trên sàn.')
         self.spawn_left -= dt
         if self.spawn_left <= 0:
             self.spawn_left += self.rng.uniform(2.0, 3.0)
@@ -930,7 +928,7 @@ class World(StaffMixin):
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 8
+        data['version'] = 9
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -941,8 +939,12 @@ class World(StaffMixin):
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
         version = data.pop('version')
-        if version not in (2, 3, 4, 5, 6, 7, 8):
+        if version not in (2, 3, 4, 5, 6, 7, 8, 9):
             raise ValueError('Phiên bản lưu không phù hợp')
+        if version == 8:
+            from shutil import copy2
+            backup=Path(path).with_suffix('.v8.bak')
+            if not backup.exists():copy2(path,backup)
         if version == 7:
             from shutil import copy2
             backup=Path(path).with_suffix('.v7.bak')
@@ -1034,6 +1036,7 @@ class World(StaffMixin):
         if len(obj.pots) != 6 or not 1 <= obj.floors <= 3 or not 1 <= len(obj.tables) <= 18 or obj.reputation < 0:
             raise ValueError('Dữ liệu lưu không hợp lệ')
         obj.migrate_staff()
+        if version<9:obj.migrate_finance()
         return obj
 
 

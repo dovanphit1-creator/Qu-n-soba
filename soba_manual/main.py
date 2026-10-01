@@ -16,6 +16,7 @@ from model import (World, RECIPES, STOCK_COST, TABLE_LAYOUT, POT_POS, BOWL_POS,
 from vn_calendar import WEEKDAYS
 from management import ManagementUI
 from staff_ui import StaffUI
+from finance_ui import FinanceUI
 from brand import GAME_TITLE, WINDOWS_APP_ID, GAME_VERSION, PUBLISHER
 
 W, H = 1600, 1000
@@ -39,7 +40,7 @@ def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-class App(ManagementUI,StaffUI):
+class App(ManagementUI,StaffUI,FinanceUI):
     def __init__(self, headless=False, persistent=True):
         self.background=None
         self.no_input_seconds=0
@@ -492,7 +493,7 @@ class App(ManagementUI,StaffUI):
         self.button((1384, 825, 175, 45), 'Đánh giá', ('modal','reviews'), small=True, color='#836647')
         self.button((1207, 879, 352, 45), 'Dọn xong · xác nhận đóng' if w.closing else 'Đóng quán / kết thúc ca', ('close',), small=True, color='#785b42')
         self.button((1207, 936, 169, 35), 'F1 · Cách chơi', ('modal','help'), small=True, color='#687357')
-        self.text('Đang dọn cuối ca' if w.closing else 'Quán đang mở', (1384, 945), 16, GREEN, True)
+        self.button((1384,936,175,35),'Chi phí / hóa đơn',('modal','finance'),small=True)
 
     def render_closed(self):
         w = self.world
@@ -510,12 +511,14 @@ class App(ManagementUI,StaffUI):
         self.button((1305, 173, 253, 82), 'Lưu và thoát' if self.persistent else 'Chơi lại từ đầu', ('quit',) if self.persistent else ('modal','confirm_new'), color='#7c674b')
         tabs = [('overview','Tổng quan'), ('inventory','Kho nguyên liệu'), ('market','Chợ'),
                 ('expansion','Bàn / tầng'), ('supplier','Nhà cung cấp'), ('menu','Tạo menu'),
-                ('staff','Nhân sự'), ('day','Ngày'), ('month','Tháng'), ('year','Năm')]
+                ('staff','Nhân sự'), ('finance','Chi phí'), ('day','Ngày'), ('month','Tháng'), ('year','Năm')]
         for i, (key, label) in enumerate(tabs):
-            self.button((36+i*153, 305, 145, 52), label, ('tab',key),
+            self.button((36+i*139, 305, 132, 52), label, ('tab',key),
                         color=GREEN if self.manager_tab==key else '#7c876d')
         self.box((35, 380, 1525, 520), '#fff3d9', 12)
-        if self.manager_tab=='staff':
+        if self.manager_tab=='finance':
+            self.render_finance()
+        elif self.manager_tab=='staff':
             self.render_staff()
         elif self.manager_tab=='expansion':
             self.render_expansion()
@@ -553,7 +556,7 @@ class App(ManagementUI,StaffUI):
             start = self.history_page*7
             for i,(key,row) in enumerate(rows[start:start+7]):
                 y=501+i*43
-                values=[key,vnd(row['net_revenue']),vnd(row['ingredients']),vnd(row['utilities']+row.get('wages',0)+row.get('employer_insurance',0)+row.get('termination',0)),vnd(row['profit'])]
+                values=[key,vnd(row['net_revenue']),vnd(row['ingredients']),vnd(row['utilities']+row.get('wages',0)+row.get('employer_insurance',0)+row.get('termination',0)+row.get('rent',0)+row.get('shop_tax',0)),vnd(row['profit'])]
                 for value,x in zip(values,[60,310,590,925,1270]):
                     self.text(value,(x,y),20, RED if x==1270 and row['profit']<0 else INK)
                 stars=row.get('average_stars');score=f'{stars:.2f}/5' if stars is not None else 'Chưa chấm'
@@ -566,9 +569,9 @@ class App(ManagementUI,StaffUI):
         else:
             today=w.totals().get(w.now.date().isoformat(),{})
             self.text('HÔM NAY', (60,410),28,INK,True)
-            today['staff_cost']=today.get('wages',0)+today.get('employer_insurance',0)
+            today['staff_cost']=today.get('wages',0)+today.get('employer_insurance',0)+today.get('rent',0)+today.get('shop_tax',0)
             y=460
-            for label, key in [('Doanh thu sau hoàn tiền','net_revenue'),('Nguyên liệu đã sử dụng','ingredients'),('Điện, nước, ga','utilities'),('Lương + BH quán','staff_cost'),('Lợi nhuận','profit')]:
+            for label, key in [('Doanh thu sau hoàn tiền','net_revenue'),('Nguyên liệu đã sử dụng','ingredients'),('Điện, nước, ga','utilities'),('Lương/BH + thuê/thuế','staff_cost'),('Lợi nhuận','profit')]:
                 self.text(label,(60,y),24)
                 self.text(vnd(today.get(key,0)),(480,y),24,GREEN,True)
                 y+=55
@@ -591,6 +594,11 @@ class App(ManagementUI,StaffUI):
             return
         shade=pg.Surface((W,H),pg.SRCALPHA); shade.fill((10,28,23,190)); self.canvas.blit(shade,(0,0))
         self.buttons=[]
+        if self.modal=='finance':
+            self.box((35,360,1525,540),'#fff0d1',12)
+            self.render_finance()
+            self.button((60,845,180,35),'Quay lại',('dismiss',),small=True)
+            return
         self.box((260,110,1080,785),'#fff0d1',20,'#bfa36b',3)
         if self.modal in ('hire_contract','fire_staff','cover_shift'):
             self.render_staff_contract()
@@ -629,16 +637,17 @@ class App(ManagementUI,StaffUI):
             row=self.world.last_report
             self.text('TỔNG KẾT KINH DOANH HÔM NAY',(310,149),34,INK,True)
             self.text(row['date']+' · Đã đóng quán',(310,207),24,GREEN,True)
+            row['premises_tax']=row.get('rent',0)+row.get('shop_tax',0)
             row['staff_extra']=row.get('employer_insurance',0)+row.get('termination',0)
             row.setdefault('wages',0)
             y=250
             for label,key in [('Doanh thu sau hoàn tiền','net_revenue'),('Giá vốn nguyên liệu đã dùng / hỏng','ingredients'),
-                              ('Điện','electricity'),('Nước','water'),('Ga','gas'),('Lương đã phát sinh','wages'),('BH quán / phạt','staff_extra'),('LỢI NHUẬN','profit')]:
+                              ('Điện','electricity'),('Nước','water'),('Ga','gas'),('Lương đã phát sinh','wages'),('BH quán / phạt','staff_extra'),('Thuê mặt bằng + thuế','premises_tax'),('LỢI NHUẬN','profit')]:
                 self.text(label,(312,y),24,INK,key=='profit')
                 self.text(vnd(row[key]),(995,y),25,GREEN if row[key]>=0 else RED,True)
-                y+=43
+                y+=39
             self.text('Ngân sách còn lại: '+vnd(row['cash']),(310,625),27,GREEN,True)
-            self.wrap('Đã hoàn khách: '+vnd(row.get('refunds',0))+'. Giá vốn không trừ lại tiền mua kho. Điện/nước/ga thanh toán lần này: '+vnd(row['payment']), (312,677),960,20)
+            self.wrap('Đã hoàn khách: '+vnd(row.get('refunds',0))+'. Giá vốn không trừ lại tiền mua kho. Điện/nước/ga trả theo hóa đơn tại Chi phí.', (312,677),960,20)
             stars=row.get('average_stars');rating=f'{stars:.2f}/5 sao' if stars is not None else 'Chưa có đánh giá'
             self.text(f'{row.get("customers",0)} khách vào · {row.get("rating_count",0)} lượt chấm · Trung bình {rating}',(312,735),23,GREEN,True)
             self.button((855,811,420,55),'Về trang đóng quán',('dismiss',))
@@ -873,6 +882,7 @@ class App(ManagementUI,StaffUI):
 
     def action(self, action):
         kind,*args=action
+        if self.finance_action(kind,args):return
         if self.extra_action(kind,args):return
         if kind=='tab':
             self.manager_tab=args[0]; self.history_page=0; self.input_focus=None; pg.key.stop_text_input()
@@ -1087,6 +1097,8 @@ def smoke_test(output):
     check_baito_kitchen_ui(app,output)
     from service_smoke import check_service_ui
     check_service_ui(app,output)
+    from finance_smoke import check_finance_ui
+    check_finance_ui(app,output)
     check_windows_background(App,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)

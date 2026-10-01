@@ -240,3 +240,7 @@ soba_web/game/favicon.png
 
 # Pinned browser speech engine is fetched by build_voice.py
 soba_web/voice/
+
+soba_web/game/finance.py
+soba_web/game/finance_ui.py
+soba_web/game/operations.py

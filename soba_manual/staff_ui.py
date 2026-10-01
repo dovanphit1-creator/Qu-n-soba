@@ -21,9 +21,7 @@ class StaffUI:
             for i,c in enumerate(w.applicants()):
                 y=537+i*73;role='Baito · horu / phụ bếp' if c['role']=='baito' else 'Chính thức · bếp / hỗ trợ horu'
                 self.text(f'{c["name"]} #{c["id"]} · {c["birth_year"]} · {c["hometown"]} · {role}',(65,y),20,'#26372e',True)
-                self.text('CV tự khai: '+', '.join(c['cv_traits'])+' · '+vnd(c['wage'])+('/giờ' if c['role']=='baito' else '/tháng'),(65,y+28),17)
-                self.button((1020,y+22,55,35),'−',('offer',c['id'],-1),small=True)
-                self.button((1083,y+22,55,35),'+',('offer',c['id'],1),small=True)
+                self.text('CV tự khai: '+', '.join(c['cv_traits'])+' · Lương mong muốn: '+vnd(c['wage'])+('/giờ' if c['role']=='baito' else '/tháng'),(65,y+28),17)
                 self.button((1150,y+22,220,35),'Xem CV / phỏng vấn',('hire_review',c['id']),len(w.employees)<8,small=True)
                 self.button((1380,y+22,120,35),'Từ chối CV',('reject_cv',c['id']),small=True,color='#8a7352')
             if not w.candidates:self.wrap('Chưa có CV. Đăng bài tuyển để nhận hồ sơ ứng viên. Không thể biết tính cách thật trước khi họ làm việc.',(65,555),1350,24)
@@ -32,7 +30,8 @@ class StaffUI:
             for i,e in enumerate(w.employees[self.staff_page*3:self.staff_page*3+3]):
                 y=491+i*101;start=e['shift_start'];end=w.shift_end(e)
                 self.text(f'{e["name"]} #{e["id"]} · '+('Baito' if e['role']=='baito' else 'Chính thức')+' · '+e['status'],(65,y),20,'#26372e',True)
-                self.text('Quan sát: '+(', '.join(e['observed']) or 'Chưa biết')+' · Công nợ '+vnd(w.payroll_due(e)),(65,y+29),17)
+                self.text('Lương đã chốt '+vnd(e['agreed_wage'])+('/giờ' if e['role']=='baito' else '/tháng')+' · Công nợ '+vnd(w.payroll_due(e)),(65,y+29),17)
+                self.text('Quan sát: '+(', '.join(e['observed']) or 'Chưa biết'),(65,y+56),16)
                 self.text(f'{start//60:02}:{start%60:02} – {end//60:02}:{end%60:02}',(760,y+5),21)
                 self.text('Chấm máy theo giờ thực làm' if e['role']=='baito' else '8h làm + 30p nghỉ · TC '+str(e['overtime_hours'])+'h',(760,y+40),17)
                 for x,label,kind,delta in [(1020,'←30p','shift_start',-30),(1110,'30p→','shift_start',30)]:
@@ -124,9 +123,6 @@ class StaffUI:
         elif kind=='staff_page':self.staff_page=max(0,self.staff_page+args[0])
         elif kind=='staff_panel':self.staff_panel=not self.staff_panel;self.modal=None
         elif kind=='hire_months':self.hire_months={3:6,6:12,12:3}[self.hire_months]
-        elif kind=='offer':
-            c=next(c for c in w.applicants() if c['id']==args[0]);step=5000 if c['role']=='baito' else 500000
-            c['wage']=max(MIN_HOURLY if c['role']=='baito' else MIN_MONTHLY,c['wage']+args[1]*step)
         elif kind=='hire_review':self.staff_review_id=args[0];self.modal='hire_contract'
         elif kind=='hire_confirm':
             w.hire(self.staff_review_id,months=self.hire_months);self.modal=None;self.persist()
@@ -196,7 +192,7 @@ class StaffUI:
             role='Baito, trả theo giờ cuối ca/ngày, không phí chấm dứt.' if c['role']=='baito' else f'Hợp đồng {self.hire_months} tháng; ca chuẩn 8h. Phạt nghỉ trước hạn: 1/2 lương cơ bản.'
             self.wrap(c['name']+f' · sinh {c["birth_year"]} · {c["hometown"]} · '+role,(310,250),960,24)
             self.text('CV tự khai: '+', '.join(c['cv_traits'])+' (có thể không đúng)',(310,335),21)
-            self.wrap('Lương đã chốt: '+vnd(c['wage'])+('/giờ' if c['role']=='baito' else '/tháng')+'. Tính cách chưa biết. Lịch nghỉ 9 ngày/tháng theo quy tắc quán, không thứ Sáu–CN hoặc lễ. Baito đặt 1–12h dự kiến, nhận lương theo chấm công. Chính thức cố định 8h làm + 30p nghỉ, tăng ca đặt riêng.',(310,390),960,24)
+            self.wrap('Lương yêu cầu (khóa sau tuyển): '+vnd(c['wage'])+('/giờ' if c['role']=='baito' else '/tháng')+'. Tính cách chưa biết. Lịch nghỉ 9 ngày/tháng theo quy tắc quán, không thứ Sáu–CN hoặc lễ. Baito đặt 1–12h dự kiến, nhận lương theo chấm công. Chính thức cố định 8h làm + 30p nghỉ, tăng ca đặt riêng.',(310,390),960,24)
             if c['role']=='contract':self.wrap('Chốt lương ngày 17, trả ngày 27. Tăng ca ngày thường 150%, cuối tuần 200%, lễ 300%. BH người lao động 10,5%, quán 21,5%; thuế tự khấu trừ trước thực nhận. Lương được phân bổ theo giờ làm thực tế.',(310,520),960,21)
             self.button((330,740,440,65),'Đồng ý thuê / ký',('hire_confirm',),small=True)
         self.button((830,740 if self.modal!='fire_staff' else 650,440,65),'Quay lại',('dismiss',),small=True,color='#8a7352')
