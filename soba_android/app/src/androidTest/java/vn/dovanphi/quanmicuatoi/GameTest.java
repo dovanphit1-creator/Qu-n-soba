@@ -3,6 +3,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.Until;
+import androidx.test.uiautomator.UiObject2;
 import android.content.Context;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,6 +52,10 @@ public class GameTest {
             // Start with DOM click only for the loader; gameplay uses a real device touch.
             startGame(scenario);
             waitReady(scenario);
+            UiObject2 fullScreenTip=device.wait(Until.findObject(By.text("Got it")),2500);
+            if(fullScreenTip!=null)fullScreenTip.click();
+            Thread.sleep(700);
+            device.executeShellCommand("screencap -p /data/local/tmp/android-welcome.png");
             final int[] button={0,0};
             final java.util.concurrent.CountDownLatch coordinates=new java.util.concurrent.CountDownLatch(1);
             scenario.onActivity(a->a.web.evaluateJavascript("(()=>{const b=document.querySelector('#canvas').getBoundingClientRect();return [b.x+b.width*.5,b.y+b.height*.794,devicePixelRatio]})()",result->{
@@ -60,6 +67,7 @@ public class GameTest {
             while(!store.file.exists()&&System.currentTimeMillis()<end)Thread.sleep(200);
             assertTrue("Welcome touch creates actual Python save",store.file.exists());
             JSONObject saved=new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8));assertEquals(10000000,saved.getInt("cash"));
+            device.executeShellCommand("screencap -p /data/local/tmp/android-management.png");
             scenario.onActivity(a->a.web.evaluateJavascript("document.querySelector('#mobile-tools button').click()",null));
             Thread.sleep(500);
             scenario.onActivity(a->a.web.evaluateJavascript("window.sobaIOSCommands.push({kind:'save'})",null));Thread.sleep(1000);
@@ -69,6 +77,8 @@ public class GameTest {
             startGame(scenario);waitReady(scenario);
             scenario.onActivity(a->a.web.evaluateJavascript("window.sobaIOSCommands.push({kind:'save'})",null));Thread.sleep(1500);
             assertEquals(9876543,new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8)).getInt("cash"));
+            UiObject2 fullScreenTip=device.wait(Until.findObject(By.text("Got it")),2000);
+            if(fullScreenTip!=null)fullScreenTip.click();
             device.executeShellCommand("screencap -p /data/local/tmp/android-game.png");
         }
     }
