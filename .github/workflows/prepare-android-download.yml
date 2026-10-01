@@ -1,0 +1,37 @@
+name: Prepare verified Android download
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/prepare-android-download.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Android beta 2 and store its Git blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, os, urllib.request, zipfile, io
+          url='https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/android-1.8.0-beta.2/QuanMiCuaToi-Android-1.8.0-beta.2.apk'
+          with urllib.request.urlopen(url,timeout=90) as r:
+              data=r.read()
+          assert len(data)==23203586
+          assert hashlib.sha256(data).hexdigest()=='b930fb33692597797239f16b7bb238de9ed4be3a1c4e71e8556dd65ae7b41b9d'
+          with zipfile.ZipFile(io.BytesIO(data)) as apk:
+              assert apk.testzip() is None
+              assert 'AndroidManifest.xml' in apk.namelist()
+              assert 'assets/game/game-bundle.bin' in apk.namelist()
+          request=urllib.request.Request(
+              'https://api.github.com/repos/dovanphit1-creator/Qu-n-soba/git/blobs',
+              data=json.dumps({'encoding':'base64','content':base64.b64encode(data).decode('ascii')}).encode(),
+              headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+              method='POST')
+          with urllib.request.urlopen(request,timeout=120) as r:
+              blob=json.load(r)
+          print('VERIFIED_ANDROID_BLOB='+blob['sha'])
+          print('Verified Android beta 2: 23203586 bytes, SHA256 matches tested release.')
+          PY
