@@ -9,18 +9,18 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify 1.7.2 installer and store its Git blob
+      - name: Verify 1.7.3 installer and store its Git blob
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
           import base64, hashlib, json, os, urllib.request
-          url='https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.7.2/QuanMiCuaToi-Setup.exe'
+          url='https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.7.3/QuanMiCuaToi-Setup.exe'
           with urllib.request.urlopen(url,timeout=90) as r:
               data=r.read()
-          assert len(data)==28996984
+          assert len(data)==28999830
           assert data[:2]==b'MZ'
-          assert hashlib.sha256(data).hexdigest()=='8cfa1f3538755842a72db9355bc9b40ead2140613dc9948a28ac9f1537e33760'
+          assert hashlib.sha256(data).hexdigest()=='eca6e5da1105f19503eda8deaf75933e39da8ea3fd7f675b229da2ad6037975f'
           request=urllib.request.Request(
               'https://api.github.com/repos/dovanphit1-creator/Qu-n-soba/git/blobs',
               data=json.dumps({'encoding':'base64','content':base64.b64encode(data).decode('ascii')}).encode(),
@@ -29,5 +29,5 @@ jobs:
           with urllib.request.urlopen(request,timeout=120) as r:
               blob=json.load(r)
           print('VERIFIED_INSTALLER_BLOB='+blob['sha'])
-          print('Verified release 1.7.2 installer: 28996984 bytes, SHA256 matches.')
+          print('Verified release 1.7.3 installer: 28999830 bytes, SHA256 matches.')
           PY
