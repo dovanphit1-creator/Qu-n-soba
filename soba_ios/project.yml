@@ -1,0 +1,69 @@
+name: QuanMiCuaToi
+options:
+  bundleIdPrefix: vn.dovanphi
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    MARKETING_VERSION: '1.8.0'
+    CURRENT_PROJECT_VERSION: '1'
+    TARGETED_DEVICE_FAMILY: '1,2'
+targets:
+  QuanMiCuaToi:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - path: bridge.js
+        buildPhase: resources
+      - path: Game
+        type: folder
+        buildPhase: resources
+      - path: Assets.xcassets
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: vn.dovanphi.quanmicuatoi
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_CFBundleDisplayName: Quán Mì Của Tôi
+    info:
+      path: Generated/Info.plist
+      properties:
+        CFBundleDisplayName: Quán Mì Của Tôi
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        ITSAppUsesNonExemptEncryption: false
+  QuanMiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [tests]
+    dependencies:
+      - target: QuanMiCuaToi
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+  QuanMiUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [uitests]
+    dependencies:
+      - target: QuanMiCuaToi
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  QuanMiCuaToi:
+    build:
+      targets:
+        QuanMiCuaToi: all
+        QuanMiTests: [test]
+        QuanMiUITests: [test]
+    test:
+      targets: [QuanMiTests, QuanMiUITests]

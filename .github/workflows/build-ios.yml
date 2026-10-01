@@ -1,0 +1,65 @@
+name: Build and test iPhone application
+on:
+  workflow_dispatch:
+  push:
+    branches: [iphone-native]
+    paths: ['soba_ios/**', '.github/workflows/build-ios.yml']
+permissions:
+  contents: read
+jobs:
+  resources:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
+      - run: pip install pygame-ce==2.5.7 pygbag==0.9.3 holidays==0.105 pillow==11.3.0
+      - run: python soba_manual/build_brand_assets.py && python soba_manual/build_audio.py
+      - run: python soba_ios/build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-offline-resources
+          path: |
+            soba_ios/Game
+            soba_ios/Assets.xcassets
+          retention-days: 14
+  simulator:
+    needs: resources
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-offline-resources
+          path: soba_ios
+      - run: brew install xcodegen
+      - run: xcodegen generate --spec soba_ios/project.yml
+      - name: Build application for an actual iPhone (unsigned)
+        run: xcodebuild -project soba_ios/QuanMiCuaToi.xcodeproj -scheme QuanMiCuaToi -sdk iphoneos -configuration Release -derivedDataPath soba_ios/DerivedData CODE_SIGNING_ALLOWED=NO build
+      - name: Select iPhone simulator
+        run: |
+          xcrun simctl list devices available -j > /tmp/simulators.json
+          python3 - <<'PY'
+          import json, os
+          devices=json.load(open('/tmp/simulators.json'))['devices']
+          device=next(d for runtime, ds in devices.items() if '.iOS-' in runtime for d in ds if d['name'].startswith('iPhone'))
+          with open(os.environ['GITHUB_ENV'],'a') as out:out.write('IPHONE_SIMULATOR='+device['udid']+'\n')
+          PY
+      - name: Test native saves and launch bundled Python game
+        run: xcodebuild -project soba_ios/QuanMiCuaToi.xcodeproj -scheme QuanMiCuaToi -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" -resultBundlePath soba_ios/build/IPhoneTests.xcresult CODE_SIGNING_ALLOWED=NO test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iphone-test-results
+          path: soba_ios/build/IPhoneTests.xcresult
+          retention-days: 14
+      - name: Package unsigned development application
+        run: ditto -c -k --keepParent soba_ios/DerivedData/Build/Products/Release-iphoneos/QuanMiCuaToi.app soba_ios/build/QuanMiCuaToi-iPhone-UNSIGNED.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone-unsigned-development-build
+          path: soba_ios/build/QuanMiCuaToi-iPhone-UNSIGNED.zip
+          retention-days: 14
