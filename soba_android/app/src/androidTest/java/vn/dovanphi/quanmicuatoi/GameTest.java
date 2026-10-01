@@ -21,6 +21,15 @@ public class GameTest {
         try{store.write("{\"version\":10,\"cash\":0}","{\"save-vnd../escape.bak\":\"YQ==\"}");fail("Unsafe backup must fail");}catch(Exception expected){}
         assertEquals(123,new JSONObject(new String(android.util.Base64.decode(store.initial(),0))).getInt("cash"));
     }
+    private void startGame(ActivityScenario<MainActivity> scenario) throws Exception {
+        long end=System.currentTimeMillis()+30000;
+        while(System.currentTimeMillis()<end){
+            final boolean[] started={false};java.util.concurrent.CountDownLatch ack=new java.util.concurrent.CountDownLatch(1);
+            scenario.onActivity(a->a.web.evaluateJavascript("(()=>{const b=document.querySelector('#boot-start');if(!b || !b.onclick)return false;b.click();return true})()",result->{started[0]="true".equals(result);ack.countDown();}));
+            ack.await(5,java.util.concurrent.TimeUnit.SECONDS);if(started[0])return;Thread.sleep(200);
+        }
+        fail("The bundled Android start screen must load");
+    }
     private void waitReady(ActivityScenario<MainActivity> scenario) throws Exception {
         long end=System.currentTimeMillis()+120000;
         while(System.currentTimeMillis()<end){final boolean[] ready={false};scenario.onActivity(a->ready[0]=a.gameReady);if(ready[0])return;Thread.sleep(300);}
@@ -38,8 +47,7 @@ public class GameTest {
         UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             // Start with DOM click only for the loader; gameplay uses a real device touch.
-            Thread.sleep(2000);
-            scenario.onActivity(a->a.web.evaluateJavascript("document.querySelector('#boot-start').click()",null));
+            startGame(scenario);
             waitReady(scenario);
             final int[] button={0,0};
             final java.util.concurrent.CountDownLatch coordinates=new java.util.concurrent.CountDownLatch(1);
@@ -58,7 +66,7 @@ public class GameTest {
         }
         JSONObject saved=new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8));saved.put("cash",9876543);store.write(saved.toString(),"{}");
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
-            Thread.sleep(2000);scenario.onActivity(a->a.web.evaluateJavascript("document.querySelector('#boot-start').click()",null));waitReady(scenario);
+            startGame(scenario);waitReady(scenario);
             scenario.onActivity(a->a.web.evaluateJavascript("window.sobaIOSCommands.push({kind:'save'})",null));Thread.sleep(1500);
             assertEquals(9876543,new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8)).getInt("cash"));
             device.takeScreenshot(new java.io.File(ctx.getExternalFilesDir(null),"android-game.png"));
