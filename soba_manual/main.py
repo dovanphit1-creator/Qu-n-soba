@@ -1017,9 +1017,9 @@ def smoke_test(output):
     check_expansion_ui(app,output)
     from staff_smoke import check_staff_ui,check_windows_background
     check_staff_ui(app,output)
-    check_windows_background(App,output)
     from refund_smoke import check_refund_ui
     check_refund_ui(app,output)
+    check_windows_background(App,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)
     from update_smoke import check_update_ui

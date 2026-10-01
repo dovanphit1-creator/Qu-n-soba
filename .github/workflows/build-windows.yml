@@ -8,11 +8,20 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   windows:
     runs-on: windows-latest
     steps:
+      - name: Cancel obsolete stalled verification
+        if: github.ref == 'refs/heads/update-1.3.1'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST 'repos/dovanphit1-creator/Qu-n-soba/actions/runs/36816516677/cancel' --silent 2>$null
+          $global:LASTEXITCODE = 0
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -29,7 +38,8 @@ jobs:
         shell: pwsh
         run: |
           $report = Join-Path $PWD 'smoke-windows.json'
-          $process = Start-Process -FilePath '.\dist\Quán Mì Của Tôi.exe' -ArgumentList @('--smoke-test', $report) -Wait -PassThru
+          $process = Start-Process -FilePath '.\dist\Quán Mì Của Tôi.exe' -ArgumentList @('--smoke-test', $report) -PassThru
+          if (-not $process.WaitForExit(120000)) { $process.Kill(); throw 'Executable test timed out' }
           if ($process.ExitCode -ne 0) { throw "Executable test failed: $($process.ExitCode)" }
           python -c "import pefile; p=pefile.PE('dist/Quán Mì Của Tôi.exe'); ids={e.id for e in p.DIRECTORY_ENTRY_RESOURCE.entries}; assert {3,14} <= ids"
           if ($LASTEXITCODE -ne 0) { throw 'Missing Windows icon resources' }
