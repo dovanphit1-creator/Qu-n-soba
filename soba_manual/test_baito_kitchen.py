@@ -58,7 +58,7 @@ class BaitoKitchenTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'save.json';self.w.save(path);loaded=World.load(path)
             self.assertFalse(loaded.employees[0]['kitchen_support'])
-            data=json.loads(path.read_text());data['employees'][0].pop('kitchen_support');path.write_text(json.dumps(data))
+            data=json.loads(path.read_text(encoding="utf-8"));data['employees'][0].pop('kitchen_support');path.write_text(json.dumps(data),encoding="utf-8")
             migrated=World.load(path);self.assertTrue(migrated.employees[0]['kitchen_support'])
             self.assertEqual(migrated.cash,self.w.cash);self.assertEqual(migrated.employees[0]['wage'],self.e['wage'])
 
