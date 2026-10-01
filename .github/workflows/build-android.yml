@@ -1,0 +1,64 @@
+name: Build and test Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [android-native]
+    paths: ['soba_android/**', '.github/workflows/build-android.yml']
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - run: pip install pygame-ce==2.5.7 pygbag==0.9.3 holidays==0.105 pillow==11.3.0 soundfile==0.13.1
+      - run: python soba_manual/build_brand_assets.py && python soba_manual/build_audio.py && python soba_android/build.py
+      - name: Compile installable beta APK
+        working-directory: soba_android
+        run: gradle --no-daemon assembleDebug assembleDebugAndroidTest
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test real Android WebView and persistent progress
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: cd soba_android && gradle --no-daemon connectedDebugAndroidTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test-results
+          path: soba_android/app/build/reports/androidTests
+          retention-days: 14
+      - name: Package tested beta APK
+        run: |
+          mkdir -p soba_android/dist
+          cp soba_android/app/build/outputs/apk/debug/app-debug.apk soba_android/dist/QuanMiCuaToi-Android-1.8.0-beta.1.apk
+          sha256sum soba_android/dist/*.apk > soba_android/dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuanMiCuaToi-Android-1.8.0-beta.1
+          path: soba_android/dist
+          retention-days: 90

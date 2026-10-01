@@ -255,3 +255,11 @@ soba_ios/Generated/
 soba_ios/*.xcodeproj/
 soba_ios/*.xcarchive/
 soba_ios/DerivedData/
+
+# Android generated assets, SDK state and private signing material
+soba_android/app/src/main/assets/
+soba_android/app/src/main/res/drawable/
+soba_android/.gradle/
+soba_android/local.properties
+*.jks
+*.keystore
