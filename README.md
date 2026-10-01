@@ -2,7 +2,7 @@
 <h1 align="center">Quán Mì Của Tôi</h1>
 <p align="center"><strong>Một quán nhỏ. Từng bát mì. Câu chuyện của bạn.</strong></p>
 <p align="center">Game mô phỏng kinh doanh quán mì bằng tiếng Việt, tự tay thao tác bằng chuột.</p>
-<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.7.1/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
+<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.7.3/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
 
 ![Giao diện thật của Quán Mì Của Tôi](docs/assets/gameplay.png)
 
@@ -28,7 +28,7 @@ Bạn bắt đầu với **10.000.000 VND**, **7% danh tiếng**, **1 bàn 4 ch�
 
 Bản Windows lưu trong `%LOCALAPPDATA%\QuanSobaManual\save-vnd.json`. Hai phiên bản không đồng bộ dữ liệu.
 
-Bản chính thức mới nhất là **1.7.1**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
+Bản chính thức mới nhất là **1.7.3**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
 
 ## Góp ý và cập nhật
 
@@ -59,3 +59,7 @@ Bản 1.6.1 sửa tự mở khi nhân viên đến ca: bổ sung kho sau khi h�
 Bản 1.7.0: Nhân sự → Tạo / đăng ký ca để tạo ca riêng và xem nguyện vọng theo ngày. Baito chọn ca hằng ngày, nhiều lần nghỉ không tính công. Chính thức chốt ca trong CV, làm đủ 8 giờ và chỉ nghỉ một lần giữa ca; tăng ca đặt riêng. Bảng thiếu người tính cả các khoảng nghỉ.
 
 Bản 1.7.1 sửa nhân viên bỏ sót kho hết hàng khi không có đơn chờ: mua thêm bằng tiền ứng hoặc hoàn phiếu, dọn sạch và đóng sớm. Nhân viên tiếp tục lau/rửa bỏ dở; không tự mở lại bằng lượng nguyên liệu cũ. Giữ ca, hợp đồng, lương và tiến trình.
+
+Bản 1.7.2 chốt công khi nhân viên đã dọn và đóng sớm: nghỉ các ca còn lại hôm đó, ngừng tiền công / tăng ca; giữ lịch ngày mai.
+
+Bản 1.7.3 xử lý 5 lỗi đã xác nhận trong báo cáo rà soát: bảo vệ tệp khi tải thất bại và sao lưu trước khi tạo ván mới; tiếp quản lau/rửa khi nhân viên vắng hoặc đã nghỉ; đồng bộ đơn bếp khi vớt / đổ thủ công; giữ đóng cửa chủ động; kiểm tra đồ uống theo tồn và các đơn chờ. Giữ tiến trình và cơ chế nghỉ sớm 1.7.2.
