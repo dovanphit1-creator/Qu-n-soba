@@ -1,10 +1,10 @@
-<p align="center"><img src="docs/assets/icon.png" width="110" alt="Bát mì — biểu tượng Quán Mì của tôi"></p>
-<h1 align="center">Quán Mì của tôi</h1>
+<p align="center"><img src="docs/assets/icon.png" width="110" alt="Bát mì — biểu tượng Quán Mì Của Tôi"></p>
+<h1 align="center">Quán Mì Của Tôi</h1>
 <p align="center"><strong>Một quán nhỏ. Từng bát mì. Câu chuyện của bạn.</strong></p>
 <p align="center">Game mô phỏng kinh doanh quán mì bằng tiếng Việt, tự tay thao tác bằng chuột.</p>
-<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.1.0/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
+<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.2.0/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
 
-![Giao diện thật của Quán Mì của tôi](docs/assets/gameplay.png)
+![Giao diện thật của Quán Mì Của Tôi](docs/assets/gameplay.png)
 
 ## Tự tay chăm sóc quán của bạn
 
@@ -28,7 +28,7 @@ Bạn bắt đầu với **10.000.000 VND**, **7% danh tiếng**, **1 bàn 4 ch�
 
 Bản Windows lưu trong `%LOCALAPPDATA%\QuanSobaManual\save-vnd.json`. Hai phiên bản không đồng bộ dữ liệu.
 
-Bản chính thức mới nhất là **1.1.0**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
+Bản chính thức mới nhất là **1.2.0**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
 
 ## Góp ý và cập nhật
 
@@ -39,3 +39,5 @@ Báo lỗi hoặc góp ý tại [Issues](https://github.com/dovanphit1-creator/Q
 - Trang giới thiệu hoàn chỉnh nằm trong [`docs/`](docs/). Xem [hướng dẫn bật GitHub Pages](GITHUB_PAGES.md).
 - Mã nguồn game giao diện và quy trình đóng gói Windows hiện ở nhánh [`build-windows-app`](https://github.com/dovanphit1-creator/Qu-n-soba/tree/build-windows-app).
 - `soba_game.py` trên nhánh `main` là bản dòng lệnh ban đầu, được giữ lại để tham khảo.
+
+Bản 1.2.0 thêm nhân viên, ca làm, lịch nghỉ, lương / bảo hiểm / thuế mô phỏng; đồ uống, topping, chuông báo mì chín và đánh giá 0–5 sao. Nhân sự → Vận hành nền bật Windows chạy nền khi máy còn bật. Bản web vẫn không lưu.
