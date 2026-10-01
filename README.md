@@ -2,7 +2,7 @@
 <h1 align="center">Quán Mì Của Tôi</h1>
 <p align="center"><strong>Một quán nhỏ. Từng bát mì. Câu chuyện của bạn.</strong></p>
 <p align="center">Game mô phỏng kinh doanh quán mì bằng tiếng Việt, tự tay thao tác bằng chuột.</p>
-<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.6.1/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
+<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.7.0/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
 
 ![Giao diện thật của Quán Mì Của Tôi](docs/assets/gameplay.png)
 
@@ -28,7 +28,7 @@ Bạn bắt đầu với **10.000.000 VND**, **7% danh tiếng**, **1 bàn 4 ch�
 
 Bản Windows lưu trong `%LOCALAPPDATA%\QuanSobaManual\save-vnd.json`. Hai phiên bản không đồng bộ dữ liệu.
 
-Bản chính thức mới nhất là **1.6.1**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
+Bản chính thức mới nhất là **1.7.0**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
 
 ## Góp ý và cập nhật
 
@@ -55,3 +55,5 @@ Bản 1.5.0 ưu tiên vị trí chính của nhân viên; chỉ hỗ trợ khi v
 Bản 1.6.0: lương mong muốn trong CV cố định sau tuyển. Tab Chi phí quản lý đồng hồ điện, nước, ga, đơn vị cung cấp, hóa đơn và hạn trả; tiền thuê mặt bằng phố 5 / 10 / 18 triệu VND/tháng, thuế mô phỏng 10% lợi nhuận dương năm trước, 4 kỳ tháng 6 / 8 / 10 / 12. Chi phí và thanh toán ghi riêng để không tính hai lần.
 
 Bản 1.6.1 sửa tự mở khi nhân viên đến ca: bổ sung kho sau khi hết nguyên liệu sẽ mở lại trong cùng ngày, chuyển đúng màn hình và hiển thị lý do chưa mở. Giữ lựa chọn nghỉ kinh doanh / mở thủ công của chủ quán.
+
+Bản 1.7.0: Nhân sự → Tạo / đăng ký ca để tạo ca riêng và xem nguyện vọng theo ngày. Baito chọn ca hằng ngày, nhiều lần nghỉ không tính công. Chính thức chốt ca trong CV, làm đủ 8 giờ và chỉ nghỉ một lần giữa ca; tăng ca đặt riêng. Bảng thiếu người tính cả các khoảng nghỉ.
