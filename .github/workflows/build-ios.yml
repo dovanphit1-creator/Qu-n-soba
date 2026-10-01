@@ -54,13 +54,18 @@ jobs:
         run: xcodebuild -project soba_ios/QuanMiCuaToi.xcodeproj -scheme QuanMiCuaToi -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" -parallel-testing-enabled NO -resultBundlePath soba_ios/build/IPhoneTests.xcresult CODE_SIGNING_ALLOWED=NO test
       - name: Verify gameplay reached native persistent storage
         run: |
-          GAME_DATA_DIR=$(xcrun simctl get_app_container "$IPHONE_SIMULATOR" vn.dovanphi.quanmicuatoi data)
-          python3 - "$GAME_DATA_DIR/Library/Application Support/QuanMiCuaToi/save-vnd.json" <<'PY'
-          import json, sys
+          python3 - <<'PY'
+          import json
           from pathlib import Path
-          world=json.loads(Path(sys.argv[1]).read_text())
-          assert world['version']==10
-          assert world['cash']==10000000
+          # XCTest may use and then shut down a cloned device even with parallel
+          # testing disabled. Inspect its on-disk sandbox without booting another.
+          devices=Path.home()/'Library/Developer/CoreSimulator/Devices'
+          saves=list(devices.glob('*/data/Containers/Data/Application/*/Library/Application Support/QuanMiCuaToi/save-vnd.json'))
+          assert saves, 'The game must have created a native save in the test device sandbox'
+          for save in saves:
+              world=json.loads(save.read_text())
+              assert world['version']==10
+              assert world['cash']==10000000
           print('PASS: welcome touch saved the actual Python game into native Application Support')
           PY
       - uses: actions/upload-artifact@v4
