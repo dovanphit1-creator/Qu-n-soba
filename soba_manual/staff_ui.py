@@ -42,9 +42,10 @@ class StaffUI:
                 self.button((1110,y+40,80,34),'+1h', (kind,e['id'],1),small=True)
                 self.button((1240,y,115,35),'Tắt ca' if e['enabled'] else 'Bật ca',('shift_toggle',e['id']),small=True)
                 self.button((1370,y,135,35),'Cho nghỉ',('fire_review',e['id']),small=True,color='#ba4d3c')
+                if e['role']=='baito':self.button((1240,y+40,265,35),'Hỗ trợ bếp: '+('BẬT' if e.get('kitchen_support',True) else 'TẮT'),('kitchen_support',e['id']),small=True)
             if not w.employees:self.text('Chưa có nhân viên. Sang Tuyển dụng để đăng bài.',(65,540),24)
             self.staff_pager(len(w.employees),3)
-            self.text('Baito: 1–12h dự kiến, có thể muộn / nghỉ. Chính thức: 8h chuẩn, TC 0–4h; nghỉ sau 4h, đúng 30p.',(65,855),17)
+            self.text('Baito ưu tiên horu; bật Hỗ trợ bếp để nấu đủ quy trình. Đổi cài đặt sau khi xong việc đang làm.',(65,855),17)
         elif self.staff_tab=='clock':
             self.text('MÁY CHẤM CÔNG · Baito tự chấm lúc đến, nghỉ, quay lại và về. Chính thức chỉ chấm tăng ca.',(65,489),20)
             rows=list(reversed(w.clock_events))
@@ -127,6 +128,9 @@ class StaffUI:
                 start=e['shift_start']+(args[1] if kind=='shift_start' else 0)
                 hours=e['shift_hours']+(args[1] if kind=='shift_hours' else 0)
                 w.set_shift(e['id'],start,hours,not e['enabled'] if kind=='shift_toggle' else e['enabled']);self.persist()
+        elif kind=='kitchen_support':
+            e=w.employee(args[0])
+            if e and w.set_kitchen_support(e['id'],not e.get('kitchen_support',True)):self.persist()
         elif kind=='post_recruitment':w.post_recruitment();self.persist()
         elif kind=='reject_cv':w.dismiss_applicant(args[0]);self.persist()
         elif kind=='overtime':

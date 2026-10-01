@@ -84,7 +84,7 @@ class StaffMixin:
                 e['shift_hours']=8
                 e['shift_start']=min(e['shift_start'],int(1440-510-e['overtime_hours']*60))
             e.setdefault('plans',{});e.setdefault('clocked_in',False);e.setdefault('clock_mode','');e.setdefault('clock_date','')
-            e.setdefault('cover_days',{});e.setdefault('announced_plan','')
+            e.setdefault('cover_days',{});e.setdefault('announced_plan','');e.setdefault('kitchen_support',True)
 
     def hire(self, cid, wage=None, months=12):
         c=next((c for c in self.applicants() if c['id']==cid),None)
@@ -101,7 +101,7 @@ class StaffMixin:
                shift_start=8*60,shift_hours=8,enabled=False,leaves={},leave_sent='',
                attendance={},paid_days=[],present=False,job=None,tasks=0,observed=[],
                x=700.,y=450.,floor=0,last_work_date='',status='Chưa cài ca',
-               overtime_hours=0,plans={},clocked_in=False,clock_mode='',clock_date='',cover_days={},announced_plan='')
+               overtime_hours=0,plans={},clocked_in=False,clock_mode='',clock_date='',cover_days={},announced_plan='',kitchen_support=True)
         self.employees.append(e);self.candidates.remove(c)
         self.ensure_leave(e,today)
         self.note(f'Đã thuê {e["name"]} · {"Baito" if e["role"]=="baito" else "Hợp đồng"}. Cài ca và bật lịch làm việc.')
@@ -419,6 +419,13 @@ class StaffMixin:
     def reserved_action(self,action):
         return any(e['job'] and e['job']['action']==list(action) for e in self.employees)
 
+    def set_kitchen_support(self,eid,enabled):
+        e=self.employee(eid)
+        if not e or e['role']!='baito' or type(enabled)!=bool:return False
+        e['kitchen_support']=enabled
+        self.note(f'{e["name"]}: hỗ trợ toàn bộ bếp '+('BẬT' if enabled else 'TẮT')+'. Công việc đang làm sẽ hoàn thành trước khi đổi.')
+        return True
+
     def choose_staff_job(self,e,active):
         from model import POT_POS,BOWL_POS,DIRT_POS
         def job(action,target,seconds):
@@ -427,12 +434,9 @@ class StaffMixin:
         has_floor=any(x['role']=='baito' for x in active)
         cover=e['cover_days'].get(self.now.date().isoformat(),{})
         primary=cover.get('position','floor' if e['role']=='baito' else 'kitchen')
-        urgent_floor=any(p.phase in ('door','waiting','ticket','ready') for p in self.parties) or any(t.dirty or t.needs_wipe for t in self.tables) or any(o.get('done') for o in self.staff_cooking.values()) or bool(self.dirt or self.sink)
-        # Horu stays first for baito; an idle helper may cook when nobody needs service.
-        urgent_floor=urgent_floor or any(p.phase in ('seated','eating') and any(d and p.drinks_served[i]!=d for i,d in enumerate(p.drinks)) for p in self.parties)
-        kitchen=e['role']=='contract' or primary=='kitchen' or not urgent_floor
+        kitchen=e['role']=='contract' or primary=='kitchen' or e.get('kitchen_support',True)
         floor=e['role']=='baito' or not has_floor or self.player_idle
-        if kitchen:
+        def kitchen_job():
             # Lifting is always first priority to preserve the ten-second window.
             for key,order in list(self.staff_cooking.items()):
                 pot=int(key);p=self.group(order['gid'])
@@ -473,7 +477,9 @@ class StaffMixin:
                     pot=next((i for i,v in enumerate(self.pots) if v is None and str(i) not in self.staff_cooking and not any(x['job'] and x['job']['action'][:2]==['start',i] for x in active) and not any(b.stage=='lifted' and b.slot==i for b in self.bowls)),None)
                     if pot is not None:return job(('start',pot,p.id,idx),(*POT_POS[pot],0),2)
             if self.sink and not self.washing and (self.clean<=2 or not has_floor):return job(('wash',), (965,320,0),2)
-        if floor:
+            return None
+
+        def floor_job():
             for p in sorted(self.parties,key=lambda p:p.id):
                 if p.phase in ('door','waiting'):
                     if self.closing or self.stock['Mì tươi']<p.size:return job(('door',p.id,'decline'),(p.x,p.y,0),2)
@@ -506,6 +512,21 @@ class StaffMixin:
                 if self.bowls:return job(('discard',self.bowls[0].id),(1000,590,0),2)
                 for i,age in enumerate(self.pots):
                     if age is not None:return job(('discard_pot',i),(*POT_POS[i],0),2)
+            return None
+
+        # Even horu staff must rescue a ready pot before the ten-second grace expires.
+        if kitchen:
+            for key,order in self.staff_cooking.items():
+                p=self.group(order['gid']);pot=int(key)
+                if p and p.phase in ('seated','eating') and order['index']>=len(p.meals) and not order.get('bid') and self.clean and self.pot_state(pot) in ('ready','mushy'):
+                    lift=job(('lift',pot),(*POT_POS[pot],0),.2)
+                    if lift:return lift
+        # Baito prioritise actionable horu work, then support the complete kitchen cycle.
+        priorities=((floor,floor_job),(kitchen,kitchen_job)) if primary=='floor' else ((kitchen,kitchen_job),(floor,floor_job))
+        for allowed,choose in priorities:
+            if allowed:
+                task=choose()
+                if task:return task
         return None
 
     def finish_staff_job(self,e,job):

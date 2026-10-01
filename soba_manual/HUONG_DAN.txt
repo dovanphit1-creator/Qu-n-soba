@@ -151,3 +151,10 @@ Nhấp tên nhóm đang chờ món / đồ uống → Hoàn tiền & mời khác
 CHUYỂN MÀN HÌNH 1.3.2
 Khi nhân viên tự mở quán đúng ca, game tự chuyển vào giao diện phục vụ.
 Nếu đang xem nhân sự khi quán đã mở, bấm Vào quán đang mở để quay lại.
+
+BAITO HỖ TRỢ TOÀN BỘ BẾP 1.4.0
+Nhân sự → Nhân viên / ca → Hỗ trợ bếp: BẬT / TẮT cho từng baito.
+Mặc định bật. Vị trí chính vẫn là horu; lúc rảnh có thể nấu mì, vớt mì,
+chuyển bát và thêm topping theo phiếu, rồi bưng ra phục vụ.
+Mì chín được ưu tiên vớt trước. Công việc đang làm sẽ được hoàn thành
+trước khi đổi cài đặt. Ca làm, chấm công và tiền công giữ nguyên.

@@ -1044,6 +1044,8 @@ def smoke_test(output):
     check_refund_ui(app,output)
     from auto_open_smoke import check_auto_open_ui
     check_auto_open_ui(app,output)
+    from baito_kitchen_smoke import check_baito_kitchen_ui
+    check_baito_kitchen_ui(app,output)
     check_windows_background(App,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)
@@ -1052,7 +1054,7 @@ def smoke_test(output):
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['scheduled-auto-open-screen','staff-return-to-open-shop','refund-ui','refund-once','refund-save','staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['baito-kitchen-controls','baito-kitchen-save','scheduled-auto-open-screen','staff-return-to-open-shop','refund-ui','refund-once','refund-save','staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 
