@@ -6,6 +6,7 @@ from model import STOCK_COST
 
 
 def adopt_unassigned_noodles(w):
+    reconcile_cooking(w)
     planned={(o['gid'],o['index']) for o in w.staff_cooking.values()}
     for p in sorted(w.parties,key=lambda p:p.id):
         if p.phase!='seated':continue
@@ -19,6 +20,7 @@ def adopt_unassigned_noodles(w):
 
 
 def required_stock(w):
+    reconcile_cooking(w)
     needed=Counter();planned={(o['gid'],o['index']):o for o in w.staff_cooking.values()}
     for p in w.parties:
         if p.phase not in ('queue','buying','ticket','ready','seated','eating'):continue
@@ -32,6 +34,21 @@ def required_stock(w):
     manual+=sum(not any(o.get('bid')==b.id for o in w.staff_cooking.values()) for b in w.bowls)
     needed['Mì tươi']=max(0,needed['Mì tươi']-manual)
     return needed
+
+
+def reconcile_cooking(w):
+    """Repair orphaned assignments from manual actions and older saved games."""
+    assigned={o.get('bid') for o in w.staff_cooking.values() if o.get('bid') is not None}
+    for key,order in list(w.staff_cooking.items()):
+        pot=int(key);p=w.group(order['gid'])
+        if not p or p.phase not in ('seated','eating') or not len(p.meals)<=order['index']<p.size:
+            w.staff_cooking.pop(key,None);continue
+        if 'bid' in order:
+            if not any(b.id==order['bid'] for b in w.bowls):w.staff_cooking.pop(key,None)
+        elif w.pots[pot] is None:
+            b=next((b for b in w.bowls if b.stage=='lifted' and b.slot==pot and b.id not in assigned),None)
+            if b:order['bid']=b.id;assigned.add(b.id)
+            else:w.staff_cooking.pop(key,None)
 
 
 def missing_stock(w):

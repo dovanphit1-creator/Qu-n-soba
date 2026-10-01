@@ -79,6 +79,7 @@ class App(ManagementUI,StaffUI,FinanceUI,ShiftsUI):
         self.auto_save = 0
         self.animation = 0
         self.load_error = ''
+        self.save_blocked = False
         self.has_save = self.persistent and save_path().exists()
         if not self.has_save:self.modal='welcome'
         self.last_warning = ''
@@ -92,8 +93,11 @@ class App(ManagementUI,StaffUI,FinanceUI,ShiftsUI):
         if self.has_save:
             try:
                 self.world = World.load(save_path())
-            except (OSError, ValueError, KeyError, TypeError):
-                self.last_warning = 'Không đọc được bản lưu VND; hãy sao lưu tệp trước khi tạo ván mới.'
+            except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError):
+                self.save_blocked = True
+                self.load_error = 'Không đọc được bản lưu. Tệp gốc được giữ nguyên; chưa ghi dữ liệu mới.'
+                self.last_warning = self.load_error
+                self.modal = 'save_error'
 
         self.screen_open = self.world.open
 
@@ -654,9 +658,14 @@ class App(ManagementUI,StaffUI,FinanceUI,ShiftsUI):
             stars=row.get('average_stars');rating=f'{stars:.2f}/5 sao' if stars is not None else 'Chưa có đánh giá'
             self.text(f'{row.get("customers",0)} khách vào · {row.get("rating_count",0)} lượt chấm · Trung bình {rating}',(312,735),23,GREEN,True)
             self.button((855,811,420,55),'Về trang đóng quán',('dismiss',))
+        elif self.modal=='save_error':
+            self.text('CHƯA ĐỌC ĐƯỢC VÁN LƯU',(800,255),34,INK,True,True)
+            self.wrap('Game đã khóa tự lưu và lưu khi thoát để bảo vệ tệp gốc. Bạn có thể thoát để kiểm tra bản lưu, hoặc xác nhận tạo ván mới; game sẽ sao lưu tệp cũ trước khi thay thế.',(370,355),850,25)
+            self.button((380,620,400,65),'Sao lưu / tạo ván mới',('modal','confirm_new'),small=True)
+            self.button((820,620,400,65),'Thoát, giữ tệp gốc',('quit',),small=True,color='#8a7352')
         elif self.modal=='confirm_new':
             self.text('TẠO VÁN VND MỚI?',(800,280),36,INK,True,True)
-            self.wrap('Thay tiến trình VND hiện tại bằng 10.000.000 VND, danh tiếng 7%, không có nguyên liệu hoặc bát.',(440,365),730,25)
+            self.wrap('Sao lưu tệp hiện có, rồi tạo ván mới: 10.000.000 VND, danh tiếng 7%, kho và bát trống. Bản sao giữ trong cùng thư mục lưu.',(440,365),730,25)
             self.button((440,540,340,63),'Tạo ván mới',('new',))
             self.button((825,540,340,63),'Quay lại',('dismiss',),color='#8a7352')
         elif self.modal=='reviews':
@@ -789,7 +798,9 @@ class App(ManagementUI,StaffUI,FinanceUI,ShiftsUI):
         ongoing=w.washing if kind=='wash' else (w.wipe_table==index if kind=='wipe' else w.sweep_spot==index)
         owner=getattr(w,kind+'_owner')
         if ongoing:
-            if owner not in ('player','auto'):return False
+            if owner not in ('player','auto') and w.cleanup_active(kind,owner):return False
+            old=w.employee(owner)
+            if old and old['job'] and old['job']['action']==['clean_wait',kind]:old['job']=None
             setattr(w,kind+'_owner','player')
         else:
             fn={'wash':w.wash,'wipe':w.wipe,'sweep':w.sweep}[kind]
@@ -875,13 +886,15 @@ class App(ManagementUI,StaffUI,FinanceUI,ShiftsUI):
             self.world.clear_table(ident)
 
     def persist(self):
-        if not self.persistent:return
+        if not self.persistent or self.save_blocked:return False
         try:
             path = save_path()
             self.world.save(path)
             self.last_warning = ''
+            return True
         except OSError:
             self.last_warning = 'Không lưu được tiến trình. Kiểm tra quyền ghi trong thư mục tài khoản Windows.'
+            return False
 
     def action(self, action):
         kind,*args=action
@@ -909,6 +922,15 @@ class App(ManagementUI,StaffUI,FinanceUI,ShiftsUI):
         elif kind=='dismiss':
             self.modal=None
         elif kind=='new' and not self.world.open:
+            if self.persistent and save_path().exists():
+                try:
+                    import shutil,time
+                    path=save_path();backup=path.with_name(path.name+'.'+str(time.time_ns())+'.bak')
+                    shutil.copy2(path,backup)
+                except OSError:
+                    self.last_warning='Không sao lưu được tệp cũ; chưa tạo ván mới hoặc thay thế dữ liệu.'
+                    return
+            self.save_blocked=False;self.load_error='';self.has_save=False
             self.world=World(); self.staff_panel=False; self.modal=None; self.manager_tab='overview'; self.init_management(); self.persist()
         elif kind=='enter_shop' and self.world.open:
             self.enter_shop()

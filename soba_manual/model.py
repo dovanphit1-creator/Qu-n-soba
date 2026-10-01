@@ -206,8 +206,12 @@ class World(StaffMixin,FinanceMixin):
         self.assign_personality(p)
         p.recipes = [self.menu[name]["toppings"][:] for name in p.orders]
         p.prices = [self.menu[name]["price"] for name in p.orders]
-        available_drinks = [name for name in DRINKS if self.stock[name] > sum(g.drinks.count(name)-g.drinks_served.count(name) for g in self.parties)]
-        p.drinks = [self.rng.choice(available_drinks) if available_drinks and self.rng.random()<.35 else "" for _ in range(size)]
+        p.drinks=[]
+        for _ in range(size):
+            available_drinks=[name for name in DRINKS if free[name]>0]
+            drink=self.rng.choice(available_drinks) if available_drinks and self.rng.random()<.35 else ''
+            p.drinks.append(drink)
+            if drink:free[drink]-=1
         p.drinks_served = ["" for _ in range(size)]
         self.next_group += 1
         self.parties.append(p)
@@ -250,6 +254,7 @@ class World(StaffMixin,FinanceMixin):
         from collections import Counter
         need=Counter()
         for recipe in p.recipes:need+=Counter(['Mì tươi',*recipe])
+        need.update(n for n in p.drinks if n)
         reserved=required_stock(self)
         return all(self.stock[n]-reserved[n]>=q for n,q in need.items())
 
@@ -386,6 +391,8 @@ class World(StaffMixin,FinanceMixin):
             return False
         self.clean -= 1
         self.bowls.append(Bowl(self.next_bowl, index, status == 'mushy'))
+        order=self.staff_cooking.get(str(index))
+        if order:order['bid']=self.next_bowl
         self.next_bowl += 1
         self.pots[index] = None
         self.note('Đã vớt mì nhão. Có thể dùng nhưng khách sẽ chấm chất lượng thấp hơn.' if status == 'mushy'
@@ -405,6 +412,7 @@ class World(StaffMixin,FinanceMixin):
         if self.pots[index] is None:
             return False
         self.pots[index] = None
+        self.staff_cooking.pop(str(index),None)
         self.note(f'Đã đổ bỏ mì nồi {index+1}. Có thể luộc phần mới.')
         return True
 
@@ -462,6 +470,8 @@ class World(StaffMixin,FinanceMixin):
             return False
         self.bowls.remove(b)
         self.sink += 1
+        for key,order in list(self.staff_cooking.items()):
+            if order.get('bid')==bid:self.staff_cooking.pop(key,None)
         self.note('Đã đổ bỏ phần mì; bát bẩn chuyển đến bồn, cần nhấp Rửa bát.')
         return True
 
@@ -788,10 +798,11 @@ class World(StaffMixin,FinanceMixin):
         self.note(f'Đang lau sàn: khoảng {self.sweep_left:.0f} giây.')
         return True
 
-    def close_shop(self):
+    def close_shop(self, automatic=False):
         if not self.open:
             return False
         self.closing = True
+        if not automatic:self.day_decisions[self.now.date().isoformat()]='player'
         if any(p.phase != 'leaving' for p in self.parties):
             self.note('Đã ngừng đón nhóm mới. Phục vụ hết khách và trả lời các nhóm đang chờ.')
             return False

@@ -448,7 +448,7 @@ class StaffMixin(ShiftMixin):
                 if p.phase in ('door','waiting'):self.respond(p.id,'decline')
             if self.staff_opened_shop and not any(p.phase!='leaving' for p in self.parties) and not self.bowls and not any(x is not None for x in self.pots):
                 if not self.dirt and not self.sink and not self.washing and self.wipe_table<0 and not any(t.dirty or t.needs_wipe for t in self.tables):
-                    if self.close_shop():
+                    if self.close_shop(automatic=True):
                         self.staff_opened_shop=False
                         row=self.last_report;stars=row.get('average_stars')
                         score=f'{stars:.2f}/5' if stars is not None else 'chưa có'

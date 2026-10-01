@@ -3,5 +3,5 @@ GAME_TITLE = 'Quán Mì Của Tôi'
 WINDOWS_APP_ID = 'QuanMiCuaToi.Game'
 EXE_NAME = GAME_TITLE + '.exe'
 
-GAME_VERSION = '1.7.2'
+GAME_VERSION = '1.7.3'
 PUBLISHER = 'Đỗ Văn Phi'
