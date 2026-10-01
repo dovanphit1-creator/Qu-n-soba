@@ -25,12 +25,12 @@ Bản thử Android yêu cầu Android 8.0 trở lên và Android System WebView
 
 ## Ghi chú bản thử
 
-1.8.0-beta.1: đưa gameplay Python 1.7.3 lên Android, bổ sung điều khiển cảm ứng, bàn phím hệ thống và lưu dữ liệu riêng trên máy. Giữ nguyên tên, icon bát mì và nhà phát hành.
+1.8.0-beta.2: đưa gameplay Python 1.7.3 lên Android, bổ sung điều khiển cảm ứng, bàn phím hệ thống và lưu dữ liệu riêng trên máy. Giữ nguyên tên, icon bát mì và nhà phát hành.
 
 ## Thông số gói
 
 - Application ID chính thức: `vn.dovanphi.quanmicuatoi`.
-- Version name: `1.8.0-beta.1`; version code: `18001`.
+- Version name: `1.8.0-beta.2`; version code: `18002`.
 - Android tối thiểu: 8.0/API 26; target: Android 16/API 36.
 - Định dạng tải lên Play: AAB release ký bằng upload key riêng, không phải APK debug hoặc AAB UNSIGNED.
 - Bản APK cài thử dùng ID `vn.dovanphi.quanmicuatoi.androidbeta`; dữ liệu thử tách biệt bản Play.

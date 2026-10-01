@@ -1,6 +1,6 @@
 # Quán Mì Của Tôi — Android
 
-Nhà phát hành **Đỗ Văn Phi**. Bản thử **1.8.0-beta.1**, gameplay Python 1.7.3 không thay đổi. iPhone được giữ trên nhánh `iphone-native` để tiếp tục khi chủ game có Apple Developer Program.
+Nhà phát hành **Đỗ Văn Phi**. Bản thử **1.8.0-beta.2**, gameplay Python 1.7.3 không thay đổi. iPhone được giữ trên nhánh `iphone-native` để tiếp tục khi chủ game có Apple Developer Program.
 
 Ứng dụng Android riêng, đóng gói CPython/pygame WebAssembly và toàn bộ mã game, font, âm thanh trong APK. Chạy bằng Android System WebView; không mở website công khai, không tải game từ Internet. Yêu cầu Android 8.0 trở lên và WebView cập nhật có hỗ trợ WebAssembly. Cần thử trên điện thoại thật trước khi phát hành chính thức.
 

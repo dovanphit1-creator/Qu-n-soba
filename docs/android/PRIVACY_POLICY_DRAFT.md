@@ -1,6 +1,6 @@
 # Chính sách quyền riêng tư — Quán Mì Của Tôi
 
-Bản dự thảo dành cho phiên bản Android 1.8.0-beta.1. Chưa được đưa lên một URL chính sách công khai; chủ game cần xác nhận thông tin hỗ trợ trước khi nộp hồ sơ Google Play.
+Bản dự thảo dành cho phiên bản Android 1.8.0-beta.2. Chưa được đưa lên một URL chính sách công khai; chủ game cần xác nhận thông tin hỗ trợ trước khi nộp hồ sơ Google Play.
 
 Nhà phát hành: Đỗ Văn Phi.
 

@@ -7,8 +7,8 @@ android {
         applicationId 'vn.dovanphi.quanmicuatoi'
         minSdk 26
         targetSdk 36
-        versionCode 18001
-        versionName '1.8.0-beta.1'
+        versionCode 18002
+        versionName '1.8.0-beta.2'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes {

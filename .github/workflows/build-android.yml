@@ -75,20 +75,20 @@ jobs:
         run: |
           mkdir -p soba_android/dist
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose soba_android/app/build/outputs/apk/debug/app-debug.apk
-          cp soba_android/app/build/outputs/apk/debug/app-debug.apk soba_android/dist/QuanMiCuaToi-Android-1.8.0-beta.1.apk
+          cp soba_android/app/build/outputs/apk/debug/app-debug.apk soba_android/dist/QuanMiCuaToi-Android-1.8.0-beta.2.apk
           sha256sum soba_android/dist/*.apk > soba_android/dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: QuanMiCuaToi-Android-1.8.0-beta.1
+          name: QuanMiCuaToi-Android-1.8.0-beta.2
           path: soba_android/dist
           retention-days: 90
       - name: Package Google Play bundle for private signing
         run: |
           mkdir -p soba_android/play-dist
-          cp soba_android/app/build/outputs/bundle/release/app-release.aab soba_android/play-dist/QuanMiCuaToi-1.8.0-beta.1-UNSIGNED.aab
+          cp soba_android/app/build/outputs/bundle/release/app-release.aab soba_android/play-dist/QuanMiCuaToi-1.8.0-beta.2-UNSIGNED.aab
           sha256sum soba_android/play-dist/*.aab > soba_android/play-dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: QuanMiCuaToi-GooglePlay-unsigned-1.8.0-beta.1
+          name: QuanMiCuaToi-GooglePlay-unsigned-1.8.0-beta.2
           path: soba_android/play-dist
           retention-days: 14

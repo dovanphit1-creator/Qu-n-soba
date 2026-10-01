@@ -4,7 +4,7 @@ Application ID: `vn.dovanphi.quanmicuatoi`.
 
 Alias upload: `quanmicuatoi-upload`; định dạng keystore PKCS12; thuật toán RSA 4096 / SHA256withRSA.
 
-Bản sao riêng của chủ game có tên `QuanMiCuaToi-UploadKey-PRIVATE.zip`, chứa keystore, mật khẩu và chứng chỉ công khai. Không đưa tệp này lên GitHub, Releases, trang web hoặc chia sẻ cho người chơi. Chủ game cần giữ bản sao an toàn để tiếp tục ký các bản cập nhật. Tệp AAB đã ký tên `QuanMiCuaToi-GooglePlay-1.8.0-beta.1.aab` đã vượt qua Google bundletool validate; đây không phải bằng chứng Google đã duyệt ứng dụng.
+Bản sao riêng của chủ game có tên `QuanMiCuaToi-UploadKey-PRIVATE.zip`, chứa keystore, mật khẩu và chứng chỉ công khai. Không đưa tệp này lên GitHub, Releases, trang web hoặc chia sẻ cho người chơi. Chủ game cần giữ bản sao an toàn để tiếp tục ký các bản cập nhật. Tệp AAB đã ký tên `QuanMiCuaToi-GooglePlay-1.8.0-beta.2.aab` đã vượt qua Google bundletool validate; đây không phải bằng chứng Google đã duyệt ứng dụng.
 
 Google Play App Signing giữ khóa phân phối ứng dụng. Khóa trên chỉ là khóa upload, dùng để xác thực gói mà chủ game đưa lên Console. Không dùng APK debug làm bản chính thức và không gửi AAB UNSIGNED lên Play.
 

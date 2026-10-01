@@ -22,9 +22,16 @@ def build():
             if name.endswith('/app.py'):
                 data=data.decode().replace('iPhone','Android').encode()
             if name.endswith('/main.py'):
-                data=data.decode().replace('iPhone','Android').replace('/ios-save','/android-save').encode()
+                text=data.decode().replace('iPhone','Android').replace('/ios-save','/android-save')
+                text=text.replace('platform.window.sobaIOSSave(path.read_text(), json.dumps(backups))', 'platform.window.sobaIOSSave(base64.b64encode(path.read_bytes()).decode("ascii"), json.dumps(backups))')
+                text=text.replace('platform.window.sobaIOSEdit(focus, str(getattr(app, attr)))', 'platform.window.sobaIOSEdit(focus, base64.b64encode(str(getattr(app, attr)).encode("utf-8")).decode("ascii"))')
+                data=text.encode()
+            if name.endswith('/audio.py'):
+                text=data.decode().replace('import sys', 'import sys\nimport base64',1)
+                text=text.replace('platform.window.sobaSpeak(message)', 'platform.window.sobaSpeak(base64.b64encode(message.encode("utf-8")).decode("ascii"))')
+                data=text.encode()
             if name.endswith('/brand.py'):
-                data=data.decode().replace("GAME_VERSION = '1.8.0'", "GAME_VERSION = '1.8.0-beta.1'").encode()
+                data=data.decode().replace("GAME_VERSION = '1.8.0'", "GAME_VERSION = '1.8.0-beta.2'").encode()
             members.append((name,data))
     payload=io.BytesIO()
     with tarfile.open(fileobj=payload,mode='w') as tar:

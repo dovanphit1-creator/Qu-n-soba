@@ -67,18 +67,31 @@ public class GameTest {
             while(!store.file.exists()&&System.currentTimeMillis()<end)Thread.sleep(200);
             assertTrue("Welcome touch creates actual Python save",store.file.exists());
             JSONObject saved=new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8));assertEquals(10000000,saved.getInt("cash"));
+            assertEquals("Nước dùng",saved.getJSONObject("menu").getJSONObject("Soba tôm").getJSONArray("toppings").getString(0));
+            Thread.sleep(700);
             device.executeShellCommand("screencap -p /data/local/tmp/android-management.png");
+            final java.util.concurrent.CountDownLatch marketTap=new java.util.concurrent.CountDownLatch(1);
+            scenario.onActivity(a->a.web.evaluateJavascript("(()=>{const b=document.querySelector('#canvas').getBoundingClientRect();return [b.x+b.width*.253,b.y+b.height*.332,devicePixelRatio]})()",result->{
+                try{org.json.JSONArray data=new org.json.JSONArray(result);button[0]=(int)(data.getDouble(0)*data.getDouble(2));button[1]=(int)(data.getDouble(1)*data.getDouble(2));}catch(Exception e){throw new RuntimeException(e);}marketTap.countDown();
+            }));
+            assertTrue(marketTap.await(10,java.util.concurrent.TimeUnit.SECONDS));device.click(button[0],button[1]);Thread.sleep(700);
+            device.executeShellCommand("screencap -p /data/local/tmp/android-market.png");
             scenario.onActivity(a->a.web.evaluateJavascript("document.querySelector('#mobile-tools button').click()",null));
             Thread.sleep(500);
             scenario.onActivity(a->a.web.evaluateJavascript("window.sobaIOSCommands.push({kind:'save'})",null));Thread.sleep(1000);
         }
-        JSONObject saved=new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8));saved.put("cash",9876543);store.write(saved.toString(),"{}");
+        JSONObject saved=new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8));saved.put("cash",9876543);
+        saved.getJSONObject("menu").put("Mì thử – Đỗ Văn Phi 🍜",new JSONObject("{\"price\":72000,\"toppings\":[\"Nước dùng\",\"Hành\"]}"));
+        store.write(saved.toString(),"{}");
         try(ActivityScenario<MainActivity> scenario=ActivityScenario.launch(MainActivity.class)){
             startGame(scenario);waitReady(scenario);
             scenario.onActivity(a->a.web.evaluateJavascript("window.sobaIOSCommands.push({kind:'save'})",null));Thread.sleep(1500);
             assertEquals(9876543,new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8)).getInt("cash"));
             UiObject2 fullScreenTip=device.wait(Until.findObject(By.text("Got it")),2000);
             if(fullScreenTip!=null)fullScreenTip.click();
+            JSONObject restored=new JSONObject(new String(Files.readAllBytes(store.file.toPath()),java.nio.charset.StandardCharsets.UTF_8));
+            assertEquals("Nước dùng",restored.getJSONObject("menu").getJSONObject("Soba tôm").getJSONArray("toppings").getString(0));
+            assertEquals("Hành",restored.getJSONObject("menu").getJSONObject("Mì thử – Đỗ Văn Phi 🍜").getJSONArray("toppings").getString(1));
             device.executeShellCommand("screencap -p /data/local/tmp/android-game.png");
         }
     }
