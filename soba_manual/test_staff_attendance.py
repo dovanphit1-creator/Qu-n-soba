@@ -1,6 +1,6 @@
 import unittest,tempfile,json
 from pathlib import Path
-from datetime import datetime,timedelta
+from datetime import datetime,timedelta,date
 from model import World,STOCK_COST
 from vn_calendar import VIETNAM
 
@@ -39,8 +39,9 @@ class AttendanceTests(unittest.TestCase):
     def test_contract_fixed_eight_break_and_overtime_only_clock(self):
         e=self.hire('contract');self.assertFalse(self.w.set_shift(e['id'],480,7));self.assertFalse(self.w.set_shift(e['id'],480,9))
         self.assertTrue(self.w.set_overtime(e['id'],2));self.w.update(0)
-        self.advance(4*3600);self.assertFalse(e['present']);self.assertEqual(e['status'],'Giải lao · không tính công')
-        self.advance(30*60);self.assertTrue(e['present']);self.advance(4*3600)
+        plan=self.w.day_plan(e,self.clock.date());first_work=plan['segments'][0][1]-plan['start']
+        self.advance(first_work*60);self.assertFalse(e['present']);self.assertEqual(e['status'],'Giải lao · không tính công')
+        self.advance(30*60);self.assertTrue(e['present']);self.advance((480-first_work)*60)
         self.assertEqual(e['attendance']['2026-10-05']['seconds'],8*3600)
         self.assertEqual(len(self.w.clock_events),1);self.assertEqual(self.w.clock_events[0]['event'],'Vào tăng ca')
         self.advance(2*3600);self.assertFalse(e['present']);r=e['attendance']['2026-10-05']
@@ -63,7 +64,9 @@ class AttendanceTests(unittest.TestCase):
         with patch.object(self.w.rng,'random',return_value=0):self.assertFalse(self.w.invite_cover(a['id'],key,'floor',480,10))
         c=next(c for c in self.w.applicants() if c['role']=='baito');self.w.hire(c['id']);helper=self.w.employee(c['id']);helper['leave_sent']='2026-10'
         with patch.object(self.w.rng,'random',return_value=0):self.assertTrue(self.w.invite_cover(helper['id'],key,'floor',480,10))
-        rows=[r for r in self.w.coverage_report() if r['date']==key];self.assertEqual([r['position'] for r in rows],['kitchen'])
+        rows=[r for r in self.w.coverage_report() if r['date']==key];self.assertIn('kitchen',[r['position'] for r in rows])
+        # A cover worker can take unpaid breaks; these remain real coverage gaps.
+        plan=self.w.day_plan(helper,date.fromisoformat(key));self.assertTrue(plan['segments'])
         self.w.decide_day(key,'closed');self.assertFalse([r for r in self.w.coverage_report() if r['date']==key])
         self.w.decide_day(key,'normal');self.assertTrue([r for r in self.w.coverage_report() if r['date']==key])
     def test_v5_migration_preserves_money_hours_and_contract(self):

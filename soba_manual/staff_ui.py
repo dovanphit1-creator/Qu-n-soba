@@ -2,19 +2,23 @@
 from model import vnd
 from staff import MIN_HOURLY,MIN_MONTHLY
 from vn_calendar import WEEKDAYS
-from datetime import date
+from datetime import date,timedelta
+from shifts import shift_label,clock_label
 
 class StaffUI:
     def init_staff_ui(self):
+        self.shift_name='';self.shift_begin=480;self.shift_finish=990;self.shifts_view=False;self.shift_day=0
         self.staff_tab='team';self.staff_page=0;self.hire_months=12;self.staff_panel=False;self.cover_date='';self.cover_position='floor';self.cover_start=480;self.cover_hours=4
 
     def render_staff(self):
         w=self.world
-        self.text('NHÂN SỰ · Cài ca trước khi bật tự đến làm',(60,397),24,'#26372e',True)
-        tabs=[('team','Nhân viên / ca'),('hire','Tuyển dụng'),('clock','Chấm công'),('leave','Lịch nghỉ'),('coverage','Thiếu người'),('pay','Bảng lương'),('reports','Báo cáo'),('settings','Chạy nền')]
+        self.text('NHÂN SỰ · Tạo ca · CV cố định · Baito đăng ký theo ngày',(60,397),24,'#26372e',True)
+        tabs=[('team','Nhân viên / ca'),('hire','Tuyển dụng'),('shifts','Tạo / đăng ký ca'),('clock','Chấm công'),('leave','Lịch nghỉ'),('coverage','Thiếu người'),('pay','Bảng lương'),('reports','Báo cáo'),('settings','Chạy nền')]
         for i,(key,label) in enumerate(tabs):
-            self.button((60+i*184,435,175,36),label,('staff_tab',key),small=True,color='#426f57' if key==self.staff_tab else '#7c876d')
-        if self.staff_tab=='hire':
+            self.button((60+i*166,435,157,36),label,('staff_tab',key),small=True,color='#426f57' if key==self.staff_tab else '#7c876d')
+        if self.staff_tab=='shifts':
+            self.render_shifts()
+        elif self.staff_tab=='hire':
             self.button((65,483,355,37),'Đăng bài tuyển nhân viên',('post_recruitment',),not w.candidates,small=True)
             self.text('CV tự khai có thể sai. Tối đa 8 nhân viên.',(455,494),19)
             self.button((1220,483,280,37),'Hợp đồng '+str(self.hire_months)+' tháng',('hire_months',),small=True)
@@ -22,23 +26,24 @@ class StaffUI:
                 y=537+i*73;role='Baito · horu / phụ bếp' if c['role']=='baito' else 'Chính thức · bếp / hỗ trợ horu'
                 self.text(f'{c["name"]} #{c["id"]} · {c["birth_year"]} · {c["hometown"]} · {role}',(65,y),20,'#26372e',True)
                 self.text('CV tự khai: '+', '.join(c['cv_traits'])+' · Lương mong muốn: '+vnd(c['wage'])+('/giờ' if c['role']=='baito' else '/tháng'),(65,y+28),17)
+                if c['role']=='contract':self.text('Ca trong CV: '+(shift_label(c['requested_shift']) if c.get('requested_shift') else 'Chưa có ca phù hợp'),(65,y+49),15)
                 self.button((1150,y+22,220,35),'Xem CV / phỏng vấn',('hire_review',c['id']),len(w.employees)<8,small=True)
                 self.button((1380,y+22,120,35),'Từ chối CV',('reject_cv',c['id']),small=True,color='#8a7352')
             if not w.candidates:self.wrap('Chưa có CV. Đăng bài tuyển để nhận hồ sơ ứng viên. Không thể biết tính cách thật trước khi họ làm việc.',(65,555),1350,24)
             self.text('Baito không phạt khi nghỉ. Hợp đồng nghỉ trước hạn: phạt 1/2 lương cơ bản.',(65,855),18)
         elif self.staff_tab=='team':
             for i,e in enumerate(w.employees[self.staff_page*3:self.staff_page*3+3]):
-                y=491+i*101;start=e['shift_start'];end=w.shift_end(e)
+                y=491+i*101;plan=w.day_plan(e,w.now.date());start=plan['start'];end=plan['end']
                 self.text(f'{e["name"]} #{e["id"]} · '+('Baito' if e['role']=='baito' else 'Chính thức')+' · '+e['status'],(65,y),20,'#26372e',True)
                 self.text('Lương đã chốt '+vnd(e['agreed_wage'])+('/giờ' if e['role']=='baito' else '/tháng')+' · Công nợ '+vnd(w.payroll_due(e)),(65,y+29),17)
                 self.text('Quan sát: '+(', '.join(e['observed']) or 'Chưa biết'),(65,y+56),16)
                 self.text(f'{start//60:02}:{start%60:02} – {end//60:02}:{end%60:02}',(760,y+5),21)
-                self.text('Chấm máy theo giờ thực làm' if e['role']=='baito' else '8h làm + 30p nghỉ · TC '+str(e['overtime_hours'])+'h',(760,y+40),17)
-                for x,label,kind,delta in [(1020,'←30p','shift_start',-30),(1110,'30p→','shift_start',30)]:
-                    self.button((x,y,80,34),label,(kind,e['id'],delta),small=True)
-                kind='shift_hours' if e['role']=='baito' else 'overtime'
-                self.button((1020,y+40,80,34),'−1h', (kind,e['id'],-1),small=True)
-                self.button((1110,y+40,80,34),'+1h', (kind,e['id'],1),small=True)
+                self.text('Chấm máy theo giờ thực làm' if e['role']=='baito' else '8h làm / 1 nghỉ · TC '+str(e['overtime_hours'])+'h',(760,y+40),17)
+                if e['role']=='contract':
+                    self.text('Ca đã khóa trong hợp đồng',(1020,y+4),16)
+                    for x,label,delta in [(1020,'−1h TC',-1),(1110,'+1h TC',1)]:
+                        self.button((x,y+40,80,34),label,('overtime',e['id'],delta),small=True)
+                else:self.text('Tự chọn ca theo ngày',(1020,y+4),17)
                 self.button((1240,y,115,35),'Tắt ca' if e['enabled'] else 'Bật ca',('shift_toggle',e['id']),small=True)
                 self.button((1370,y,135,35),'Cho nghỉ',('fire_review',e['id']),small=True,color='#ba4d3c')
                 if e['role']=='baito':self.button((1240,y+40,265,35),'Hỗ trợ bếp: '+('BẬT' if e.get('kitchen_support',True) else 'TẮT'),('kitchen_support',e['id']),small=True)
@@ -93,7 +98,7 @@ class StaffUI:
                 self.text('Quán nghỉ '+key,(65,744+i*23),17)
                 self.button((355+i*375,746,350,31),'Mở lại '+key,('decide_day',key,'normal'),small=True)
             self.staff_pager(len(rows),3)
-            self.text('Báo thiếu theo vị trí chính, tính cả giải lao cố định. Baito làm thay có thể từ chối hoặc đến muộn.',(65,855),17)
+            self.text('Báo thiếu theo vị trí chính, tính cả các khoảng giải lao. Baito làm thay có thể từ chối hoặc đến muộn.',(65,855),17)
         elif self.staff_tab=='pay':
             self.text('Chốt đến hết ngày 17 · Trả ngày 27. Công việc 18–17 thuộc cùng kỳ. Baito trả cuối ca / ngày.',(65,485),19)
             rows=list(reversed(w.payroll))
@@ -108,7 +113,7 @@ class StaffUI:
         else:
             self.button((65,492,690,45),'Tự mở quán đúng ca: '+('BẬT' if w.staff_auto_open else 'TẮT'),('staff_auto_open',),small=True)
             self.button((805,492,695,45),'Windows chạy nền: '+('BẬT' if w.background_enabled else 'TẮT'),('background_toggle',),self.persistent and __import__('sys').platform=='win32',small=True)
-            self.wrap('Bật ca cho từng nhân viên. Đến giờ, nhân viên tự mở khi kho có đủ nguyên liệu và bát sạch. Hết ca cuối, quán ngừng nhận khách; nhân viên chỉ làm và nhận công trong ca đã đặt. Hãy bố trí ca phủ cả thời gian phục vụ và dọn cuối ngày.',(65,565),1420,23)
+            self.wrap('Tạo ca trước khi tuyển. Baito tự chọn mỗi ngày; chính thức giữ ca trong CV và làm đủ 8 giờ. Bật lịch nhân viên để họ đến và tự mở khi đủ kho / bát sạch. Hết ca cuối, quán ngừng nhận khách; nhân viên chỉ làm và nhận công trong ca đã đặt. Hãy bố trí ca phủ cả thời gian phục vụ và dọn cuối ngày.',(65,565),1420,23)
             self.wrap('Windows: bật chạy nền để nút X ẩn cửa sổ xuống khay hệ thống. Game khởi động nền cùng tài khoản Windows. Chuột phải biểu tượng bát mì để mở hoặc lưu và thoát hoàn toàn. Máy phải bật và không ngủ. Tắt nền sẽ ngừng tự làm khi thoát.',(65,683),1420,23)
             self.wrap('Bản web: không lưu và không chạy khi đóng tab. Trình duyệt có thể giảm tốc độ ở tab nền. Thông số bảo hiểm / thuế là mô hình game, lịch nghỉ và khoản phạt là quy tắc của quán.',(65,810),1420,19)
 
@@ -119,7 +124,8 @@ class StaffUI:
     def staff_action(self,kind,args):
         w=self.world
         if kind=='clock_machine':self.staff_panel=True;self.staff_tab='clock';self.staff_page=0
-        elif kind=='staff_tab':self.staff_tab=args[0];self.staff_page=0
+        elif kind=='staff_tab':
+            self.staff_tab=args[0];self.staff_page=0;self.input_focus=None;__import__('pygame').key.stop_text_input()
         elif kind=='staff_page':self.staff_page=max(0,self.staff_page+args[0])
         elif kind=='staff_panel':self.staff_panel=not self.staff_panel;self.modal=None
         elif kind=='hire_months':self.hire_months={3:6,6:12,12:3}[self.hire_months]
@@ -131,7 +137,10 @@ class StaffUI:
             if e:
                 start=e['shift_start']+(args[1] if kind=='shift_start' else 0)
                 hours=e['shift_hours']+(args[1] if kind=='shift_hours' else 0)
-                w.set_shift(e['id'],start,hours,not e['enabled'] if kind=='shift_toggle' else e['enabled']);self.persist()
+                if kind=='shift_toggle':
+                    e['enabled']=not e['enabled'];e['plans'].pop(w.now.date().isoformat(),None)
+                else:w.set_shift(e['id'],start,hours,e['enabled'])
+                self.persist()
         elif kind=='kitchen_support':
             e=w.employee(args[0])
             if e and w.set_kitchen_support(e['id'],not e.get('kitchen_support',True)):self.persist()
@@ -192,7 +201,9 @@ class StaffUI:
             role='Baito, trả theo giờ cuối ca/ngày, không phí chấm dứt.' if c['role']=='baito' else f'Hợp đồng {self.hire_months} tháng; ca chuẩn 8h. Phạt nghỉ trước hạn: 1/2 lương cơ bản.'
             self.wrap(c['name']+f' · sinh {c["birth_year"]} · {c["hometown"]} · '+role,(310,250),960,24)
             self.text('CV tự khai: '+', '.join(c['cv_traits'])+' (có thể không đúng)',(310,335),21)
-            self.wrap('Lương yêu cầu (khóa sau tuyển): '+vnd(c['wage'])+('/giờ' if c['role']=='baito' else '/tháng')+'. Tính cách chưa biết. Lịch nghỉ 9 ngày/tháng theo quy tắc quán, không thứ Sáu–CN hoặc lễ. Baito đặt 1–12h dự kiến, nhận lương theo chấm công. Chính thức cố định 8h làm + 30p nghỉ, tăng ca đặt riêng.',(310,390),960,24)
+            self.wrap('Lương yêu cầu (khóa sau tuyển): '+vnd(c['wage'])+('/giờ' if c['role']=='baito' else '/tháng')+'. Tính cách chưa biết. Lịch nghỉ 9 ngày/tháng theo quy tắc quán, không thứ Sáu–CN hoặc lễ. Baito tự chọn ca mỗi ngày, nhiều lần nghỉ không tính công. Chính thức khóa ca trong CV, 8h làm và 1 lần nghỉ, tăng ca riêng.',(310,390),960,24)
+            if c['role']=='contract':
+                self.text('CA ĐÃ CHỌN: '+(shift_label(c['requested_shift']) if c.get('requested_shift') else 'Chưa có ca phù hợp'),(310,620),23,'#426f57',True)
             if c['role']=='contract':self.wrap('Chốt lương ngày 17, trả ngày 27. Tăng ca ngày thường 150%, cuối tuần 200%, lễ 300%. BH người lao động 10,5%, quán 21,5%; thuế tự khấu trừ trước thực nhận. Lương được phân bổ theo giờ làm thực tế.',(310,520),960,21)
             self.button((330,740,440,65),'Đồng ý thuê / ký',('hire_confirm',),small=True)
         self.button((830,740 if self.modal!='fire_staff' else 650,440,65),'Quay lại',('dismiss',),small=True,color='#8a7352')

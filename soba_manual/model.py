@@ -934,7 +934,7 @@ class World(StaffMixin,FinanceMixin):
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 9
+        data['version'] = 10
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -945,8 +945,12 @@ class World(StaffMixin,FinanceMixin):
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
         version = data.pop('version')
-        if version not in (2, 3, 4, 5, 6, 7, 8, 9):
+        if version not in (2, 3, 4, 5, 6, 7, 8, 9, 10):
             raise ValueError('Phiên bản lưu không phù hợp')
+        if version == 9:
+            from shutil import copy2
+            backup=Path(path).with_suffix('.v9.bak')
+            if not backup.exists():copy2(path,backup)
         if version == 8:
             from shutil import copy2
             backup=Path(path).with_suffix('.v8.bak')

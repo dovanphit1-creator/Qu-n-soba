@@ -244,3 +244,6 @@ soba_web/voice/
 soba_web/game/finance.py
 soba_web/game/finance_ui.py
 soba_web/game/operations.py
+
+soba_web/game/shifts.py
+soba_web/game/shifts_ui.py

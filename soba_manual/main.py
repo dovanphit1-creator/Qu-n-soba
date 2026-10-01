@@ -17,6 +17,7 @@ from vn_calendar import WEEKDAYS
 from management import ManagementUI
 from staff_ui import StaffUI
 from finance_ui import FinanceUI
+from shifts_ui import ShiftsUI
 from brand import GAME_TITLE, WINDOWS_APP_ID, GAME_VERSION, PUBLISHER
 
 W, H = 1600, 1000
@@ -40,7 +41,7 @@ def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-class App(ManagementUI,StaffUI,FinanceUI):
+class App(ManagementUI,StaffUI,FinanceUI,ShiftsUI):
     def __init__(self, headless=False, persistent=True):
         self.background=None
         self.no_input_seconds=0
@@ -884,6 +885,7 @@ class App(ManagementUI,StaffUI,FinanceUI):
 
     def action(self, action):
         kind,*args=action
+        if self.shifts_action(kind,args):return
         if self.finance_action(kind,args):return
         if self.extra_action(kind,args):return
         if kind=='tab':
@@ -931,6 +933,7 @@ class App(ManagementUI,StaffUI,FinanceUI):
             self.running=False
 
     def event(self,event):
+        if self.shifts_input(event):return
         if self.management_input(event):return
         if event.type in (pg.KEYDOWN,pg.MOUSEBUTTONDOWN):self.no_input_seconds=0
         if event.type==pg.QUIT:
@@ -1101,6 +1104,8 @@ def smoke_test(output):
     check_service_ui(app,output)
     from finance_smoke import check_finance_ui
     check_finance_ui(app,output)
+    from shifts_smoke import check_shifts_ui
+    check_shifts_ui(app,output)
     check_windows_background(App,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)
