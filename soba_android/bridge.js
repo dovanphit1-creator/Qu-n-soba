@@ -10,3 +10,6 @@ window.webkit={messageHandlers:{game:{postMessage:m=>{
  if(m.kind==='ready')NativeGame.ready();
 }}}};
 document.addEventListener('visibilitychange',()=>{if(document.hidden)window.sobaIOSCommands.push({kind:'save'});});
+
+// A start tap made while WASM is still loading must not be lost.
+const startTimer=setInterval(()=>{if(window.sobaStartRequested && window.MM){window.MM.UME=true;clearInterval(startTimer);}},100);

@@ -48,16 +48,19 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: cd soba_android && gradle --no-daemon connectedDebugAndroidTest
+          script: bash soba_android/test_device.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: android-test-results
-          path: soba_android/app/build/reports/androidTests
+          path: |
+            soba_android/app/build/reports/androidTests
+            soba_android/build/device-evidence
           retention-days: 14
       - name: Package tested beta APK
         run: |
           mkdir -p soba_android/dist
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose soba_android/app/build/outputs/apk/debug/app-debug.apk
           cp soba_android/app/build/outputs/apk/debug/app-debug.apk soba_android/dist/QuanMiCuaToi-Android-1.8.0-beta.1.apk
           sha256sum soba_android/dist/*.apk > soba_android/dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4

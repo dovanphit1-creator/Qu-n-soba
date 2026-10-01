@@ -41,12 +41,14 @@ public final class MainActivity extends Activity {
                     WebResourceResponse response=loader.shouldInterceptRequest(uri);
                     if(response!=null)return response;
                 }
+                android.util.Log.w("SobaRuntime","Blocked resource: "+uri);
                 return new WebResourceResponse("text/plain","UTF-8",403,"Blocked",java.util.Collections.emptyMap(),new ByteArrayInputStream(new byte[0]));
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return !request.getUrl().toString().startsWith(ORIGIN+"/assets/game/");
             }
         });
+        web.setWebChromeClient(new WebChromeClient(){@Override public boolean onConsoleMessage(ConsoleMessage message){android.util.Log.i("SobaRuntime",message.message()+" @"+message.sourceId()+":"+message.lineNumber());return true;}});
         web.addJavascriptInterface(new NativeBridge(),"NativeGame");
         web.loadUrl(ORIGIN+"/assets/game/index.html");
     }

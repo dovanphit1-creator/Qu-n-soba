@@ -24,7 +24,13 @@ public class GameTest {
     private void waitReady(ActivityScenario<MainActivity> scenario) throws Exception {
         long end=System.currentTimeMillis()+120000;
         while(System.currentTimeMillis()<end){final boolean[] ready={false};scenario.onActivity(a->ready[0]=a.gameReady);if(ready[0])return;Thread.sleep(300);}
-        fail("Bundled Python must reach its first rendered frame");
+        final String[] details={""};
+        java.util.concurrent.CountDownLatch diagnostic=new java.util.concurrent.CountDownLatch(1);
+        scenario.onActivity(a->a.web.evaluateJavascript("JSON.stringify({url:location.href,mm:!!window.MM,ume:window.MM&&window.MM.UME,message:document.querySelector('#boot-message')?.textContent,error:document.querySelector('#boot-detail')?.textContent,stdout:document.querySelector('#stdout')?.value})",result->{details[0]=result;diagnostic.countDown();}));
+        diagnostic.await(10,java.util.concurrent.TimeUnit.SECONDS);
+        Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(new java.io.File(ctx.getExternalFilesDir(null),"android-game.png"));
+        fail("Bundled Python must reach its first rendered frame. "+details[0]);
     }
     @Test public void offlineTouchZoomAndColdRestore() throws Exception {
         Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();

@@ -17,6 +17,8 @@ def build():
         for member in tar:
             if not member.isfile():continue
             data=tar.extractfile(member).read()
+            if member.name.endswith('/app.py'):
+                data=data.decode().replace('iPhone','Android').encode()
             if member.name.endswith('/main.py'):
                 data=data.decode().replace('iPhone','Android').replace('/ios-save','/android-save').encode()
             if member.name.endswith('/brand.py'):
@@ -31,6 +33,7 @@ def build():
     html=html.replace('/runtime/packages/', '/assets/game/runtime/packages/')
     rc=assets/'runtime/cpythonrc.py'
     rc.write_text(rc.read_text().replace('/runtime/packages/', '/assets/game/runtime/packages/'))
+    html=html.replace('if(window.MM)window.MM.UME=true;', 'window.sobaStartRequested=true;if(window.MM)window.MM.UME=true;')
     html=html.replace('<head>', '<head><script src="native-bridge.js"></script>',1)
     (assets/'index.html').write_text(html)
     shutil.copy2(ROOT/'bridge.js',assets/'native-bridge.js')
