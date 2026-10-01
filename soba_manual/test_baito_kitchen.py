@@ -38,10 +38,10 @@ class BaitoKitchenTests(unittest.TestCase):
     def test_actionable_horu_precedes_starting_another_pot(self):
         self.seat_customer();q=self.w.add_party(1)
         job=self.w.choose_staff_job(self.e,[self.e]);self.assertEqual(job[0],('door',q.id,'accept'))
-    def test_ready_pot_is_lifted_before_horu_task(self):
+    def test_primary_horu_precedes_secondary_kitchen(self):
         p=self.seat_customer();self.w.start_pot(0);self.w.staff_cooking['0']={'gid':p.id,'index':0}
         self.w.pots[0]=COOK_SECONDS;self.w.add_party(1)
-        job=self.w.choose_staff_job(self.e,[self.e]);self.assertEqual(job[0],('lift',0))
+        job=self.w.choose_staff_job(self.e,[self.e]);self.assertEqual(job[0][0],'door')
     def test_support_can_be_disabled_and_resumed(self):
         self.seat_customer();self.assertTrue(self.w.set_kitchen_support(self.e['id'],False))
         self.tick(360);self.assertEqual(self.w.served,0);self.assertTrue(all(p is None for p in self.w.pots))

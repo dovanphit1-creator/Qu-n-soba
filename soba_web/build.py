@@ -19,7 +19,7 @@ shutil.copy2(SOURCE/'assets/game.png',GAME/'assets/game.png')
 shutil.copy2(SOURCE/'assets/game.png',GAME/'favicon.png')
 (GAME/'assets/noodle-ready.wav').unlink(missing_ok=True)
 subprocess.run(['ffmpeg','-y','-loglevel','error','-i',str(SOURCE/'assets/noodle-ready.wav'),'-c:a','libvorbis',str(GAME/'assets/noodle-ready.ogg')],check=True)
-for name in ('model.py','management.py','brand.py','vn_calendar.py','staff.py','staff_ui.py','catalog.py','audio.py','background.py'):
+for name in ('model.py','management.py','brand.py','vn_calendar.py','staff.py','staff_ui.py','catalog.py','audio.py','background.py','operations.py'):
     shutil.copy2(SOURCE/name,GAME/name)
 (GAME/'app.py').write_text((SOURCE/'main.py').read_text().replace('noodle-ready.wav','noodle-ready.ogg'))
 subprocess.run([sys.executable,'-m','pygbag','--build','--no_opt','--title','Quán Mì Của Tôi','--icon',str(GAME/'favicon.png'),str(GAME)],check=True)
@@ -31,9 +31,12 @@ s=s.replace('"#7f7f7f"','"#26372e"').replace('fb_ar   :  1.77','fb_ar   :  1.6')
 s=s.replace('</head>','<style>body{background:#26372e!important;color:#fff2d2;font-family:Arial,sans-serif}#pyconsole,#crt,#dlg,.iframe{display:none!important}#infobox{color:#fff2d2!important;background:#26372e!important;padding:20px;font:20px Arial}</style></head>')
 s=s.replace('</body>','<script>window.addEventListener("pageshow",e=>{if(e.persisted)location.reload()});</script></body>')
 s=s.replace('Loading, please wait ...','Đang tải game, vui lòng chờ…')
-s=s.replace('</body>', (ROOT/'boot-status.html').read_text()+'<script>window.sobaSpeak=function(t){if(!window.speechSynthesis)return;let u=new SpeechSynthesisUtterance(t);u.lang="vi-VN";u.rate=1.05;window.speechSynthesis.speak(u)};</script></body>')
+s=s.replace('</body>', (ROOT/'boot-status.html').read_text()+'<script type="module" src="voice.js"></script></body>')
 p.write_text(s)
 # Serve the game directly, without nesting a WebAssembly runtime in an iframe.
 root_html=s.replace('platform.fopen("game.apk"','platform.fopen("play/game.apk"').replace('platform.fopen("game.tar.gz"','platform.fopen("play/game.tar.gz"').replace('href="favicon.png"','href="icon.png"')
 (ROOT/'index.html').write_text(root_html)
 print('Browser build ready:',p.parent)
+
+shutil.copytree(ROOT/'voice',GAME/'build/web/voice',dirs_exist_ok=True)
+shutil.copy2(ROOT/'voice.js',GAME/'build/web/voice.js')

@@ -237,3 +237,6 @@ soba_web/game/audio.py
 soba_web/game/background.py
 soba_web/game/six.py
 soba_web/game/favicon.png
+
+# Pinned browser speech engine is fetched by build_voice.py
+soba_web/voice/

@@ -158,3 +158,17 @@ Mặc định bật. Vị trí chính vẫn là horu; lúc rảnh có thể nấ
 chuyển bát và thêm topping theo phiếu, rồi bưng ra phục vụ.
 Mì chín được ưu tiên vớt trước. Công việc đang làm sẽ được hoàn thành
 trước khi đổi cài đặt. Ca làm, chấm công và tiền công giữ nguyên.
+
+CẬP NHẬT 1.5.0
+Baito ưu tiên horu; chính thức ưu tiên bếp. Chỉ phụ vị trí kia khi thiếu
+người hoặc quá tải. Công việc đang làm không bị bỏ dở.
+RỬA / LAU: giữ chuột tại bồn, bàn đã dọn bát, hoặc vết bẩn sàn.
+Thả chuột để dừng, giữ lại để tiếp tục. Dọn sàn cũng cần thời gian.
+HẾT NGUYÊN LIỆU: nhân viên tự chọn đóng quán sau khi dọn sạch, hoặc
+ứng tiền cá nhân đi mua số nguyên liệu thiếu. Xem Nhân sự → Báo cáo.
+Khoản ứng được quán hoàn thêm lúc trả lương, không trừ tiền công.
+THẺ CHỜ: khách đang vội có thể từ chối chờ; khách đợi nhận số thẻ riêng.
+THỐNG KÊ: số người vào quán và sao TB = tổng sao / số khách chấm điểm.
+Không lấy trung bình của từng nhóm. Thống kê mới bắt đầu từ 1.5.0.
+GIỌNG ĐỌC: có bộ tổng hợp tiếng Việt riêng, không cần cài thêm giọng.
+Mỗi nhân viên ứng tối đa 500.000 VND/ngày; quá mức thì dọn và đóng quán.

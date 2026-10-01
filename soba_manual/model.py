@@ -69,6 +69,9 @@ class Party:
     paid_age: float = 0
     drinks: list = field(default_factory=list)
     drinks_served: list = field(default_factory=list)
+    wait_number: int = 0
+    in_a_hurry: bool = False
+    entered: bool = False
 
 
 @dataclass
@@ -112,6 +115,13 @@ class World(StaffMixin):
         self.wash_left = 0.0
         self.wipe_table = -1
         self.wipe_left = 0.0
+        self.wash_owner = "auto"
+        self.wipe_owner = "auto"
+        self.sweep_owner = "auto"
+        self.sweep_spot = -1
+        self.sweep_left = 0.0
+        self.player_cleaning = None
+        self.next_wait_number = 1
         self.dirt_reasons = {}
         self.pots = [None] * 6
         self.bowls = []
@@ -180,9 +190,17 @@ class World(StaffMixin):
 
     def add_party(self, size=None):
         size = size or self.rng.choices([1, 2, 3, 4], [42, 32, 18, 8])[0]
+        from collections import Counter
+        from operations import required_stock
+        free=Counter(self.stock)-required_stock(self);orders=[]
+        for _ in range(size):
+            choices=[name for name,item in self.menu.items() if all(free[n]>=q for n,q in Counter(['Mì tươi',*item['toppings']]).items())]
+            name=self.rng.choice(choices or list(self.menu));orders.append(name)
+            free.subtract(Counter(['Mì tươi',*self.menu[name]['toppings']]))
         p = Party(self.next_group, size,
-                  [self.rng.choice(list(self.menu)) for _ in range(size)],
+                  orders,
                   [self.rng.choice(['Dễ tính', 'Bình thường', 'Khó tính']) for _ in range(size)])
+        p.in_a_hurry = self.rng.random()<.35
         self.assign_personality(p)
         p.recipes = [self.menu[name]["toppings"][:] for name in p.orders]
         p.prices = [self.menu[name]["price"] for name in p.orders]
@@ -198,7 +216,7 @@ class World(StaffMixin):
         if p.eat_seconds:return
         for temper in p.temper:
             p.eat_seconds.append(self.rng.triangular(300,1200,660)*SERVICE_TIME_SCALE)
-            p.choose_seconds.append(self.rng.triangular(20,90,40)*SERVICE_TIME_SCALE)
+            p.choose_seconds.append(self.rng.triangular(10,45,20)*SERVICE_TIME_SCALE)
             factor={'Dễ tính':1.25,'Bình thường':1.0,'Khó tính':.75}[temper]
             p.door_patience.append(self.rng.uniform(80,240)*factor)
             p.wait_patience.append(self.rng.uniform(240,960)*factor)
@@ -225,6 +243,14 @@ class World(StaffMixin):
     def can_fit(self, size):
         return any(len(self.free_seats(i)) >= size for i in range(len(self.tables)))
 
+    def party_stock_available(self,p):
+        from operations import required_stock
+        from collections import Counter
+        need=Counter()
+        for recipe in p.recipes:need+=Counter(['Mì tươi',*recipe])
+        reserved=required_stock(self)
+        return all(self.stock[n]-reserved[n]>=q for n,q in need.items())
+
     def respond(self, gid, action):
         p = self.group(gid)
         if not p or p.phase not in ('door', 'waiting'):
@@ -236,18 +262,24 @@ class World(StaffMixin):
             if len([g for g in self.parties if g.phase in ('queue', 'buying', 'ticket', 'ready')]) >= 5:
                 self.note('Khu mua phiếu đã đông. Hãy xếp bàn cho các nhóm trước.')
                 return False
-            if self.stock['Mì tươi'] + sum(t is not None for t in self.pots) + len(self.bowls) < p.size:
+            if not self.party_stock_available(p):
                 self.note('Không đủ phần mì cho nhóm này. Hãy từ chối khách và mua thêm sau khi đóng quán.')
                 return False
             p.phase, p.phase_time = 'queue', 0
+            if not p.entered:
+                p.entered=True;self.record('customers',p.size);self.record('groups',1)
             if self.rng.random()<.12:self.mark_dirty(0,f'Dấu giày nhóm {p.id:03} mang bụi vào quán',0)
             self.note(f'Nhóm {p.id:03} đang đến máy mua phiếu. Đợi phiếu xuất hiện rồi nhấp nhận.')
         elif action == 'wait':
             if p.phase == 'waiting':
                 self.note(f'Nhóm {p.id:03} đang đợi. Nhấp nhóm để mời vào khi có bàn.')
                 return False
+            if p.in_a_hurry:
+                p.phase,p.phase_time='leaving',0
+                self.note(f'Nhóm {p.id:03}: Chúng tôi đang vội, xin phép về luôn.');return True
             p.phase, p.phase_time = 'waiting', 0
-            self.note(f'Nhóm {p.id:03}: Được, chúng tôi sẽ đợi một lúc nhé.')
+            p.wait_number=self.next_wait_number;self.next_wait_number+=1
+            self.note(f'Nhóm {p.id:03}: Nhận thẻ chờ {p.wait_number:03}, chúng tôi đợi nhé.')
         elif action == 'decline':
             p.phase, p.phase_time = 'leaving', 0
             self.note(f'Bạn: Hôm nay quán đã hết nguyên liệu, xin hẹn nhóm {p.id:03} lần sau.')
@@ -441,19 +473,21 @@ class World(StaffMixin):
         self.note(f'Bát bẩn đã vào bồn. Nhấp bàn {index+1} để lau và nhấp Rửa bát ở bồn.')
         return True
 
-    def wipe(self, index):
+    def wipe(self, index, owner="auto"):
         t = self.tables[index]
         if t.dirty or not t.needs_wipe or self.wipe_table>=0:
             return False
         self.wipe_table=index
+        self.wipe_owner=owner
         self.wipe_left=SERVICE_TIME_SCALE*min(45,10+5*max(1,t.soil)+self.rng.uniform(5,15))
         self.note(f'Đang lau bàn {index+1}: khoảng {self.wipe_left:.0f} giây.')
         return True
 
-    def wash(self):
+    def wash(self, owner="auto"):
         if self.washing or not self.sink:
             self.note('Bồn đang rửa.' if self.washing else 'Chưa có bát bẩn trong bồn.')
             return False
+        self.wash_owner=owner
         self.washing = self.sink
         self.sink = 0
         self.record('water', self.washing * 200)
@@ -496,6 +530,7 @@ class World(StaffMixin):
             if missing_drink:reasons.append('Thiếu đồ uống đã trả tiền')
             reason=' · '.join(reasons) or 'Đúng món, mì ngon, phục vụ tốt'
             self.reviews.append(f'Nhóm {p.id:03}, khách {i+1} ({p.temper[i]}): {score}/5 sao — {reason} ({delta:+.2f}%)')
+            self.record('star_sum',score);self.record('rating_count',1)
             scores.append(score)
         self.reviews=self.reviews[-18:]
         self.note(f'Nhóm {p.id:03} ăn xong: {sum(scores)/max(1,len(scores)):.1f}/5 sao. Danh tiếng {self.reputation:.2f}%.')
@@ -517,6 +552,9 @@ class World(StaffMixin):
         for total in result.values():
             total['electricity'] = round(total['electricity'])
             total['utilities'] = total['electricity'] + total['water'] + total['gas']
+            total['customers']=total.get('customers',0)
+            total['rating_count']=total.get('rating_count',0)
+            total['average_stars']=total.get('star_sum',0)/total['rating_count'] if total['rating_count'] else None
             total['refunds']=total.get('refunds',0)
             total['net_revenue']=total['revenue']-total['refunds']
             total['profit'] = total['net_revenue'] - total['ingredients'] - total['utilities'] - total.get('wages',0) - total.get('employer_insurance',0) - total.get('termination',0)
@@ -722,13 +760,17 @@ class World(StaffMixin):
         self.note('Sàn đã bẩn thêm: '+reason+'.')
         return None
 
-    def sweep(self, spot):
-        if spot not in self.dirt:
-            return False
-        self.dirt.remove(spot)
-        self.dirt_reasons.pop(str(spot),None)
-        self.record('water', 500)
-        self.note(f'Đã lau sàn. Còn {len(self.dirt)} chỗ bẩn.')
+    def cleanup_active(self,kind,owner):
+        if owner=='auto':return True
+        if owner=='player':return self.player_cleaning==kind
+        e=self.employee(owner)
+        return bool(e and e['present'])
+
+    def sweep(self, spot, owner="auto"):
+        if spot not in self.dirt or self.sweep_spot>=0:return False
+        self.sweep_spot=spot;self.sweep_owner=owner
+        self.sweep_left=self.rng.uniform(15,35)*SERVICE_TIME_SCALE
+        self.note(f'Đang lau sàn: khoảng {self.sweep_left:.0f} giây.')
         return True
 
     def close_shop(self):
@@ -777,7 +819,7 @@ class World(StaffMixin):
                 if age < COOK_SECONDS <= self.pots[i]:
                     self.sound_events.append(i)
                     self.note(f'Nồi {i+1} chín! Nhấp vớt ngay trong 10 giây.')
-        if self.washing:
+        if self.washing and self.cleanup_active("wash",self.wash_owner):
             self.wash_left -= dt
             if self.wash_left <= 0:
                 self.clean += self.washing
@@ -785,7 +827,7 @@ class World(StaffMixin):
                 self.wash_left = 0
                 if self.rng.random()<.15:self.mark_dirty(0,'Nước rửa bát bắn ra cạnh bồn',3)
                 self.note('Đã rửa xong mẻ bát. Bát còn lại trong bồn cần nhấp rửa tiếp.')
-        if self.wipe_table>=0:
+        if self.wipe_table>=0 and self.cleanup_active("wipe",self.wipe_owner):
             self.wipe_left=max(0,self.wipe_left-dt)
             if self.wipe_left==0:
                 t=self.tables[self.wipe_table]
@@ -793,6 +835,13 @@ class World(StaffMixin):
                 if not t.dirty:t.soil=0
                 self.note(f'Đã lau xong bàn {self.wipe_table+1}.')
                 self.wipe_table=-1
+        if self.sweep_spot>=0 and self.cleanup_active('sweep',self.sweep_owner):
+            self.sweep_left=max(0,self.sweep_left-dt)
+            if not self.sweep_left:
+                spot=self.sweep_spot
+                if spot in self.dirt:self.dirt.remove(spot)
+                self.dirt_reasons.pop(str(spot),None);self.sweep_spot=-1
+                self.record('water',500);self.note('Đã lau sạch vết bẩn trên sàn.')
         self.spawn_left -= dt
         if self.spawn_left <= 0:
             self.spawn_left += self.rng.uniform(2.0, 3.0)
@@ -877,11 +926,11 @@ class World(StaffMixin):
                 p.y += dy * step
 
     def save(self, path):
-        data = {k: v for k, v in self.__dict__.items() if k not in ('rng', '_clock','sound_events','speech_events')}
+        data = {k: v for k, v in self.__dict__.items() if k not in ('rng', '_clock','sound_events','speech_events','player_cleaning')}
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 7
+        data['version'] = 8
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -892,8 +941,12 @@ class World(StaffMixin):
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
         version = data.pop('version')
-        if version not in (2, 3, 4, 5, 6, 7):
+        if version not in (2, 3, 4, 5, 6, 7, 8):
             raise ValueError('Phiên bản lưu không phù hợp')
+        if version == 7:
+            from shutil import copy2
+            backup=Path(path).with_suffix('.v7.bak')
+            if not backup.exists():copy2(path,backup)
         if version == 6:
             from shutil import copy2
             backup=Path(path).with_suffix('.v6.bak')
@@ -916,6 +969,14 @@ class World(StaffMixin):
                 raise ValueError('Dữ liệu lưu không phù hợp')
             setattr(obj, k, v)
         obj.parties = [Party(**p) for p in data['parties']]
+        if version<8:
+            for party in obj.parties:
+                party.entered=party.phase not in ('door','waiting','leaving')
+                party.in_a_hurry=obj.rng.random()<.35 if party.phase=='door' else False
+                if party.phase=='waiting':party.wait_number=obj.next_wait_number;obj.next_wait_number+=1
+                previous=sum(party.choose_seconds);party.choose_seconds=[v*.5 for v in party.choose_seconds]
+                party.buy_seconds=max(0,party.buy_seconds-previous+sum(party.choose_seconds))
+        obj.player_cleaning=None
         obj.bowls = [Bowl(**b) for b in data['bowls']]
         obj.tables = [Table(**t) for t in data['tables']]
         if version == 2:

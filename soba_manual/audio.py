@@ -1,31 +1,45 @@
-"""Nonblocking operating-system speech for ticket announcements."""
+"""Queued Vietnamese speech. Desktop engine is bundled and works offline."""
 import sys
+from pathlib import Path
 
-def speak(message):
+_queue=None
+
+def render_vi(message):
+    import subprocess,tempfile
+    engine=Path(__file__).with_name('assets')/'speech'
+    exe=engine/'espeak-ng.exe'
+    with tempfile.TemporaryDirectory(prefix='quanmi-voice-') as d:
+        out=Path(d)/'voice.wav'
+        subprocess.run([str(exe),'--path='+str(engine),'-v','vi','-s','160','-w',str(out),'--stdin'],input=message.encode('utf-8'),check=True,timeout=30,creationflags=0x08000000 if sys.platform=='win32' else 0,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        return out.read_bytes()
+
+def speak(message,dishes=None):
     if sys.platform=='emscripten':
         import platform
         try:platform.window.sobaSpeak(message)
         except Exception:pass
-    elif sys.platform=='win32':
-        import subprocess,base64
-        # Message is data encoded as UTF-8 base64, never executable PowerShell text.
-        value=base64.b64encode(message.encode('utf-8')).decode('ascii')
-        script="$text=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('"+value+"')); $v=New-Object -ComObject SAPI.SpVoice; $voices=$v.GetVoices(); foreach($voice in $voices){if($voice.GetAttribute('Language') -match '42a'){$v.Voice=$voice;break}}; $v.Speak($text)|Out-Null"
-        # Serialize utterances so staff announcements do not talk over each other.
-        _enqueue(script)
+    elif sys.platform=='win32' and not any(a in sys.argv for a in ('--smoke-test','--verify-new-player')):
+        _enqueue(message)
 
-_queue=None
 
-def _enqueue(script):
+def _enqueue(message):
     global _queue
-    import threading,queue,subprocess
+    import threading,queue,time,io
     if _queue is None:
-        _queue=queue.Queue(maxsize=6)
+        _queue=queue.Queue(maxsize=10)
         def worker():
+            import pygame as pg
             while True:
-                s=_queue.get()
-                try:subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-EncodedCommand',__import__('base64').b64encode(s.encode('utf-16le')).decode('ascii')],creationflags=0x08000000,timeout=25,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-                except (OSError,subprocess.TimeoutExpired):pass
+                text=_queue.get()
+                try:
+                    wave=render_vi(text)
+                    if pg.mixer.get_init():
+                        channel=pg.mixer.Channel(7)
+                        channel.play(pg.mixer.Sound(io.BytesIO(wave)))
+                        while channel.get_busy():time.sleep(.05)
+                except Exception:
+                    # Keep subtitles in the game's log if the audio device is unavailable.
+                    pass
         threading.Thread(target=worker,daemon=True).start()
-    try:_queue.put_nowait(script)
+    try:_queue.put_nowait(message)
     except queue.Full:pass

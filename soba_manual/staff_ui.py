@@ -11,9 +11,9 @@ class StaffUI:
     def render_staff(self):
         w=self.world
         self.text('NHÂN SỰ · Cài ca trước khi bật tự đến làm',(60,397),24,'#26372e',True)
-        tabs=[('team','Nhân viên / ca'),('hire','Tuyển dụng'),('clock','Chấm công'),('leave','Lịch nghỉ'),('coverage','Thiếu người'),('pay','Bảng lương'),('settings','Chạy nền')]
+        tabs=[('team','Nhân viên / ca'),('hire','Tuyển dụng'),('clock','Chấm công'),('leave','Lịch nghỉ'),('coverage','Thiếu người'),('pay','Bảng lương'),('reports','Báo cáo'),('settings','Chạy nền')]
         for i,(key,label) in enumerate(tabs):
-            self.button((60+i*209,435,197,36),label,('staff_tab',key),small=True,color='#426f57' if key==self.staff_tab else '#7c876d')
+            self.button((60+i*184,435,175,36),label,('staff_tab',key),small=True,color='#426f57' if key==self.staff_tab else '#7c876d')
         if self.staff_tab=='hire':
             self.button((65,483,355,37),'Đăng bài tuyển nhân viên',('post_recruitment',),not w.candidates,small=True)
             self.text('CV tự khai có thể sai. Tối đa 8 nhân viên.',(455,494),19)
@@ -45,7 +45,15 @@ class StaffUI:
                 if e['role']=='baito':self.button((1240,y+40,265,35),'Hỗ trợ bếp: '+('BẬT' if e.get('kitchen_support',True) else 'TẮT'),('kitchen_support',e['id']),small=True)
             if not w.employees:self.text('Chưa có nhân viên. Sang Tuyển dụng để đăng bài.',(65,540),24)
             self.staff_pager(len(w.employees),3)
-            self.text('Baito ưu tiên horu; bật Hỗ trợ bếp để nấu đủ quy trình. Đổi cài đặt sau khi xong việc đang làm.',(65,855),17)
+            self.text('Baito ưu tiên horu; bật Hỗ trợ bếp để nấu đủ quy trình. Chỉ hỗ trợ khi vị trí kia thiếu người hoặc quá tải.',(65,855),17)
+        elif self.staff_tab=='reports':
+            rows=list(reversed(w.staff_reports))
+            for i,r in enumerate(rows[self.staff_page*4:self.staff_page*4+4]):
+                self.wrap(r['date']+' · '+r['text'],(65,495+i*80),1400,20)
+            if not rows:self.text('Chưa có báo cáo thiếu nguyên liệu hoặc mua bổ sung.',(65,525),24)
+            self.staff_pager(len(rows),4)
+            due=sum(r['cost'] for r in w.staff_purchases if not r['reimbursed'])
+            self.text('Quán còn phải hoàn tiền nhân viên ứng mua nguyên liệu: '+vnd(due),(65,855),19)
         elif self.staff_tab=='clock':
             self.text('MÁY CHẤM CÔNG · Baito tự chấm lúc đến, nghỉ, quay lại và về. Chính thức chỉ chấm tăng ca.',(65,489),20)
             rows=list(reversed(w.clock_events))
@@ -94,7 +102,7 @@ class StaffUI:
                 y=535+i*72
                 self.text(f'{r["name"]} · kỳ {r["period"]} · trả {r["paid"]} · {r["hours"]:.2f}h',(65,y),21,'#26372e',True)
                 self.text('Gộp '+vnd(r['gross'])+' · BH người lao động '+vnd(r['insurance'])+' · Thuế '+vnd(r['tax'])+' · Thực nhận '+vnd(r['net']),(65,y+30),18)
-                self.text('BH quán '+vnd(r['employer']),(1255,y),17)
+                self.text('BH quán '+vnd(r['employer'])+' · Hoàn ứng '+vnd(r.get('reimbursement',0)),(1000,y),17)
             if not rows:self.text('Chưa đến kỳ chi trả. Lương đã phát sinh được ghi vào lợi nhuận hằng ngày.',(65,560),23)
             self.staff_pager(len(rows),4)
             self.text('BH người lao động: hưu trí 8% + y tế 1,5% + thất nghiệp 1%. Thuế lũy tiến 2026, giảm trừ 15,5 triệu.',(65,855),17)

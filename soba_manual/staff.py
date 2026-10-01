@@ -36,6 +36,9 @@ class StaffMixin:
         self.next_employee=1
         self.staff_cooking={}
         self.payroll=[]
+        self.staff_purchases=[]
+        self.staff_reports=[]
+        self.staff_shutdown_date=""
         self.background_enabled=False
         self.player_idle=False
         self.staff_auto_open=True
@@ -84,7 +87,7 @@ class StaffMixin:
                 e['shift_hours']=8
                 e['shift_start']=min(e['shift_start'],int(1440-510-e['overtime_hours']*60))
             e.setdefault('plans',{});e.setdefault('clocked_in',False);e.setdefault('clock_mode','');e.setdefault('clock_date','')
-            e.setdefault('cover_days',{});e.setdefault('announced_plan','');e.setdefault('kitchen_support',True)
+            e.setdefault('cover_days',{});e.setdefault('announced_plan','');e.setdefault('kitchen_support',True);e.setdefault('shortage_policy',self.rng.choice(['restock','close']))
 
     def hire(self, cid, wage=None, months=12):
         c=next((c for c in self.applicants() if c['id']==cid),None)
@@ -101,7 +104,7 @@ class StaffMixin:
                shift_start=8*60,shift_hours=8,enabled=False,leaves={},leave_sent='',
                attendance={},paid_days=[],present=False,job=None,tasks=0,observed=[],
                x=700.,y=450.,floor=0,last_work_date='',status='Chưa cài ca',
-               overtime_hours=0,plans={},clocked_in=False,clock_mode='',clock_date='',cover_days={},announced_plan='',kitchen_support=True)
+               overtime_hours=0,plans={},clocked_in=False,clock_mode='',clock_date='',cover_days={},announced_plan='',kitchen_support=True,shortage_policy=self.rng.choice(['restock','close']))
         self.employees.append(e);self.candidates.remove(c)
         self.ensure_leave(e,today)
         self.note(f'Đã thuê {e["name"]} · {"Baito" if e["role"]=="baito" else "Hợp đồng"}. Cài ca và bật lịch làm việc.')
@@ -300,6 +303,8 @@ class StaffMixin:
             for key in sorted(cycles):self.settle_contract(e,key,force=True)
         self.cash-=fee
         if fee:self.record('termination',fee)
+        from operations import reimburse
+        reimburse(self,e,'',force=True)
         self.employees.remove(e)
         self.note(f'Đã cho {e["name"]} nghỉ. Phạt hợp đồng: {fee:,.0f} VND.')
         return True
@@ -308,7 +313,9 @@ class StaffMixin:
         if key not in e['attendance']:return
         row=e['attendance'][key]
         total=round(row['gross']);gross=total-row.get('paid_gross',0)
-        if gross<=0:return
+        from operations import reimburse
+        advance=reimburse(self,e,key)
+        if gross<=0 and not advance:return
         hours=(row['seconds']-row.get('paid_seconds',0))/3600
         row['paid_gross']=total;row['paid_seconds']=row['seconds']
         # Daily short-term payment usually below the 2026 withholding threshold.
@@ -316,7 +323,7 @@ class StaffMixin:
         self.cash-=gross
         if key not in e['paid_days']:e['paid_days'].append(key)
         self.payroll.append(dict(employee=e['id'],name=e['name'],role='baito',period=key,paid=self.now.date().isoformat(),
-                                 gross=gross,insurance=0,employer=0,tax=tax,net=gross-tax,hours=hours))
+                                 gross=gross,insurance=0,employer=0,tax=tax,net=gross-tax+advance,hours=hours,reimbursement=advance))
         self.note(f'Đã trả công {e["name"]} ngày {key}: {gross-tax:,.0f} VND (khấu trừ {tax:,.0f}).')
 
     def settle_contract(self,e,key,force=False):
@@ -330,9 +337,11 @@ class StaffMixin:
         # Overtime premium is exempt from PIT; ordinary hourly component is taxable.
         premium=sum(r.get('ot_premium',0) for r in rows)
         tax=income_tax(gross-premium,insurance)
+        from operations import reimburse
+        advance=reimburse(self,e,key)
         self.cash-=gross+employer;e['paid_days'].append(key)
         self.payroll.append(dict(employee=e['id'],name=e['name'],role='contract',period=key,paid=self.now.date().isoformat(),
-                                 gross=gross,insurance=insurance,employer=employer,tax=tax,net=gross-insurance-tax,
+                                 gross=gross,insurance=insurance,employer=employer,tax=tax,net=gross-insurance-tax+advance,reimbursement=advance,
                                  hours=sum(r['seconds'] for r in rows)/3600))
         self.note(f'Thanh toán kỳ {key} cho {e["name"]}: thực nhận {gross-insurance-tax:,.0f} VND.')
 
@@ -379,12 +388,14 @@ class StaffMixin:
                 continue
             if not was:self.note(f'{e["name"]} đến nhận việc.')
         active=[e for e in self.employees if e['present']]
-        if active and self.staff_auto_open and not self.day_decisions.get(key) and not self.open and not self.closing:
+        if active and self.staff_auto_open and self.staff_shutdown_date!=key and not self.day_decisions.get(key) and not self.open and not self.closing:
             if self.open_shop():self.staff_opened_shop=True
         more_today=any(any(stop>self.minute for start,stop,mode in self.day_plan(e,day)['segments']) for e in self.employees)
         if self.staff_opened_shop and not active and not more_today and self.open:
             self.closing=True
         if not self.open:return
+        from operations import manage_shortage
+        manage_shortage(self,active)
         for e in active:
             if e['job']:
                 job=e['job'];job['left']-=dt
@@ -408,13 +419,17 @@ class StaffMixin:
                 if p.phase in ('door','waiting'):self.respond(p.id,'decline')
             if self.staff_opened_shop and not any(p.phase!='leaving' for p in self.parties) and not self.bowls and not any(x is not None for x in self.pots):
                 if not self.dirt and not self.sink and not self.washing and self.wipe_table<0 and not any(t.dirty or t.needs_wipe for t in self.tables):
-                    if self.close_shop():self.staff_opened_shop=False
+                    if self.close_shop():
+                        self.staff_opened_shop=False
+                        row=self.last_report;stars=row.get('average_stars')
+                        score=f'{stars:.2f}/5' if stars is not None else 'chưa có'
+                        self.staff_reports.append({'date':key,'text':f'Đã dọn sạch và đóng quán. {row.get("customers",0)} khách, sao TB {score}; lợi nhuận {row["profit"]:,.0f} VND.'})
 
     @staticmethod
     def job_label(action):
         return {'door':'Đón khách','collect':'Nhận / đọc phiếu','seat':'Xếp bàn','start':'Cho mì vào nồi','lift':'Vớt mì',
                 'prep':'Đưa mì vào quầy','top':'Thêm topping','serve':'Bưng mì','drink':'Bưng đồ uống','clear':'Bê bát bẩn',
-                'wipe':'Lau bàn','wash':'Rửa bát','sweep':'Lau sàn','discard':'Đổ phần thừa','idle':'Nghỉ tay'}.get(action[0],'Làm việc')
+                'wipe':'Lau bàn','wash':'Rửa bát','sweep':'Lau sàn','discard':'Đổ phần thừa','shop':'Đi mua nguyên liệu','clean_wait':'Đang dọn dẹp','idle':'Nghỉ tay'}.get(action[0],'Làm việc')
 
     def reserved_action(self,action):
         return any(e['job'] and e['job']['action']==list(action) for e in self.employees)
@@ -434,31 +449,45 @@ class StaffMixin:
         has_floor=any(x['role']=='baito' for x in active)
         cover=e['cover_days'].get(self.now.date().isoformat(),{})
         primary=cover.get('position','floor' if e['role']=='baito' else 'kitchen')
-        kitchen=e['role']=='contract' or primary=='kitchen' or e.get('kitchen_support',True)
-        floor=e['role']=='baito' or not has_floor or self.player_idle
+        def position(worker):
+            return worker['cover_days'].get(self.now.date().isoformat(),{}).get('position','floor' if worker['role']=='baito' else 'kitchen')
+        def needs_help(where):
+            peers=[x for x in active if x['id']!=e['id'] and position(x)==where]
+            if not peers:return True
+            if any(not x['job'] for x in peers):return False
+            if where=='kitchen':backlog=sum(p.size-len(p.meals) for p in self.parties if p.phase=='seated')
+            else:backlog=sum(p.phase in ('door','waiting','ticket','ready') for p in self.parties)+sum(t.dirty>0 or t.needs_wipe for t in self.tables)+len(self.dirt)+bool(self.sink)+sum(bool(o.get('done')) for o in self.staff_cooking.values())
+            return backlog>len(peers)
+        kitchen=primary=='kitchen' or (e.get('kitchen_support',True) and needs_help('kitchen'))
+        floor=primary=='floor' or needs_help('floor')
+        def cleanup_job(kind,owner,left,target):
+            if owner==e['id'] or (owner not in ('player','auto') and not self.cleanup_active(kind,owner)):
+                setattr(self,kind+'_owner',e['id'])
+                return job(('clean_wait',kind),target,max(.1,left))
+            return None
         def kitchen_job():
             # Lifting is always first priority to preserve the ten-second window.
             for key,order in list(self.staff_cooking.items()):
                 pot=int(key);p=self.group(order['gid'])
                 b=next((b for b in self.bowls if b.id==order.get('bid')),None)
                 if not p or p.phase not in ('seated','eating') or order['index']<len(p.meals):
-                    if b:return job(('discard',b.id),(*BOWL_POS[b.slot],0),2)
+                    if b:yield job(('discard',b.id),(*BOWL_POS[b.slot],0),2)
                     if self.pots[pot] is None:self.staff_cooking.pop(key,None)
                     continue
                 if not b and self.pot_state(pot) in ('ready','mushy'):
-                    if self.clean:return job(('lift',pot),(*POT_POS[pot],0),.2)
+                    if self.clean:yield job(('lift',pot),(*POT_POS[pot],0),.2)
                 elif b:
                     if b.stage=='lifted':
                         slot=next((i for i in range(6) if not any(x.stage=='prep' and x.slot==i for x in self.bowls)),None)
-                        if slot is not None:return job(('prep',b.id,slot),(*BOWL_POS[slot],0),1)
+                        if slot is not None:yield job(('prep',b.id,slot),(*BOWL_POS[slot],0),1)
                     else:
                         missing=Counter(p.recipes[order['index']])-Counter(b.toppings)
                         if missing:
                             name=next(iter(missing))
-                            if self.stock[name]>0:return job(('top',b.id,name),(*BOWL_POS[b.slot],0),2)
+                            if self.stock[name]>0:yield job(('top',b.id,name),(*BOWL_POS[b.slot],0),2)
                         else:
                             order['done']=True
-                            if floor and order['index']==len(p.meals):return job(('serve',b.id,p.table,p.id),table_target(p.table),2)
+                            if floor and order['index']==len(p.meals):yield job(('serve',b.id,p.table,p.id),table_target(p.table),2)
             # Start several pots in parallel, only when a complete recipe remains in stock.
             planned={(x['gid'],x['index']) for x in self.staff_cooking.values()}
             planned|={(x['job']['action'][2],x['job']['action'][3]) for x in active if x['job'] and x['job']['action'][0]=='start'}
@@ -475,63 +504,79 @@ class StaffMixin:
                             reserved+=Counter(other.recipes[order['index']])-Counter(bowl.toppings if bowl else [])
                     if not all(self.stock[n]-reserved[n]>=q for n,q in need.items()):continue
                     pot=next((i for i,v in enumerate(self.pots) if v is None and str(i) not in self.staff_cooking and not any(x['job'] and x['job']['action'][:2]==['start',i] for x in active) and not any(b.stage=='lifted' and b.slot==i for b in self.bowls)),None)
-                    if pot is not None:return job(('start',pot,p.id,idx),(*POT_POS[pot],0),2)
-            if self.sink and not self.washing and (self.clean<=2 or not has_floor):return job(('wash',), (965,320,0),2)
+                    if pot is not None:yield job(('start',pot,p.id,idx),(*POT_POS[pot],0),2)
+            if self.sink and not self.washing and (self.clean<=2 or not has_floor):yield job(('wash',), (965,320,0),2)
             return None
 
         def floor_job():
+            pending=[]
+            if self.washing:pending.append(('wash',self.wash_owner,self.wash_left,(965,320,0)))
+            if self.wipe_table>=0:pending.append(('wipe',self.wipe_owner,self.wipe_left,table_target(self.wipe_table)))
+            if self.sweep_spot>=0:pending.append(('sweep',self.sweep_owner,self.sweep_left,(*DIRT_POS[self.sweep_spot%len(DIRT_POS)],self.sweep_spot//len(DIRT_POS))))
+            for kind,owner,left,target in pending:
+                task=cleanup_job(kind,owner,left,target)
+                if task:yield task
             for p in sorted(self.parties,key=lambda p:p.id):
                 if p.phase in ('door','waiting'):
-                    if self.closing or self.stock['Mì tươi']<p.size:return job(('door',p.id,'decline'),(p.x,p.y,0),2)
+                    if any(x['job'] and x['job']['action'][:2]==['door',p.id] for x in active):continue
+                    if self.closing or not self.party_stock_available(p):
+                        yield job(('door',p.id,'decline'),(p.x,p.y,0),2)
+                        continue
                     reserved_seats=sum(q.size for q in self.parties if q.phase in ('queue','buying','ticket','ready'))
                     free=sum(len(self.free_seats(i)) for i in range(len(self.tables)))
-                    if self.can_fit(p.size) and free-reserved_seats>=p.size:return job(('door',p.id,'accept'),(p.x,p.y,0),2)
-                    if p.phase=='door':return job(('door',p.id,'wait'),(p.x,p.y,0),2)
-                if p.phase=='ticket':return job(('collect',p.id),(725,350,0),3)
+                    if self.can_fit(p.size) and free-reserved_seats>=p.size:yield job(('door',p.id,'accept'),(p.x,p.y,0),2)
+                    if p.phase=='door':yield job(('door',p.id,'wait'),(p.x,p.y,0),2)
+                if p.phase=='ticket':yield job(('collect',p.id),(725,350,0),3)
                 if p.phase=='ready':
                     table=next((i for i in range(len(self.tables)) if len(self.free_seats(i))>=p.size),None)
-                    if table is not None:return job(('seat',p.id,table),table_target(table),2)
+                    if table is not None:yield job(('seat',p.id,table),table_target(table),2)
             for key,order in self.staff_cooking.items():
                 p=self.group(order['gid']);b=next((b for b in self.bowls if b.id==order.get('bid')),None)
-                if order.get('done') and b and p and order['index']==len(p.meals):return job(('serve',b.id,p.table,p.id),table_target(p.table),2)
+                if order.get('done') and b and p and order['index']==len(p.meals):yield job(('serve',b.id,p.table,p.id),table_target(p.table),2)
             # Baito may carry correctly prepared bowls made manually as well.
             for p in self.parties:
                 if p.phase=='seated' and len(p.meals)<p.size:
                     bowl=next((b for b in self.bowls if b.stage=='prep' and Counter(b.toppings)==Counter(p.recipes[len(p.meals)])),None)
-                    if bowl:return job(('serve',bowl.id,p.table,p.id),table_target(p.table),2)
+                    if bowl:yield job(('serve',bowl.id,p.table,p.id),table_target(p.table),2)
                 if p.phase in ('seated','eating'):
                     for i,name in enumerate(p.drinks):
-                        if name and p.drinks_served[i]!=name and self.stock[name]>0:return job(('drink',name,p.table,p.id),table_target(p.table),2)
+                        if name and p.drinks_served[i]!=name and self.stock[name]>0:yield job(('drink',name,p.table,p.id),table_target(p.table),2)
             for i,t in enumerate(self.tables):
-                if t.dirty:return job(('clear',i),table_target(i),3)
-                if t.needs_wipe and self.wipe_table<0:return job(('wipe',i),table_target(i),1)
-            if self.sink and not self.washing:return job(('wash',),(965,320,0),2)
-            if self.dirt:
-                spot=self.dirt[0];return job(('sweep',spot),(*DIRT_POS[spot%len(DIRT_POS)],spot//len(DIRT_POS)),15)
+                if t.dirty:yield job(('clear',i),table_target(i),3)
+                if not t.dirty and t.needs_wipe and self.wipe_table<0:yield job(('wipe',i),table_target(i),1)
+            if self.sink and not self.washing:yield job(('wash',),(965,320,0),2)
+            if self.dirt and self.sweep_spot<0:
+                spot=self.dirt[0];yield job(('sweep',spot),(*DIRT_POS[spot%len(DIRT_POS)],spot//len(DIRT_POS)),15)
             if self.closing and not any(p.phase in ('seated','eating','ready','ticket','buying','queue') for p in self.parties):
-                if self.bowls:return job(('discard',self.bowls[0].id),(1000,590,0),2)
+                if self.bowls:yield job(('discard',self.bowls[0].id),(1000,590,0),2)
                 for i,age in enumerate(self.pots):
-                    if age is not None:return job(('discard_pot',i),(*POT_POS[i],0),2)
+                    if age is not None:yield job(('discard_pot',i),(*POT_POS[i],0),2)
             return None
 
-        # Even horu staff must rescue a ready pot before the ten-second grace expires.
-        if kitchen:
-            for key,order in self.staff_cooking.items():
-                p=self.group(order['gid']);pot=int(key)
-                if p and p.phase in ('seated','eating') and order['index']>=len(p.meals) and not order.get('bid') and self.clean and self.pot_state(pot) in ('ready','mushy'):
-                    lift=job(('lift',pot),(*POT_POS[pot],0),.2)
-                    if lift:return lift
+        for kind,left,target in [('wash',self.wash_left,(965,320,0)),('wipe',self.wipe_left,table_target(self.wipe_table) if self.wipe_table>=0 else (0,0,0)),('sweep',self.sweep_left,(*DIRT_POS[self.sweep_spot%len(DIRT_POS)],self.sweep_spot//len(DIRT_POS)) if self.sweep_spot>=0 else (0,0,0))]:
+            if left>0 and getattr(self,kind+'_owner')==e['id']:
+                return job(('clean_wait',kind),target,left)
         # Baito prioritise actionable horu work, then support the complete kitchen cycle.
         priorities=((floor,floor_job),(kitchen,kitchen_job)) if primary=='floor' else ((kitchen,kitchen_job),(floor,floor_job))
         for allowed,choose in priorities:
             if allowed:
-                task=choose()
-                if task:return task
+                for task in choose():
+                    if task:return task
         return None
 
     def finish_staff_job(self,e,job):
         action=job['action'];kind,*args=action
-        if kind=='idle':return
+        if kind in ('idle','clean_wait'):return
+        if kind=='shop':
+            from operations import complete_purchase
+            complete_purchase(self,e,args[0]);return
+        if kind in ('wash','wipe','sweep'):
+            fn={'wash':self.wash,'wipe':self.wipe,'sweep':self.sweep}[kind]
+            if fn(*args,owner=e['id']):
+                left=getattr(self,kind+'_left')
+                e['job']={'action':['clean_wait',kind],'target':job['target'],'left':left}
+                e['status']=self.job_label(action);e['tasks']+=1
+            return
         # Breakage has a concrete cause, destroys one owned bowl and dirties the floor.
         carrying=kind in ('serve','clear','prep')
         chance=.018 if 'Hậu đậu' in e['traits'] else .001
@@ -566,7 +611,7 @@ class StaffMixin:
             p=self.group(args[0])
             if done and p:
                 message=f'{e["name"]}: Phiếu nhóm {p.id}, '+', '.join(p.orders)+'. '+', '.join(d for d in p.drinks if d)
-                self.note(message);self.speech_events.append(message)
+                self.note(message);self.speech_events.append({'text':message,'dishes':p.orders+[d for d in p.drinks if d]})
         else:
             fn={'seat':self.seat,'prep':self.move_prep,'top':self.topping,'serve':self.serve,'drink':self.serve_drink,
                 'clear':self.clear_table,'wipe':self.wipe,'wash':self.wash,'sweep':self.sweep,'discard':self.discard_bowl,'discard_pot':self.discard_pot}.get(kind)

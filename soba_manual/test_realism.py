@@ -14,7 +14,7 @@ class RealismTests(unittest.TestCase):
         w=self.world();p=w.add_party(4)
         self.assertEqual(len(set(p.eat_seconds)),4)
         self.assertTrue(all(180<=v<=720 for v in p.eat_seconds))
-        self.assertTrue(all(12<=v<=54 for v in p.choose_seconds))
+        self.assertTrue(all(6<=v<=27 for v in p.choose_seconds))
         w.respond(p.id,'accept');w.update(p.buy_seconds)
         self.assertEqual(p.phase,'ticket');cash=w.cash
         w.update(7200);self.assertEqual(p.phase,'ticket');self.assertEqual(w.cash,cash)
@@ -59,7 +59,7 @@ class RealismTests(unittest.TestCase):
         w=self.world();w.update(7200);self.assertFalse(w.dirt)
         w.mark_dirty(0,'Nước dùng bị đổ khi phục vụ',2)
         self.assertEqual(w.dirt,[2]);self.assertIn('Nước dùng',w.dirt_reasons['2'])
-        self.assertFalse(w.close_shop());w.sweep(2)
+        self.assertFalse(w.close_shop());w.sweep(2);w.update(w.sweep_left)
         self.assertFalse(w.dirt_reasons)
 
     def test_timer_save_and_v3_migration(self):

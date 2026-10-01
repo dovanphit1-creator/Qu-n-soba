@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory() as d:
   import holidays
   from vn_calendar import holiday_name
   from datetime import date
-  a=App(headless=True,persistent=False);a.draw()
+  a=App(headless=True,persistent=False);a.draw();a.step(.1)
   assert a.world.cash==10000000
   assert holiday_name(date(2026,1,1))
   assert holidays.__version__=='0.105'

@@ -153,15 +153,16 @@ class RulesTest(unittest.TestCase):
         w.mark_dirty(0,"Nước dùng rơi khi đổ mì")
         self.assertFalse(w.close_shop())
         self.assertTrue(w.dirt)
-        for spot in w.dirt[:]:w.sweep(spot)
+        for spot in w.dirt[:]:
+            w.sweep(spot);w.update(w.sweep_left)
         self.assertTrue(w.close_shop())
         report=w.last_report
         self.assertEqual(report['ingredients'],STOCK_COST['Mì tươi'])
         self.assertEqual(report['gas'],800)
-        self.assertEqual(report['electricity'],350)
+        self.assertGreaterEqual(report['electricity'],350)
         self.assertEqual(report['water'],500)
-        self.assertEqual(report['profit'],-STOCK_COST['Mì tươi']-1650)
-        self.assertEqual(w.cash,start_cash-1650)
+        self.assertEqual(report['profit'],-STOCK_COST['Mì tươi']-report['utilities'])
+        self.assertEqual(w.cash,start_cash-report['utilities'])
         cash=w.cash
         self.assertFalse(w.close_shop())
         self.assertEqual(w.cash,cash)
@@ -323,7 +324,8 @@ class RulesTest(unittest.TestCase):
         w.collect(p.id);w.seat(p.id,0);w.start_pot(0);w.update(210);w.lift(0)
         b=w.bowls[0];w.move_prep(b.id,0)
         for name in p.recipes[0]:w.topping(b.id,name)
-        for spot in w.dirt[:]:w.sweep(spot)
+        for spot in w.dirt[:]:
+            w.sweep(spot);w.update(w.sweep_left)
         w.serve(b.id,0)
         for drink in p.drinks:
             if drink:w.serve_drink(drink,0)

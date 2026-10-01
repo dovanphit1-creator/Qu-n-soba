@@ -65,6 +65,7 @@ class App(ManagementUI,StaffUI):
         self.world = World()
         self.selected = 0
         self.drag = None
+        self.clean_hold = None
         self.down = None
         self.mouse = (0, 0)
         self.buttons = []
@@ -99,6 +100,8 @@ class App(ManagementUI,StaffUI):
         if opened and not self.screen_open:
             self.enter_shop()
             self.persist()
+        if not opened and self.screen_open and self.world.last_report:
+            self.staff_panel=False;self.modal="report";self.manager_tab="overview"
         self.screen_open = opened
 
     def enter_shop(self):
@@ -110,6 +113,7 @@ class App(ManagementUI,StaffUI):
         self.input_focus = None
         pg.key.stop_text_input()
         self.drag = self.down = self.pending_drag = None
+        self.clean_hold=None;self.world.player_cleaning=None
 
     def poll_updates(self):
         if self.update_queue is not None:
@@ -273,7 +277,7 @@ class App(ManagementUI,StaffUI):
             for dx, dy in [(-12, 2), (3, -4), (12, 5)]:
                 pg.draw.ellipse(self.canvas, '#907049', (x+dx-8, y+dy-5, 19, 12))
             self.box((x-24, y+12, 48, 23), '#8e553f', 4)
-            self.text('LAU', (x, y+24), 14, 'white', True, True)
+            self.text(str(math.ceil(world.sweep_left))+'s' if world.sweep_spot==spot else 'GIỮ', (x, y+24), 14, 'white', True, True)
         # Ticket machine.
         self.box(MACHINE.move(5, 5), '#6c624e', 8)
         self.box(MACHINE, '#345854', 8, '#203d35')
@@ -289,8 +293,8 @@ class App(ManagementUI,StaffUI):
         for i in range(min(world.sink, 5)):
             self.bowl((833+i*19, 314), dirty=True, size=13)
         self.text(f'Bồn: {world.sink} bát', (815, 323), 16, 'white')
-        self.button((970, 292, 165, 43), f'Đang rửa {max(0,math.ceil(world.wash_left))}s' if world.washing else 'Rửa bát',
-                    ('wash',), not world.washing and world.sink > 0, small=True)
+        self.button((970, 292, 165, 43), f'Đang rửa {max(0,math.ceil(world.wash_left))}s' if world.washing else 'Giữ rửa bát',
+                    ('wash',), world.sink > 0 or (world.washing and world.wash_owner=='player'), small=True)
         # Pots: exact remaining seconds.
         for i, (x, y) in enumerate(POT_POS):
             state = world.pot_state(i)
@@ -422,7 +426,7 @@ class App(ManagementUI,StaffUI):
         message = world.logs[-1] if world.logs else ''
         for spot in world.dirt:
             if spot//len(DIRT_POS)==self.floor and dist(self.mouse,DIRT_POS[spot%len(DIRT_POS)])<40:
-                message=world.dirt_reasons.get(str(spot),'Vết bẩn từ phiên bản trước')+' · Nhấp LAU để dọn'
+                message=world.dirt_reasons.get(str(spot),'Vết bẩn từ phiên bản trước')+' · Giữ chuột để lau'
         size = 20 if self.font(20).size(message)[0] < 1112 else 17
         self.text(message, (42, 956), size, CREAM)
 
@@ -438,7 +442,7 @@ class App(ManagementUI,StaffUI):
         rect = pg.Rect(x-88, y-18, 176, 41)
         self.box(rect, '#fff4d8' if p.id != self.selected else '#f5c56b', 6, '#9f8b66')
         self.text(f'Nhóm {p.id:03} · {p.size} người', (x, y-7), 15, INK, True, True)
-        self.text(status, (x, y+11), 14, '#725538', False, True)
+        self.text(('Thẻ '+f'{p.wait_number:03}') if p.phase=='waiting' else status, (x, y+11), 14, '#725538', False, True)
 
     def render_side(self):
         w = self.world
@@ -552,6 +556,8 @@ class App(ManagementUI,StaffUI):
                 values=[key,vnd(row['net_revenue']),vnd(row['ingredients']),vnd(row['utilities']+row.get('wages',0)+row.get('employer_insurance',0)+row.get('termination',0)),vnd(row['profit'])]
                 for value,x in zip(values,[60,310,590,925,1270]):
                     self.text(value,(x,y),20, RED if x==1270 and row['profit']<0 else INK)
+                stars=row.get('average_stars');score=f'{stars:.2f}/5' if stars is not None else 'Chưa chấm'
+                self.text(f'{row.get("customers",0)} khách · {score}',(60,y+22),14,GREEN)
             if not rows:
                 self.text('Chưa có giao dịch. Mua nguyên liệu ở Chợ để bắt đầu.',(62, 532),24)
             self.text('Doanh thu đã trừ hoàn tiền. Giá vốn gồm cả nguyên liệu đã dùng / đổ bỏ, không trừ lại tiền mua kho.',(60,851),18,'#6b7357')
@@ -576,6 +582,9 @@ class App(ManagementUI,StaffUI):
             self.button((1230,803,265,46),'Tạo ván mới',('modal','confirm_new'),small=True,color='#98734c')
         self.box((35,924,1525,52),'#334e3d',8)
         self.text(w.logs[-1] if w.logs else '',(51,938),20,CREAM)
+        row=w.totals().get(w.now.date().isoformat(),{})
+        stars=row.get('average_stars');label=f'{stars:.2f}/5' if stars is not None else 'Chưa có'
+        self.text(f'Hôm nay: {row.get("customers",0)} khách vào · {row.get("rating_count",0)} đánh giá · TB {label}',(60,905),17,GREEN)
 
     def render_modal(self):
         if not self.modal:
@@ -630,6 +639,8 @@ class App(ManagementUI,StaffUI):
                 y+=43
             self.text('Ngân sách còn lại: '+vnd(row['cash']),(310,625),27,GREEN,True)
             self.wrap('Đã hoàn khách: '+vnd(row.get('refunds',0))+'. Giá vốn không trừ lại tiền mua kho. Điện/nước/ga thanh toán lần này: '+vnd(row['payment']), (312,677),960,20)
+            stars=row.get('average_stars');rating=f'{stars:.2f}/5 sao' if stars is not None else 'Chưa có đánh giá'
+            self.text(f'{row.get("customers",0)} khách vào · {row.get("rating_count",0)} lượt chấm · Trung bình {rating}',(312,735),23,GREEN,True)
             self.button((855,811,420,55),'Về trang đóng quán',('dismiss',))
         elif self.modal=='confirm_new':
             self.text('TẠO VÁN VND MỚI?',(800,280),36,INK,True,True)
@@ -751,6 +762,28 @@ class App(ManagementUI,StaffUI):
             return ('dirty',index)
         return None
 
+    def cleaning_target(self,point):
+        w=self.world
+        if self.modal or self.staff_panel or not w.open:return None
+        if SINK.collidepoint(point) and (w.sink or w.washing):return ('wash',None)
+        for spot in w.dirt:
+            if spot//len(DIRT_POS)==self.floor and dist(point,DIRT_POS[spot%len(DIRT_POS)])<35:return ('sweep',spot)
+        index=self.hit_table(point)
+        if index is not None and w.tables[index].needs_wipe and not w.tables[index].dirty:return ('wipe',index)
+        return None
+
+    def start_clean_hold(self,target):
+        kind,index=target;w=self.world
+        ongoing=w.washing if kind=='wash' else (w.wipe_table==index if kind=='wipe' else w.sweep_spot==index)
+        owner=getattr(w,kind+'_owner')
+        if ongoing:
+            if owner not in ('player','auto'):return False
+            setattr(w,kind+'_owner','player')
+        else:
+            fn={'wash':w.wash,'wipe':w.wipe,'sweep':w.sweep}[kind]
+            if not fn(*(() if index is None else (index,)),owner='player'):return False
+        self.clean_hold=target;w.player_cleaning=kind;return True
+
     def click(self, point, right=False):
         if right:
             for i,pos in enumerate(POT_POS):
@@ -765,7 +798,7 @@ class App(ManagementUI,StaffUI):
             return
         for spot in self.world.dirt[:]:
             if spot // len(DIRT_POS)==self.floor and dist(point,DIRT_POS[spot % len(DIRT_POS)]) < 35:
-                self.world.sweep(spot)
+                self.last_warning='Giữ chuột tại vết bẩn để lau.'
                 return
         if TICKET.collidepoint(point):
             p = next((p for p in self.world.parties if p.phase == 'ticket'), None)
@@ -781,7 +814,7 @@ class App(ManagementUI,StaffUI):
         if index is not None:
             t = self.world.tables[index]
             if not t.dirty and t.needs_wipe:
-                self.world.wipe(index)
+                self.last_warning='Giữ chuột tại bàn để lau.'
                 return
         p = self.hit_party(point)
         if p:
@@ -793,7 +826,7 @@ class App(ManagementUI,StaffUI):
             if t.group:
                 self.selected = t.group
             else:
-                self.world.wipe(index)
+                self.last_warning='Giữ chuột tại bàn để lau.'
 
     def drop(self, source, point):
         kind, ident = source
@@ -874,7 +907,7 @@ class App(ManagementUI,StaffUI):
         elif kind=='refund_confirm':
             self.world.refund_party(args[0]);self.modal=None;self.persist()
         elif kind=='wash':
-            self.world.wash()
+            self.last_warning='Giữ chuột tại bồn để rửa bát.'
         elif kind=='buy':
             if self.world.restock(args[0],args[1]):self.persist()
         elif kind=='close':
@@ -892,7 +925,7 @@ class App(ManagementUI,StaffUI):
             if self.background and self.world.background_enabled:self.background.hide();self.persist()
             else:self.action(('quit',))
         elif event.type==pg.WINDOWFOCUSLOST:
-            self.drag=self.down=None
+            self.drag=self.down=None;self.clean_hold=None;self.world.player_cleaning=None
             self.persist()
         elif event.type==pg.VIDEORESIZE:
             self.display=pg.display.set_mode((max(800,event.w),max(500,event.h)),pg.RESIZABLE)
@@ -916,12 +949,16 @@ class App(ManagementUI,StaffUI):
             if event.button==1:
                 self.down=self.mouse
                 self.pending_drag=self.source(self.mouse) if not self.modal and not self.staff_panel and self.world.open else None
+                target=self.cleaning_target(self.mouse)
+                if target and self.start_clean_hold(target):self.pending_drag=None
             elif event.button==3 and not self.modal and not self.staff_panel and self.world.open:
                 self.click(self.mouse,True)
         elif event.type==pg.MOUSEBUTTONUP and event.button==1:
             self.mouse=self.point(event.pos)
+            held=self.clean_hold is not None
+            self.clean_hold=None;self.world.player_cleaning=None
             if self.drag and not self.modal and not self.staff_panel and self.world.open:self.drop(self.drag,self.mouse)
-            else:self.click(self.mouse)
+            elif not held:self.click(self.mouse)
             self.drag=self.down=None
 
     def step(self,dt):
@@ -930,6 +967,8 @@ class App(ManagementUI,StaffUI):
         self.world.player_idle=self.no_input_seconds>=30
         if self.background:self.background.poll()
         if not self.running:return
+        target=self.cleaning_target(self.mouse) if self.down and self.clean_hold else None
+        self.world.player_cleaning=self.clean_hold[0] if target==self.clean_hold and target else None
         # Help panels and lost window focus never pause an open restaurant.
         if self.world.process_deliveries():self.persist()
         self.world.update(dt)
@@ -939,7 +978,9 @@ class App(ManagementUI,StaffUI):
             self.world.sound_events.clear()
         if self.world.speech_events:
             from audio import speak
-            for message in self.world.speech_events:speak(message)
+            for message in self.world.speech_events:
+                if isinstance(message,dict):speak(message['text'],message.get('dishes'))
+                else:speak(message)
             self.world.speech_events.clear()
         if self.world.open:self.animation+=dt
         self.auto_save+=dt
@@ -1020,14 +1061,12 @@ def smoke_test(output):
     app.world.update(app.world.eating_remaining(party)+1)
     app.drop(('dirty', 0), SINK.center)
     app.draw()
-    app.click(TABLE_LAYOUT[0][:2])
-    app.draw()
-    app.click((1050, 310))
-    app.world.update(app.world.wash_left+1)
+    hold_clean(app,('wipe',0),TABLE_LAYOUT[0][:2],app.world.wipe_left)
+    hold_clean(app,('wash',None),(1050,310),app.world.wash_left)
     assert app.world.clean == 24 and not app.world.tables[0].needs_wipe
     assert not app.world.close_shop()
     for spot in app.world.dirt[:]:
-        app.click(DIRT_POS[spot])
+        hold_clean(app,('sweep',spot),DIRT_POS[spot%len(DIRT_POS)],0)
     app.action(('close',))
     assert not app.world.open and app.modal == 'report'
     assert 'profit' in app.world.last_report
@@ -1046,6 +1085,8 @@ def smoke_test(output):
     check_auto_open_ui(app,output)
     from baito_kitchen_smoke import check_baito_kitchen_ui
     check_baito_kitchen_ui(app,output)
+    from service_smoke import check_service_ui
+    check_service_ui(app,output)
     check_windows_background(App,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)
@@ -1054,9 +1095,17 @@ def smoke_test(output):
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['baito-kitchen-controls','baito-kitchen-save','scheduled-auto-open-screen','staff-return-to-open-shop','refund-ui','refund-once','refund-save','staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['held-cleaning','staff-receipt-ui','daily-customer-statistics','vietnamese-speech','baito-kitchen-controls','baito-kitchen-save','scheduled-auto-open-screen','staff-return-to-open-shop','refund-ui','refund-once','refund-save','staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
+
+
+def hold_clean(app,target,point,seconds=0):
+    app.down=app.mouse=point
+    assert app.start_clean_hold(target)
+    remaining=getattr(app.world,target[0]+'_left')
+    app.step(remaining+1)
+    app.clean_hold=None;app.down=None;app.world.player_cleaning=None
 
 
 def verify_new_player(output):
