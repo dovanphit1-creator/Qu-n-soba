@@ -17,11 +17,13 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      TESTED_REF: 'android-beta2-verified'
       TESTED_RUN: '36906688143'
       TESTED_COMMIT: '228ff11a071d7382cceeae1eb1120857a354f8b6'
     steps:
       - name: Require successful tests for the exact Android source
         run: |
+          gh api "repos/$GH_REPO/git/ref/heads/$TESTED_REF" | jq -e --arg sha "$TESTED_COMMIT" ' .object.sha == $sha '
           gh run watch "$TESTED_RUN" --exit-status
           gh api "repos/$GH_REPO/actions/runs/$TESTED_RUN" > run.json
           jq -e --arg sha "$TESTED_COMMIT" '.head_sha == $sha and .conclusion == "success" and .head_branch == "android-native"' run.json
@@ -44,7 +46,7 @@ jobs:
 
           Đã qua kiểm tra Android giả lập về khởi động bộ game đóng gói, chạm bắt đầu, lưu và khôi phục ngân sách, bảo vệ dữ liệu lưu. Đã sửa lỗi tiếng Việt trong dữ liệu lưu và kiểm tra tên món tự tạo có dấu/emoji sau khi mở lại. Vẫn cần phản hồi từ điện thoại thật. Nhân viên không được đảm bảo tiếp tục làm việc khi Android đình chỉ ứng dụng nền.
           MD
-          gh release create android-1.8.0-beta.2 apk/QuanMiCuaToi-Android-1.8.0-beta.2.apk apk/SHA256SUMS.txt --target "$TESTED_COMMIT" --prerelease --latest=false --title 'Quán Mì Của Tôi — Android 1.8.0-beta.2' --notes-file notes.md
+          gh release create android-1.8.0-beta.2 apk/QuanMiCuaToi-Android-1.8.0-beta.2.apk apk/SHA256SUMS.txt --target "$TESTED_REF" --prerelease --latest=false --title 'Quán Mì Của Tôi — Android 1.8.0-beta.2' --notes-file notes.md
       - name: Mark the first Android beta as superseded
         run: |
           cat > obsolete-notes.md <<'MD'
