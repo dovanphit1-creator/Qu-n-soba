@@ -66,6 +66,8 @@ def build():
             if hashlib.sha256(data).hexdigest() != entry['sha256']:
                 raise ValueError('Runtime checksum mismatch: ' + entry['path'])
             target.write_bytes(data)
+    rc = OUTPUT / 'runtime/cpythonrc.py'
+    rc.write_text(rc.read_text().replace('import __EMSCRIPTEN__ as platform\n', 'import __EMSCRIPTEN__ as platform\nos.environ["PYGPI"] = str(platform.window.location.origin) + "/runtime/packages/"\n', 1))
     (OUTPUT / 'runtime/empty.html').write_text('<!doctype html><title></title>')
     packages = OUTPUT / 'runtime/packages'
     (packages / 'index-0.9.3-cp312.json').write_text(json.dumps({
