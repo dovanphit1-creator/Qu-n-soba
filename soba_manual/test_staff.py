@@ -74,10 +74,10 @@ class StaffTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'save.json';w.save(path);loaded=World.load(path)
             self.assertEqual(loaded.employees,w.employees)
-            data=json.loads(path.read_text());data['version']=4;data['reputation']=0
+            data=json.loads(path.read_text(encoding='utf-8'));data['version']=4;data['reputation']=0
             for name in ('Măng','Kaeshi',*DRINKS):data['stock'].pop(name);data['stock_value'].pop(name)
             for key in ('employees','candidates','staff_cooking','payroll'):data.pop(key)
-            path.write_text(json.dumps(data));loaded=World.load(path)
+            path.write_text(json.dumps(data),encoding='utf-8');loaded=World.load(path)
             self.assertEqual(loaded.reputation,5);self.assertEqual(loaded.stock['Măng'],0)
             self.assertTrue(path.with_suffix('.v4.bak').exists())
 
