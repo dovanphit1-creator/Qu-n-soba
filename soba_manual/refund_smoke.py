@@ -7,7 +7,7 @@ from model import World,STOCK_COST
 def check_refund_ui(app,output):
     app.world=World(seed=81);app.modal=None;app.staff_panel=False
     for name in ('Bát/đĩa',*STOCK_COST):app.world.restock(name,4)
-    assert app.world.open_shop();app.world.spawn_left=1e9
+    assert app.world.open_shop();app.sync_shop_screen();app.world.spawn_left=1e9
     p=app.world.add_party(1);p.drinks=[''];p.drinks_served=['']
     assert app.world.respond(p.id,'accept');app.world.update(p.buy_seconds)
     app.selected=p.id;cash=app.world.cash

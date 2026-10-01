@@ -92,6 +92,25 @@ class App(ManagementUI,StaffUI):
             except (OSError, ValueError, KeyError, TypeError):
                 self.last_warning = 'Không đọc được bản lưu VND; hãy sao lưu tệp trước khi tạo ván mới.'
 
+        self.screen_open = self.world.open
+
+    def sync_shop_screen(self):
+        opened = self.world.open
+        if opened and not self.screen_open:
+            self.enter_shop()
+            self.persist()
+        self.screen_open = opened
+
+    def enter_shop(self):
+        # A closed-shop dialog must not obscure a shift started by an employee.
+        if self.modal == 'update':self.update_notified = False
+        self.staff_panel = False
+        self.modal = None
+        self.manager_tab = 'overview'
+        self.input_focus = None
+        pg.key.stop_text_input()
+        self.drag = self.down = self.pending_drag = None
+
     def poll_updates(self):
         if self.update_queue is not None:
             from queue import Empty
@@ -645,13 +664,14 @@ class App(ManagementUI,StaffUI):
             self.button((950,819,330,49),'Trở lại',('dismiss',))
 
     def draw(self):
+        self.sync_shop_screen()
         self.buttons = []
         if self.staff_panel:
             self.canvas.fill('#e6e9da')
             self.box((35,380,1525,520),'#fff3d9',12)
             self.text(GAME_TITLE+' · NHÂN SỰ',(45,50),36,INK,True)
             self.text('Quán tiếp tục hoạt động khi xem nhân sự',(45,120),24)
-            self.button((1180,60,370,60),'Trở lại quán',('staff_panel',))
+            self.button((1180,60,370,60),'Vào quán đang mở' if self.world.open else 'Trở lại quản lý',('enter_shop',) if self.world.open else ('staff_panel',))
             self.render_staff()
         elif self.world.open:
             self.render_floor()
@@ -843,6 +863,8 @@ class App(ManagementUI,StaffUI):
             self.modal=None
         elif kind=='new' and not self.world.open:
             self.world=World(); self.staff_panel=False; self.modal=None; self.manager_tab='overview'; self.init_management(); self.persist()
+        elif kind=='enter_shop' and self.world.open:
+            self.enter_shop()
         elif kind=='open':
             if self.world.open_shop():self.persist()
         elif kind=='answer':
@@ -911,6 +933,7 @@ class App(ManagementUI,StaffUI):
         # Help panels and lost window focus never pause an open restaurant.
         if self.world.process_deliveries():self.persist()
         self.world.update(dt)
+        self.sync_shop_screen()
         if self.world.sound_events:
             if self.sound:self.sound.play()
             self.world.sound_events.clear()
@@ -1019,6 +1042,8 @@ def smoke_test(output):
     check_staff_ui(app,output)
     from refund_smoke import check_refund_ui
     check_refund_ui(app,output)
+    from auto_open_smoke import check_auto_open_ui
+    check_auto_open_ui(app,output)
     check_windows_background(App,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)
@@ -1027,7 +1052,7 @@ def smoke_test(output):
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['refund-ui','refund-once','refund-save','staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['scheduled-auto-open-screen','staff-return-to-open-shop','refund-ui','refund-once','refund-save','staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 

@@ -147,3 +147,7 @@ NHÂN SỰ 1.3.0
 
 HOÀN TIỀN 1.3.1
 Nhấp tên nhóm đang chờ món / đồ uống → Hoàn tiền & mời khách về → xác nhận. Hoàn toàn bộ tiền phiếu kể cả đã phục vụ một phần để xin lỗi khách. Bát bẩn vẫn phải dọn và rửa. Chi phí nguyên liệu đã dùng giữ nguyên; doanh thu và lợi nhuận trừ tiền hoàn.
+
+CHUYỂN MÀN HÌNH 1.3.2
+Khi nhân viên tự mở quán đúng ca, game tự chuyển vào giao diện phục vụ.
+Nếu đang xem nhân sự khi quán đã mở, bấm Vào quán đang mở để quay lại.

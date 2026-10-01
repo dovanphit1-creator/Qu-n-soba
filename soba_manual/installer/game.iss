@@ -1,6 +1,6 @@
 ﻿; UTF-8 installer source. Keep AppId and save location stable across updates.
 #ifndef GameVersion
-  #define GameVersion "1.3.1"
+  #define GameVersion "1.3.2"
 #endif
 #define GameName "Quán Mì Của Tôi"
 #define GameExe "Quán Mì Của Tôi.exe"

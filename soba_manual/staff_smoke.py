@@ -33,7 +33,7 @@ def check_staff_ui(app,output):
     for name in ['Bát/đĩa',*STOCK_COST]:app.world.restock(name,4)
     app.step(1);assert app.world.open
     button(('staff_panel',));assert app.staff_panel
-    button(('staff_panel',));assert not app.staff_panel
+    button(('enter_shop',));assert not app.staff_panel
     path=Path(output).with_name('staff-test-save.json');app.world.save(path)
     assert World.load(path).employees==app.world.employees
     app.world=World();app.init_management();app.staff_panel=False
