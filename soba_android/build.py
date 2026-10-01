@@ -34,7 +34,7 @@ def build():
     html=html.replace('<head>', '<head><script src="native-bridge.js"></script>',1)
     (assets/'index.html').write_text(html)
     shutil.copy2(ROOT/'bridge.js',assets/'native-bridge.js')
-    icons=ROOT/'app/src/main/res/drawable';icons.mkdir(exist_ok=True)
+    icons=ROOT/'app/src/main/res/drawable';icons.mkdir(parents=True,exist_ok=True)
     shutil.copy2(ROOT.parent/'soba_manual/assets/game.png',icons/'game.png')
     print('Android offline assets:',assets)
 if __name__=='__main__':build()
