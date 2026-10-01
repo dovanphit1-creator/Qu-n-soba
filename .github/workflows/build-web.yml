@@ -15,6 +15,7 @@ jobs:
       - run: pip install pygame-ce==2.5.7 pygbag==0.9.3 holidays==0.105 pillow==11.3.0 soundfile==0.13.1 python-dateutil==2.9.0.post0 six==1.17.0
       - run: python soba_manual/build_brand_assets.py && python soba_manual/build_audio.py && python soba_manual/build_loading_screen.py
       - run: python -m unittest discover -s soba_manual -p 'test*.py'
+      - run: python soba_web/build_voice.py
       - run: python soba_web/build.py
       - name: Package complete disposable web edition
         run: |
