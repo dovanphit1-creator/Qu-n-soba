@@ -32,8 +32,12 @@ for ($i=0;$i -lt 100;$i++) {
 if (-not $visible) { throw 'Old game window did not open' }
 Start-Sleep -Seconds 2
 $setup=Join-Path $PWD 'installer-output\QuanMiCuaToi-Setup.exe'
-$p=Start-Process $setup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
-if ($p.ExitCode -ne 0) { throw 'Update while old game running failed' }
+$upgradeLog=Join-Path $PWD 'live-upgrade-installer.log'
+$p=Start-Process $setup -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=`"$upgradeLog`"" -Wait -PassThru
+if ($p.ExitCode -ne 0) {
+  if (Test-Path $upgradeLog) { Get-Content $upgradeLog -Tail 70 }
+  throw "Update while old game running failed: installer exit $($p.ExitCode)"
+}
 if (@(Get-Process | Where-Object { $_.Path -eq $exe }).Count -ne 0) { throw 'Old game did not exit cleanly' }
 $after=Get-Content $save -Raw | ConvertFrom-Json
 if (-not $after.open -or $after.cash -ne 7654321 -or $after.parties[0].id -ne $before.parties[0].id) { throw 'Live shift progress was lost' }
