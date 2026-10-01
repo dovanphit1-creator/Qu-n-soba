@@ -2,7 +2,7 @@
 <h1 align="center">Quán Mì Của Tôi</h1>
 <p align="center"><strong>Một quán nhỏ. Từng bát mì. Câu chuyện của bạn.</strong></p>
 <p align="center">Game mô phỏng kinh doanh quán mì bằng tiếng Việt, tự tay thao tác bằng chuột.</p>
-<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.3.1/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
+<p align="center"><a href="https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site"><strong>🍜 Chơi trên web</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.3.2/QuanMiCuaToi-Setup.exe"><strong>↓ Tải Windows (.exe)</strong></a> &nbsp; · &nbsp; <a href="https://github.com/dovanphit1-creator/Qu-n-soba/releases">Các bản phát hành</a></p>
 
 ![Giao diện thật của Quán Mì Của Tôi](docs/assets/gameplay.png)
 
@@ -28,7 +28,7 @@ Bạn bắt đầu với **10.000.000 VND**, **7% danh tiếng**, **1 bàn 4 ch�
 
 Bản Windows lưu trong `%LOCALAPPDATA%\QuanSobaManual\save-vnd.json`. Hai phiên bản không đồng bộ dữ liệu.
 
-Bản chính thức mới nhất là **1.3.1**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
+Bản chính thức mới nhất là **1.3.2**. Người chơi bản 1.0.0 có tính năng kiểm tra cập nhật sẽ nhận thông báo khi mở game có Internet. Tệp Windows chưa ký số nên có thể xuất hiện cảnh báo nhà phát hành.
 
 ## Góp ý và cập nhật
 
@@ -45,3 +45,5 @@ Bản 1.3.0 thêm nhân viên, ca làm, lịch nghỉ, lương / bảo hiểm / 
 Bản 1.3.0 bổ sung máy chấm công baito và tăng ca chính thức, ca chuẩn 8h + 30p nghỉ không tính công, đăng bài tuyển / CV, bảng khoảng giờ thiếu người theo vị trí, lời mời baito làm thay và quyết định chủ tự làm hoặc cho quán nghỉ. Giữ dữ liệu 1.2.0, sao lưu khi chuyển đổi.
 
 Bản 1.3.1 sửa khách mắc kẹt khi hết nguyên liệu: chọn nhóm đang chờ → Hoàn tiền & mời khách về → xác nhận. Hoàn toàn bộ phiếu, không hoàn hai lần; doanh thu và lợi nhuận đã trừ tiền hoàn. Giữ dữ liệu 1.3.0.
+
+Bản 1.3.2 sửa chuyển màn hình khi nhân viên tự mở quán đúng ca; tự đưa người chơi vào giao diện quán đang mở và thêm nút quay lại quán trong Nhân sự. Giữ nguyên dữ liệu lưu.
