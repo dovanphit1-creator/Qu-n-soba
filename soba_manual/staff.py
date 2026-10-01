@@ -397,6 +397,9 @@ class StaffMixin(ShiftMixin):
         if not self.open:return
         from operations import manage_shortage
         manage_shortage(self,active)
+        if self.closing and self.staff_shutdown_date==key:
+            from operations import refund_unservable
+            refund_unservable(self)
         for e in active:
             if e['job']:
                 job=e['job'];job['left']-=dt
@@ -462,7 +465,7 @@ class StaffMixin(ShiftMixin):
         kitchen=primary=='kitchen' or (e.get('kitchen_support',True) and needs_help('kitchen'))
         floor=primary=='floor' or needs_help('floor')
         def cleanup_job(kind,owner,left,target):
-            if owner==e['id'] or (owner not in ('player','auto') and not self.cleanup_active(kind,owner)):
+            if owner==e['id'] or not self.cleanup_active(kind,owner):
                 setattr(self,kind+'_owner',e['id'])
                 return job(('clean_wait',kind),target,max(.1,left))
             return None

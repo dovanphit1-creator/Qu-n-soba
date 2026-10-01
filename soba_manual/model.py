@@ -739,6 +739,10 @@ class World(StaffMixin,FinanceMixin):
         from collections import Counter
         available=any(all(self.stock[name]>=qty for name,qty in Counter(['Mì tươi',*item['toppings']]).items()) for item in self.menu.values())
         if not available:return 'Kho chưa đủ nguyên liệu làm một món trong menu; bổ sung ở Chợ.'
+        if automatic and self.staff_shutdown_date==self.now.date().isoformat():
+            shutdown=next((r for r in reversed(self.staff_reports) if r.get('reason')=='stock_shutdown' and r['date']==self.staff_shutdown_date),None)
+            if shutdown and not any(self.stock[n]>q for n,q in shutdown['stock'].items()):
+                return 'Đã đóng sớm do hết nguyên liệu; chờ bổ sung kho hoặc chủ quán mở lại.'
         if self.cash<0:return 'Ngân sách đang âm, chưa thể mở quán.'
         return ''
 

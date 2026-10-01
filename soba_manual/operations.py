@@ -36,7 +36,9 @@ def required_stock(w):
 
 def missing_stock(w):
     needed=required_stock(w)
-    missing=Counter({n:max(0,q-w.stock[n]) for n,q in needed.items()})
+    # Counter truthiness includes zero-valued entries. Strip them before deciding
+    # whether prepaid orders are covered and the next recipe needs replenishing.
+    missing=+Counter({n:max(0,q-w.stock[n]) for n,q in needed.items()})
     viable=any(all(w.stock[n]-needed[n]>=q for n,q in Counter(['Mì tươi',*item['toppings']]).items()) for item in w.menu.values())
     if not viable and not missing:
         if +needed:return Counter()  # Finish prepaid orders before shopping for future guests.
@@ -48,6 +50,13 @@ def missing_stock(w):
 def refund_unservable(w):
     available=Counter(w.stock)
     for p in sorted(w.parties,key=lambda p:p.id):
+        if p.phase in ('queue','buying'):
+            needs=Counter(required_stock_for_party(w,p))
+            if any(available[n]<q for n,q in needs.items()):
+                p.phase,p.phase_time='leaving',0
+                w.note(f'Nhóm {p.id:03} chưa thanh toán: xin lỗi vì hết nguyên liệu, mời khách ra về.')
+            else:available.subtract(needs)
+            continue
         if not w.refund_amount(p.id):continue
         needs=Counter()
         for i in range(len(p.meals),p.size):
@@ -59,6 +68,13 @@ def refund_unservable(w):
             if n and p.drinks_served[i]!=n:needs[n]+=1
         if any(available[n]<q for n,q in needs.items()):w.refund_party(p.id)
         else:available.subtract(needs)
+
+
+def required_stock_for_party(w,p):
+    needed=Counter()
+    for recipe in p.recipes:needed.update(['Mì tươi',*recipe])
+    needed.update(n for i,n in enumerate(p.drinks) if n and p.drinks_served[i]!=n)
+    return needed
 
 
 def manage_shortage(w,active):
@@ -81,7 +97,7 @@ def manage_shortage(w,active):
     else:
         w.closing=True;w.staff_opened_shop=True;w.staff_shutdown_date=key
         refund_unservable(w)
-        w.staff_reports.append({'date':key,'text':f'{e["name"]}: hết nguyên liệu; ngừng đón khách, hoàn phiếu không thể làm, dọn sạch và đóng quán.'})
+        w.staff_reports.append({'date':key,'reason':'stock_shutdown','stock':dict(w.stock),'text':f'{e["name"]}: hết nguyên liệu; ngừng đón khách, hoàn phiếu không thể làm, dọn sạch và đóng quán.'})
         w.note(w.staff_reports[-1]['text'])
 
 
