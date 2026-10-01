@@ -21,6 +21,12 @@ public final class MainActivity extends Activity {
     boolean vietnameseVoice=false;
     boolean gameReady=false;
     volatile boolean exitPending=false;
+    boolean updateChecking=false;
+    long lastUpdateCheck=0;
+    String promptedVersion="";
+    AlertDialog updateDialog;
+    UpdateChecker.Fetcher updateFetcher=UpdateChecker::fetch;
+
     private static final String ORIGIN="https://appassets.androidplatform.net";
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -59,7 +65,7 @@ public final class MainActivity extends Activity {
     final class NativeBridge {
         @JavascriptInterface public String initialSave(){try{return store.initial();}catch(Exception e){runOnUiThread(()->{web.stopLoading();showError();});throw new IllegalStateException("Cannot read saved progress",e);}}
         @JavascriptInterface public boolean save(String snapshot,String backups){try{store.write(snapshot,backups);if(exitPending)runOnUiThread(()->{exitPending=false;finish();});return true;}catch(Exception e){return false;}}
-        @JavascriptInterface public void ready(){runOnUiThread(()->gameReady=true);}
+        @JavascriptInterface public void ready(){runOnUiThread(()->{gameReady=true;checkUpdates(false);});}
         @JavascriptInterface public void reload(){runOnUiThread(()->{gameReady=false;web.reload();});}
         @JavascriptInterface public void speak(String text){runOnUiThread(()->{if(speech!=null && vietnameseVoice)speech.speak(text,TextToSpeech.QUEUE_ADD,null,"order");});}
         @JavascriptInterface public void edit(String field,String value){
@@ -75,6 +81,30 @@ public final class MainActivity extends Activity {
             });
         }
     }
+    void checkUpdates(boolean force) {
+        if(updateChecking || (!force && System.currentTimeMillis()-lastUpdateCheck<6*60*60*1000L))return;
+        updateChecking=true;lastUpdateCheck=System.currentTimeMillis();
+        new Thread(()->{
+            UpdateChecker.Update update=null;
+            try { update=updateFetcher.fetch(BuildConfig.VERSION_NAME); } catch(Exception ignored) {}
+            final UpdateChecker.Update found=update;
+            runOnUiThread(()->{
+                updateChecking=false;
+                if(isFinishing() || isDestroyed())return;
+                if(found!=null && !found.version.equals(promptedVersion)) {
+                    promptedVersion=found.version;
+                    updateDialog=new AlertDialog.Builder(this).setTitle("Có phiên bản mới")
+                        .setMessage("Quán Mì Của Tôi "+found.version+"\nBản đang chơi: "+BuildConfig.VERSION_NAME+"\n\n"+found.notes+"\n\nTải APK mới rồi mở tệp để cập nhật. Giữ ứng dụng hiện tại để giữ tiến trình.")
+                        .setPositiveButton("Tải bản mới",(d,w)->{
+                            if(gameReady)command("{\"kind\":\"save\"}");
+                            try { startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,Uri.parse(found.url))); }
+                            catch(android.content.ActivityNotFoundException e) { new AlertDialog.Builder(this).setMessage("Không tìm thấy trình duyệt để tải bản mới.").setPositiveButton("OK",null).show(); }
+                        }).setNegativeButton("Để sau",null).show();
+                }
+            });
+        },"android-release-check").start();
+    }
+    @Override protected void onResume(){super.onResume();if(gameReady)checkUpdates(false);}
     @Override protected void onPause(){if(gameReady)command("{\"kind\":\"save\"}");super.onPause();}
     @Override public void onBackPressed(){showExit();}
     private void showExit(){
@@ -85,5 +115,5 @@ public final class MainActivity extends Activity {
             web.postDelayed(()->{if(exitPending){exitPending=false;new AlertDialog.Builder(this).setMessage("Chưa lưu được game. Hãy kiểm tra dung lượng máy và thử lại.").setPositiveButton("OK",null).show();}},5000);
         }).setNegativeButton("Chơi tiếp",null).show();
     }
-    @Override protected void onDestroy(){if(web!=null){web.removeJavascriptInterface("NativeGame");web.destroy();}if(speech!=null)speech.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){if(updateDialog!=null)updateDialog.dismiss();if(web!=null){web.removeJavascriptInterface("NativeGame");web.destroy();}if(speech!=null)speech.shutdown();super.onDestroy();}
 }

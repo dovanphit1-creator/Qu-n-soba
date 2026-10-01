@@ -11,3 +11,7 @@ The owner explicitly requires the official name **Quán Mì Của Tôi** and a n
 # Release order
 
 The owner requires every gameplay update to be published and verified on the existing web game first, before building or distributing the Windows edition. Preserve disposable browser sessions. Do not claim a web update is live until deployment succeeds. Choose the next version for new features as authorized by the owner. Preserve the existing 40% service timing reduction.
+
+# Required update notifications
+
+The owner requires every new game build on every platform to check for newer compatible releases and show an in-game notification with a download/update action, like the Windows edition. Preserve offline play and saved progress. This is a release requirement, not an optional feature. Android APK releases must retain the application ID and the owner-held stable signing key. Never publish CI debug-signed APKs as updates. Verify newer/equal/older versions, platform filtering, offline failure and the visible notification before release.

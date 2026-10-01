@@ -31,7 +31,7 @@ def build():
                 text=text.replace('platform.window.sobaSpeak(message)', 'platform.window.sobaSpeak(base64.b64encode(message.encode("utf-8")).decode("ascii"))')
                 data=text.encode()
             if name.endswith('/brand.py'):
-                data=data.decode().replace("GAME_VERSION = '1.8.0'", "GAME_VERSION = '1.8.0-beta.2'").encode()
+                data=data.decode().replace("GAME_VERSION = '1.8.0'", "GAME_VERSION = '1.8.0-beta.3'").encode()
             members.append((name,data))
     payload=io.BytesIO()
     with tarfile.open(fileobj=payload,mode='w') as tar:

@@ -1,14 +1,15 @@
 plugins { id 'com.android.application' }
 android {
     namespace 'vn.dovanphi.quanmicuatoi'
+    buildFeatures { buildConfig true }
     compileSdk 36
     buildToolsVersion '35.0.0'
     defaultConfig {
         applicationId 'vn.dovanphi.quanmicuatoi'
         minSdk 26
         targetSdk 36
-        versionCode 18002
-        versionName '1.8.0-beta.2'
+        versionCode 18003
+        versionName '1.8.0-beta.3'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildTypes {

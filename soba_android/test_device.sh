@@ -10,4 +10,5 @@ adb pull /data/local/tmp/android-game.png build/device-evidence/android-game.png
 adb pull /data/local/tmp/android-welcome.png build/device-evidence/android-welcome.png || true
 adb pull /data/local/tmp/android-management.png build/device-evidence/android-management.png || true
 adb pull /data/local/tmp/android-market.png build/device-evidence/android-market.png || true
+adb pull /data/local/tmp/android-update.png build/device-evidence/android-update.png || true
 exit "$result"

@@ -1,6 +1,6 @@
 # Quán Mì Của Tôi — Android
 
-Nhà phát hành **Đỗ Văn Phi**. Bản thử **1.8.0-beta.2**, gameplay Python 1.7.3 không thay đổi. iPhone được giữ trên nhánh `iphone-native` để tiếp tục khi chủ game có Apple Developer Program.
+Nhà phát hành **Đỗ Văn Phi**. Bản thử **1.8.0-beta.3**, gameplay Python 1.7.3 không thay đổi. iPhone được giữ trên nhánh `iphone-native` để tiếp tục khi chủ game có Apple Developer Program.
 
 Ứng dụng Android riêng, đóng gói CPython/pygame WebAssembly và toàn bộ mã game, font, âm thanh trong APK. Chạy bằng Android System WebView; không mở website công khai, không tải game từ Internet. Yêu cầu Android 8.0 trở lên và WebView cập nhật có hỗ trợ WebAssembly. Cần thử trên điện thoại thật trước khi phát hành chính thức.
 
@@ -27,13 +27,21 @@ gradle assembleDebug
 
 ## APK thử và bản chính thức
 
-APK thử được ký bằng khóa debug của môi trường dựng và dùng application ID riêng `vn.dovanphi.quanmicuatoi.androidbeta`. Đây là bản thử cài trực tiếp, chưa đăng Google Play. Khóa debug có thể thay đổi giữa các lần dựng; không dùng nó để hứa cập nhật giữ nguyên dữ liệu. Bản chính thức phải có khóa ký ổn định do chủ game giữ, đưa vào GitHub Actions Secrets, tuyệt đối không commit khóa riêng hoặc mật khẩu. Bản chính thức dùng application ID riêng và cần cơ chế chuyển tiến trình nếu muốn mang dữ liệu từ beta sang.
+Từ beta.3, APK phát hành được ký bằng khóa ổn định do chủ game giữ, với application ID `vn.dovanphi.quanmicuatoi.androidbeta`. Mỗi APK sau phải giữ khóa này để cập nhật tại chỗ. APK debug do CI tạo chỉ để kiểm tra, không được phát hành trực tiếp. Workflow phát hành áp dụng bản vá chữ ký công khai lên đúng APK đã kiểm tra, xác minh SHA-256 và chứng chỉ; khóa riêng không xuất hiện trong repo hoặc CI.
+
+Beta.1 và beta.2 dùng khóa debug khác; Android không cho cài đè beta.3 lên hai bản đó. Không hướng dẫn gỡ bản cũ nếu người chơi còn cần tiến trình. Cần sao lưu/chuyển dữ liệu trước khi chuyển bản; thao tác gỡ ứng dụng sẽ mất dữ liệu.
+
+## Thông báo phiên bản mới
+
+Khi game sẵn sàng và khi quay lại ứng dụng sau ít nhất 6 giờ, Android kiểm tra danh sách GitHub Releases công khai trong luồng riêng. Chỉ nhận bản có tag `android-X.Y.Z` hoặc `android-X.Y.Z-beta.N`, APK đúng tên và ghi chú chứa `[android-apk-channel:androidbeta]`; không nhầm bản Windows/iPhone/Google Play. Chọn phiên bản cao nhất tương thích, kể cả prerelease beta, bỏ qua draft/bản bằng hoặc cũ/thiếu APK/URL lạ. Hiện thông báo tiếng Việt có bản đang chơi và nút **Tải bản mới**, **Để sau**. Nút tải mở APK của đúng bản trong trình duyệt; Android vẫn yêu cầu người chơi xác nhận cài đặt. Mất mạng, lỗi GitHub hoặc timeout không chặn game. Không gửi bản lưu hay thông tin cá nhân.
+
+Mỗi lần phát hành APK sau phải giữ application ID, khóa ký và marker kênh trên; tăng versionCode và versionName. Yêu cầu thông báo cập nhật áp dụng cho mọi nền tảng theo AGENTS.md.
 
 Cài trực tiếp APK có thể yêu cầu cho phép trình duyệt cài ứng dụng từ nguồn đó và vẫn có thể xuất hiện cảnh báo của Android/Play Protect. Không cam kết APK bên ngoài cửa hàng sẽ không có cảnh báo.
 
 ## Google Play
 
-Gói AAB release dùng application ID ổn định `vn.dovanphi.quanmicuatoi`, target API 36 theo yêu cầu Google Play từ 31/08/2026. Debug APK vẫn dùng hậu tố `.androidbeta` để tách dữ liệu thử. Workflow tạo AAB chưa ký, chỉ sau khi kiểm tra game trên Android thành công. AAB phải được ký bằng upload key riêng trước khi tải lên Play Console; không gửi bản UNSIGNED lên cửa hàng. Khóa upload phải được lưu riêng, không commit lên repo. Với Play App Signing, Google giữ khóa ký phân phối; upload key của chủ game dùng cho các cập nhật tiếp theo.
+Gói AAB release dùng application ID ổn định `vn.dovanphi.quanmicuatoi`, target API 36 theo yêu cầu Google Play từ 31/08/2026. .androidbeta APK vẫn dùng hậu tố `.androidbeta` để tách dữ liệu thử. Workflow tạo AAB chưa ký, chỉ sau khi kiểm tra game trên Android thành công. AAB phải được ký bằng upload key riêng trước khi tải lên Play Console; không gửi bản UNSIGNED lên cửa hàng. Khóa upload phải được lưu riêng, không commit lên repo. Với Play App Signing, Google giữ khóa ký phân phối; upload key của chủ game dùng cho các cập nhật tiếp theo.
 
 Tài khoản cá nhân mới có thể phải hoàn thành xác minh tài khoản/thiết bị và thử nghiệm kín ít nhất 12 người tham gia liên tục 14 ngày trước khi xin quyền phát hành công khai. Bản dựng đạt kiểm tra không có nghĩa đã được Google duyệt.
 
