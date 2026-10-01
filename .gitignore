@@ -263,3 +263,8 @@ soba_android/.gradle/
 soba_android/local.properties
 *.jks
 *.keystore
+
+# PKCS12 upload keys and local key passwords must never enter git
+*.p12
+*.pfx
+upload-password.txt
