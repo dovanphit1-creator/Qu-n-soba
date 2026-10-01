@@ -10,4 +10,4 @@ The owner explicitly requires the official name **Quán Mì Của Tôi** and a n
 
 # Release order
 
-The owner requires every gameplay update to be published and verified on the existing web game first, before building or distributing the Windows edition. Preserve disposable browser sessions. Do not claim a web update is live until deployment succeeds. Keep GAME_VERSION at 1.1.0 for the current 40% timing reduction.
+The owner requires every gameplay update to be published and verified on the existing web game first, before building or distributing the Windows edition. Preserve disposable browser sessions. Do not claim a web update is live until deployment succeeds. Choose the next version for new features as authorized by the owner. Preserve the existing 40% service timing reduction.

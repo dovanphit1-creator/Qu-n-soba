@@ -655,6 +655,8 @@ class World(StaffMixin):
         return changed
 
     def open_shop(self):
+        if self.day_decisions.get(self.now.date().isoformat())=='closed':
+            self.note('Hôm nay đã chọn cho quán nghỉ. Đổi quyết định ở Nhân sự → Thiếu người để mở lại.');return False
         if self.open:
             return False
         from collections import Counter
@@ -843,7 +845,7 @@ class World(StaffMixin):
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 5
+        data['version'] = 6
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -854,8 +856,12 @@ class World(StaffMixin):
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
         version = data.pop('version')
-        if version not in (2, 3, 4, 5):
+        if version not in (2, 3, 4, 5, 6):
             raise ValueError('Phiên bản lưu không phù hợp')
+        if version == 5:
+            from shutil import copy2
+            backup=Path(path).with_suffix('.v5.bak')
+            if not backup.exists():copy2(path,backup)
         if version == 4:
             from shutil import copy2
             backup=Path(path).with_suffix('.v4.bak')
@@ -926,6 +932,7 @@ class World(StaffMixin):
                 obj.wash_left=SERVICE_TIME_SCALE*(15+30*obj.washing)*min(1,obj.wash_left/(2+obj.washing))
         if len(obj.pots) != 6 or not 1 <= obj.floors <= 3 or not 1 <= len(obj.tables) <= 18 or obj.reputation < 0:
             raise ValueError('Dữ liệu lưu không hợp lệ')
+        obj.migrate_staff()
         return obj
 
 

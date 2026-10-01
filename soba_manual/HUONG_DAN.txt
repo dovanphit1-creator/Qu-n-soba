@@ -137,3 +137,10 @@ BẢN 1.2.0
 - Máy cần bật và không ngủ. Không tính công hoặc bán hàng giả lập khi máy tắt. Bản web cần giữ trang mở, không lưu tiến trình.
 - Có thể mua nguyên liệu và ký đơn giao sáng hôm sau khi đóng quán; nhân viên không tự mua nguyên liệu.
 - Giá tham khảo cố định theo phần đã ghi, chưa phải giá thị trường trực tiếp. Giá vốn tồn kho cũ được giữ lại; giá bán menu đã lưu được giữ nguyên.
+
+NHÂN SỰ 1.3.0
+- Tuyển dụng: bấm Đăng bài tuyển để nhận CV. Tính cách tự khai có thể sai.
+- Baito: đặt ca dự kiến 1–12h; tự chấm máy khi tới / nghỉ / quay lại / về. Lương theo giờ thực làm, có thể tới muộn hoặc nghỉ đột xuất.
+- Chính thức: 8h làm + 30p giải lao cố định không tính công sau 4h. Đặt tăng ca riêng 0–4h; chỉ chấm máy khi tăng ca.
+- Lịch nghỉ: Yêu cầu gửi lịch → Thiếu người. Chọn giờ dự kiến mở, mời baito làm thay hoặc chọn chủ tự làm / cho quán nghỉ; có thể đổi lại quyết định.
+- Máy chấm công ở gần cửa vào quán, mở nhật ký ở Nhân sự → Chấm công.

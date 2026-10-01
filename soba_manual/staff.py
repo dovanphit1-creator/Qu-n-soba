@@ -42,17 +42,49 @@ class StaffMixin:
         self.staff_opened_shop=False
         self.leave_requested=''
         self.staff_calendar_date=''
+        self.recruitment_posted=False
+        self.recruitment_round=0
+        self.coverage_start=8*60
+        self.coverage_end=18*60
+        self.day_decisions={}
+        self.cover_invites=[]
+        self.clock_events=[]
+
+    def post_recruitment(self):
+        if self.candidates:
+            self.note('Bài tuyển đang có ứng viên. Hãy xử lý CV trước khi đăng đợt mới.');return False
+        self.recruitment_posted=True;self.recruitment_round+=1
+        for role in ('baito','contract'):
+            for _ in range(2):
+                traits=[self.rng.choice(['Chăm','Lười']),self.rng.choice(['Cẩn thận','Hậu đậu']),self.rng.choice(['Nhanh','Chậm'])]
+                claims=list(traits) if self.rng.random()<.4 else ['Chăm','Cẩn thận','Nhanh']
+                self.candidates.append({'id':self.next_employee,'name':NAMES[self.rng.randrange(len(NAMES))],
+                    'birth_year':self.now.year-self.rng.randint(19,45),'hometown':self.rng.choice(['Hà Nội','Đà Nẵng','Huế','Nghệ An','TP. Hồ Chí Minh','Cần Thơ','Hải Phòng','Bình Định']),
+                    'cv_traits':claims,'role':role,'wage':35000 if role=='baito' else 8_000_000,'traits':traits})
+                self.next_employee+=1
+        self.note('Đã đăng bài tuyển. Có 4 CV ứng tuyển; tính cách tự khai cần kiểm chứng khi làm.');return True
 
     def applicants(self):
-        if not self.candidates:
-            for role in ('baito','contract'):
-                for _ in range(2):
-                    name=NAMES[self.rng.randrange(len(NAMES))]
-                    self.candidates.append({'id':self.next_employee,'name':name,'role':role,
-                        'wage':35000 if role=='baito' else 8_000_000,
-                        'traits':[self.rng.choice(['Chăm','Lười']),self.rng.choice(['Cẩn thận','Hậu đậu']),self.rng.choice(['Nhanh','Chậm'])]})
-                    self.next_employee+=1
         return self.candidates
+
+    def dismiss_applicant(self,cid):
+        c=next((c for c in self.candidates if c['id']==cid),None)
+        if not c:return False
+        self.candidates.remove(c);return True
+
+    def migrate_staff(self):
+        # Keep wages, accrued attendance, hidden traits and progress from 1.2.
+        self.recruitment_posted=bool(self.candidates) or self.recruitment_posted
+        for c in self.candidates:
+            c.setdefault('birth_year',self.now.year-25);c.setdefault('hometown','Hà Nội');c.setdefault('cv_traits',['Chăm','Cẩn thận'])
+        for e in self.employees:
+            e.setdefault('birth_year',self.now.year-25);e.setdefault('hometown','Hà Nội');e.setdefault('cv_traits',['Chăm','Cẩn thận'])
+            e.setdefault('overtime_hours',max(0,e['shift_hours']-8) if e['role']=='contract' else 0)
+            if e['role']=='contract':
+                e['shift_hours']=8
+                e['shift_start']=min(e['shift_start'],int(1440-510-e['overtime_hours']*60))
+            e.setdefault('plans',{});e.setdefault('clocked_in',False);e.setdefault('clock_mode','');e.setdefault('clock_date','')
+            e.setdefault('cover_days',{});e.setdefault('announced_plan','')
 
     def hire(self, cid, wage=None, months=12):
         c=next((c for c in self.applicants() if c['id']==cid),None)
@@ -68,7 +100,8 @@ class StaffMixin:
         e=dict(c,wage=wage,hired=today.isoformat(),contract_until=until.isoformat(),
                shift_start=8*60,shift_hours=8,enabled=False,leaves={},leave_sent='',
                attendance={},paid_days=[],present=False,job=None,tasks=0,observed=[],
-               x=700.,y=450.,floor=0,last_work_date='',status='Chưa cài ca')
+               x=700.,y=450.,floor=0,last_work_date='',status='Chưa cài ca',
+               overtime_hours=0,plans={},clocked_in=False,clock_mode='',clock_date='',cover_days={},announced_plan='')
         self.employees.append(e);self.candidates.remove(c)
         self.ensure_leave(e,today)
         self.note(f'Đã thuê {e["name"]} · {"Baito" if e["role"]=="baito" else "Hợp đồng"}. Cài ca và bật lịch làm việc.')
@@ -76,14 +109,102 @@ class StaffMixin:
 
     def employee(self,eid):return next((e for e in self.employees if e['id']==eid),None)
 
+    def shift_end(self,e):
+        return e['shift_start']+(510+e.get('overtime_hours',0)*60 if e['role']=='contract' else e['shift_hours']*60)
+
     def set_shift(self,eid,start,hours,enabled=True):
         e=self.employee(eid)
-        if not e or type(start)!=int or not 0<=start<1440 or type(hours)!=int or not 1<=hours<=12:return False
-        if start+hours*60>1440:
-            self.note('Ca làm phải kết thúc trong cùng ngày, chậm nhất 24:00.');return False
+        if not e or type(start)!=int or not 0<=start<1440 or type(hours)!=int:return False
+        if e['role']=='contract' and hours!=8:
+            self.note('Nhân viên chính thức phải làm đúng 8 giờ/ngày. Đặt tăng ca riêng.');return False
+        if not 1<=hours<=12:return False
+        end=start+(510+e.get('overtime_hours',0)*60 if e['role']=='contract' else hours*60)
+        if end>1440:
+            self.note('Ca gồm giải lao / tăng ca phải kết thúc chậm nhất 24:00.');return False
         e.update(shift_start=start,shift_hours=hours,enabled=bool(enabled))
-        self.note(f'Ca {e["name"]}: {start//60:02}:{start%60:02}–{(start+hours*60)//60:02}:{(start+hours*60)%60:02}.')
+        e['plans'].pop(self.now.date().isoformat(),None)
+        self.note(f'Ca {e["name"]}: {start//60:02}:{start%60:02}–{end//60:02}:{end%60:02}.'+(' 8h làm + 30p nghỉ cố định.' if e['role']=='contract' else ' Lương theo chấm công thực tế.'))
         return True
+
+    def set_overtime(self,eid,hours):
+        e=self.employee(eid)
+        if not e or e['role']!='contract' or type(hours)!=int or not 0<=hours<=4:return False
+        if e['shift_start']+510+hours*60>1440:return False
+        e['overtime_hours']=hours;e['plans'].pop(self.now.date().isoformat(),None)
+        self.note(f'{e["name"]}: tăng ca {hours}h, phải chấm máy vào/ra tăng ca.');return True
+
+    def clock_event(self,e,event,at,mode):
+        row=dict(employee=e['id'],name=e['name'],event=event,at=at.isoformat(),mode=mode)
+        if self.clock_events and self.clock_events[-1]==row:return
+        self.clock_events.append(row);self.clock_events=self.clock_events[-500:]
+        e['x'],e['y'],e['floor']=675.,305.,0
+        self.note(f'Máy chấm công · {e["name"]} · {event} · {at:%H:%M:%S}')
+
+    def day_plan(self,e,day):
+        key=day.isoformat()
+        if key in e['plans']:return e['plans'][key]
+        cover=e['cover_days'].get(key)
+        eligible=self.day_decisions.get(key)!='closed' and (bool(cover) or (e['enabled'] and key not in self.ensure_leave(e,day)))
+        start=cover['start'] if cover else e['shift_start']
+        if e['role']=='contract':
+            end=start+510;segments=[[start,start+240,'regular'],[start+270,end,'regular']]
+            if e['overtime_hours']:segments.append([end,end+e['overtime_hours']*60,'overtime'])
+            plan=dict(segments=segments if eligible else [],start=start,end=end+e['overtime_hours']*60,late=0,absence=False,early=0)
+        else:
+            end=start+(cover['hours'] if cover else e['shift_hours'])*60
+            lazy='Lười' in e['traits'];careful='Cẩn thận' in e['traits']
+            absence=eligible and self.rng.random()<(.12 if lazy else .02)
+            late=self.rng.randint(5,45) if eligible and self.rng.random()<(.32 if lazy else .06) else 0
+            early=self.rng.randint(15,75) if eligible and self.rng.random()<(.12 if lazy else .015) else 0
+            begin=min(end,start+late);finish=max(begin,end-early)
+            segments=[]
+            if eligible and not absence and finish>begin:
+                if finish-begin>180:
+                    rest=begin+min(180,(finish-begin)/2);duration=self.rng.randint(15,45 if lazy else 30)
+                    segments=[[begin,rest,'baito'],[min(rest+duration,finish),finish,'baito']]
+                else:segments=[[begin,finish,'baito']]
+            plan=dict(segments=segments,start=start,end=end,late=late,absence=absence,early=early)
+        e['plans'][key]=plan
+        # Bound plans; attendance and all actual clock entries remain separate.
+        for old in sorted(e['plans'])[:-62]:e['plans'].pop(old,None)
+        return plan
+
+    def clock_state(self,e,now):
+        plan=self.day_plan(e,now.date());minute=now.hour*60+now.minute+now.second/60+now.microsecond/60_000_000
+        segment=next((s for s in plan['segments'] if s[0]<=minute<s[1]),None)
+        mode=segment[2] if segment else ''
+        if e['clock_mode']!=mode or e['clock_date']!=now.date().isoformat():
+            if e['clock_mode'] in ('baito','overtime'):
+                self.clock_event(e,'Chốt công',now,e['clock_mode'])
+            if mode in ('baito','overtime'):self.clock_event(e,'Điểm danh' if mode=='baito' else 'Vào tăng ca',now,mode)
+            if e['clock_mode']=='baito':self.pay_baito_day(e,e['clock_date'])
+            e['clock_mode']=mode;e['clock_date']=now.date().isoformat();e['clocked_in']=mode in ('baito','overtime')
+        if e['role']=='baito' and plan['late'] and mode and e['announced_plan']!=now.date().isoformat():
+            self.note(f'{e["name"]} đến muộn {plan["late"]} phút. Chỉ trả từ lúc điểm danh.');e['announced_plan']=now.date().isoformat()
+        if not mode:
+            if plan['absence'] and plan['start']<=minute<plan['end']:return False,'Nghỉ đột xuất'
+            if plan['late'] and plan['start']<=minute<plan['start']+plan['late']:return False,'Chưa tới / đến muộn'
+            if plan['segments'] and plan['segments'][0][0]<=minute<plan['segments'][-1][1]:return False,'Giải lao · không tính công'
+            if plan['early'] and plan['end']-plan['early']<=minute<plan['end']:return False,'Đã về sớm'
+            return False,'Ngày nghỉ' if now.date().isoformat() in self.ensure_leave(e,now.date()) else ('Ngoài ca' if e['enabled'] else 'Chưa bật ca')
+        return True,'Tăng ca' if mode=='overtime' else 'Đang làm'
+
+    def work_overlap(self,e,begin,end):
+        total=0.;day=begin.date()
+        self.clock_state(e,begin)
+        while day<=end.date():
+            base=datetime.combine(day,datetime.min.time(),tzinfo=end.tzinfo)
+            for start,stop,mode in self.day_plan(e,day)['segments']:
+                segment_start=base+timedelta(minutes=start);segment_end=base+timedelta(minutes=stop)
+                left=max(begin,segment_start);right=min(end,segment_end)
+                if right<=left:continue
+                self.clock_state(e,left)
+                seconds=(right-left).total_seconds()
+                self.accrue_wages(e,seconds,day,overtime=(mode=='overtime'))
+                total+=seconds
+                self.clock_state(e,right)
+            day+=timedelta(days=1)
+        return total
 
     def ensure_leave(self,e,day):
         month=day.isoformat()[:7]
@@ -98,7 +219,66 @@ class StaffMixin:
         self.leave_requested=self.now.date().isoformat()[:7]
         for e in self.employees:
             self.ensure_leave(e,self.now.date());e['leave_sent']=self.leave_requested
+        gaps=self.coverage_report()
+        self.note(f'Đã nhận đủ lịch nghỉ. Có {len(gaps)} ngày / vị trí thiếu người. Xem tab Thiếu người.')
         self.note('Nhân viên đã gửi lịch nghỉ tháng '+self.leave_requested+'. Mỗi người chọn 9 ngày, không chọn thứ Sáu–CN hoặc ngày lễ.')
+
+    def coverage_report(self):
+        month=self.now.date().isoformat()[:7]
+        if self.leave_requested!=month or any(e['leave_sent']!=month for e in self.employees):return []
+        rows=[]
+        for d in range(1,calendar.monthrange(self.now.year,self.now.month)[1]+1):
+            day=date(self.now.year,self.now.month,d);key=day.isoformat()
+            if day<self.now.date() or self.day_decisions.get(key)=='closed':continue
+            for role,label in (('floor','Horu'),('kitchen','Bếp')):
+                intervals=[]
+                for e in self.employees:
+                    cover=e['cover_days'].get(key)
+                    primary=cover['position'] if cover else ('floor' if e['role']=='baito' else 'kitchen')
+                    if primary!=role:continue
+                    if cover:intervals.append((cover['start'],cover['start']+cover['hours']*60))
+                    elif e['enabled'] and key not in self.ensure_leave(e,day):
+                        if day==self.now.date() and e['role']=='baito':
+                            intervals.extend((a,b) for a,b,mode in self.day_plan(e,day)['segments']);continue
+                        start=e['shift_start']
+                        if e['role']=='contract':intervals.extend(((start,start+240),(start+270,self.shift_end(e))))
+                        else:intervals.append((start,self.shift_end(e)))
+                cursor=self.coverage_start;gaps=[]
+                for left,right in sorted(intervals):
+                    if right<=cursor or left>=self.coverage_end:continue
+                    if left>cursor:gaps.append([cursor,min(left,self.coverage_end)])
+                    cursor=max(cursor,min(right,self.coverage_end))
+                if cursor<self.coverage_end:gaps.append([cursor,self.coverage_end])
+                if gaps:rows.append(dict(date=key,position=role,label=label,gaps=gaps,decision=self.day_decisions.get(key,'')))
+        return rows
+
+    def invite_cover(self,eid,key,position,start,hours):
+        e=self.employee(eid)
+        try:day=date.fromisoformat(key)
+        except (ValueError,TypeError):return False
+        if not e or e['role']!='baito' or day<self.now.date() or position not in ('floor','kitchen'):return False
+        if type(start)!=int or type(hours)!=int or not 0<=start<1440 or not 1<=hours<=12 or start+hours*60>1440:return False
+        if any(r['employee']==eid and r['date']==key for r in self.cover_invites):
+            self.note('Baito này đã trả lời lời mời cho ngày đó. Hãy mời người khác.');return False
+        if key in e['cover_days'] or (e['enabled'] and key not in self.ensure_leave(e,day)):
+            self.note('Baito đã có ca ngày này; không xếp trùng ca.');return False
+        accepted=self.rng.random()<(.45 if 'Lười' in e['traits'] else .8)
+        self.cover_invites.append(dict(employee=eid,name=e['name'],date=key,position=position,accepted=accepted))
+        if accepted:
+            e['cover_days'][key]=dict(start=start,hours=hours,position=position)
+            e['plans'].pop(key,None)
+        self.note(f'{e["name"]} '+('đồng ý' if accepted else 'từ chối')+f' làm thay {key} tại '+('bếp' if position=='kitchen' else 'horu')+'.')
+        return accepted
+
+    def decide_day(self,key,decision):
+        try:day=date.fromisoformat(key)
+        except (ValueError,TypeError):return False
+        if day<self.now.date() or decision not in ('player','closed','normal'):return False
+        if decision=='normal':self.day_decisions.pop(key,None)
+        else:self.day_decisions[key]=decision
+        for e in self.employees:e['plans'].pop(key,None)
+        if day==self.now.date() and decision=='closed' and self.open:self.closing=True
+        self.note(key+': '+{'player':'Chủ quán tự làm phần thiếu; mở quán thủ công.','closed':'Nghỉ kinh doanh.','normal':'Theo lịch nhân viên.'}[decision]);return True
 
     def termination_fee(self,eid):
         e=self.employee(eid)
@@ -162,10 +342,10 @@ class StaffMixin:
         return round(sum(r['gross']+r.get('employer',0) for key,r in e['attendance'].items()
                          if (key if e['role']=='baito' else cycle_key(date.fromisoformat(key))) not in paid))
 
-    def accrue_wages(self,e,dt,day):
+    def accrue_wages(self,e,dt,day,overtime=None):
         key=day.isoformat()
         row=e['attendance'].setdefault(key,dict(seconds=0.,gross=0.,insurance=0.,employer=0.,ot_premium=0.))
-        old=row['seconds'];normal=min(dt,max(0,8*3600-old));overtime=dt-normal
+        old=row['seconds'];normal=(0 if overtime else dt) if overtime is not None else min(dt,max(0,8*3600-old));overtime=dt-normal
         if e['role']=='baito':gross=e['wage']*dt/3600;premium=0;ins=emp=0
         else:
             hour=e['wage']/max(1,calendar.monthrange(day.year,day.month)[1]-9)/8
@@ -178,28 +358,31 @@ class StaffMixin:
         self.record('wages',gross);self.record('employer_insurance',emp)
 
     def update_staff(self,dt):
-        day=self.now.date();key=day.isoformat();minute=self.minute
+        now=self.now;day=now.date();key=day.isoformat()
         for e in self.employees:
-            leaves=self.ensure_leave(e,day)
-            for past in e['attendance']:
+            self.ensure_leave(e,day)
+            # Only elapsed running time is paid. No wages for time the program was closed.
+            if dt:self.work_overlap(e,now-timedelta(seconds=dt),now)
+            for past in list(e['attendance']):
                 if e['role']=='baito' and past<key:self.pay_baito_day(e,past)
             if e['role']=='contract':
                 for period in sorted({cycle_key(date.fromisoformat(d)) for d in e['attendance']}):self.settle_contract(e,period)
-            scheduled=e['enabled'] and key not in leaves and e['shift_start']<=minute<e['shift_start']+e['shift_hours']*60
-            was=e['present'];e['present']=scheduled
+            was=e['present'];scheduled,status=self.clock_state(e,now)
+            if self.day_decisions.get(key)=='closed':scheduled=False;status='Quán nghỉ hôm nay'
+            e['present']=scheduled
             if not scheduled:
                 if was:
                     e['job']=None
                     if e['role']=='baito':self.pay_baito_day(e,key)
-                    self.note(f'{e["name"]} kết ca.')
-                e['status']='Ngày nghỉ' if key in leaves else ('Ngoài ca' if e['enabled'] else 'Chưa bật ca')
+                    self.note(f'{e["name"]}: {status}.')
+                e['status']=status
                 continue
-            if not was:self.note(f'{e["name"]} đến nhận ca.')
-            self.accrue_wages(e,dt,day)
+            if not was:self.note(f'{e["name"]} đến nhận việc.')
         active=[e for e in self.employees if e['present']]
-        if active and self.staff_auto_open and not self.open and not self.closing:
+        if active and self.staff_auto_open and not self.day_decisions.get(key) and not self.open and not self.closing:
             if self.open_shop():self.staff_opened_shop=True
-        if self.staff_opened_shop and not active and self.open:
+        more_today=any(any(stop>self.minute for start,stop,mode in self.day_plan(e,day)['segments']) for e in self.employees)
+        if self.staff_opened_shop and not active and not more_today and self.open:
             self.closing=True
         if not self.open:return
         for e in active:
@@ -211,13 +394,10 @@ class StaffMixin:
                 if job['left']<=0:
                     e['job']=None;self.finish_staff_job(e,job)
             else:
-                if 'Lười' in e['traits'] and self.rng.random()<.008:
-                    e['job']={'action':['idle'],'left':self.rng.uniform(10,35),'target':[e['x'],e['y'],e['floor']]};e['status']='Đang nghỉ tay'
-                    continue
                 job=self.choose_staff_job(e,active)
                 if job:
                     action,target,seconds=job
-                    speed=.7 if 'Nhanh' in e['traits'] else 1.3
+                    speed=(.7 if 'Nhanh' in e['traits'] else 1.3)*(1.15 if 'Lười' in e['traits'] else 1)
                     travel=((target[0]-e['x'])**2+(target[1]-e['y'])**2)**.5/130
                     e['job']={'action':list(action),'target':list(target),'left':(seconds+travel)*speed}
                     e['status']=self.job_label(action)
@@ -245,7 +425,12 @@ class StaffMixin:
             return None if self.reserved_action(action) else (action,target,seconds)
         def table_target(i):return (*self.table_position(i),self.tables[i].floor)
         has_floor=any(x['role']=='baito' for x in active)
-        kitchen=e['role']=='contract'
+        cover=e['cover_days'].get(self.now.date().isoformat(),{})
+        primary=cover.get('position','floor' if e['role']=='baito' else 'kitchen')
+        urgent_floor=any(p.phase in ('door','waiting','ticket','ready') for p in self.parties) or any(t.dirty or t.needs_wipe for t in self.tables) or any(o.get('done') for o in self.staff_cooking.values()) or bool(self.dirt or self.sink)
+        # Horu stays first for baito; an idle helper may cook when nobody needs service.
+        urgent_floor=urgent_floor or any(p.phase in ('seated','eating') and any(d and p.drinks_served[i]!=d for i,d in enumerate(p.drinks)) for p in self.parties)
+        kitchen=e['role']=='contract' or primary=='kitchen' or not urgent_floor
         floor=e['role']=='baito' or not has_floor or self.player_idle
         if kitchen:
             # Lifting is always first priority to preserve the ten-second window.

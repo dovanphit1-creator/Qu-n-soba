@@ -356,6 +356,8 @@ class App(ManagementUI,StaffUI):
                 self.text('Bàn sạch' if table.capacity else 'Chưa có ghế',(x,y),19,GREEN,True,True)
             if table.dirty and not groups:
                 self.bowl((x,y+8),dirty=True,size=24)
+        if self.floor==0:
+            self.button((635,278,125,44),'CHẤM CÔNG',('clock_machine',),small=True,color='#426f57')
         for employee in world.employees:
             if employee['present'] and employee['floor']==self.floor:
                 self.person(employee['x'],employee['y'],'#efae41' if employee['role']=='baito' else '#eeeeee',self.animation*7)
@@ -555,7 +557,7 @@ class App(ManagementUI,StaffUI):
         shade=pg.Surface((W,H),pg.SRCALPHA); shade.fill((10,28,23,190)); self.canvas.blit(shade,(0,0))
         self.buttons=[]
         self.box((260,110,1080,785),'#fff0d1',20,'#bfa36b',3)
-        if self.modal in ('hire_contract','fire_staff'):
+        if self.modal in ('hire_contract','fire_staff','cover_shift'):
             self.render_staff_contract()
         elif self.modal=='welcome':
             self.text(GAME_TITLE,(800,185),43,INK,True,True)

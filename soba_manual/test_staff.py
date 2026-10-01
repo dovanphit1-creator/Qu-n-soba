@@ -13,9 +13,13 @@ class StaffTests(unittest.TestCase):
         for name in ['Bát/đĩa',*STOCK_COST]:w.restock(name,20)
         return w
     def hire(self,w,role):
+        if not w.applicants():w.post_recruitment()
         c=next(c for c in w.applicants() if c['role']==role);w.hire(c['id']);e=w.employee(c['id'])
         e['traits']=['Chăm','Cẩn thận','Nhanh'];e['leaves']['2026-10']=[]
-        w.set_shift(e['id'],8*60,10);return e
+        w.set_shift(e['id'],8*60,8 if role=='contract' else 10)
+        if role=='contract':w.set_overtime(e['id'],2)
+        else:e['plans']['2026-10-02']=dict(segments=[[480,1080,'baito']],start=480,end=1080,late=0,absence=False,early=0)
+        return e
     def tick(self,w,seconds):
         for _ in range(seconds):self.clock[0]+=timedelta(seconds=1);w.update(1)
 
@@ -46,7 +50,7 @@ class StaffTests(unittest.TestCase):
 
     def test_daily_pay_exact_once_and_shift_gate(self):
         w=self.world();a=self.hire(w,'baito');w.staff_auto_open=False
-        w.update(3600);gross=35000
+        self.clock[0]+=timedelta(hours=1);w.update(3600);gross=35000
         self.assertEqual(a['attendance']['2026-10-02']['gross'],gross)
         self.clock[0]=self.clock[0].replace(hour=19);before=w.cash
         w.update(0);self.assertEqual(w.cash,before-gross);self.assertEqual(w.payroll[-1]['net'],gross)
@@ -55,7 +59,8 @@ class StaffTests(unittest.TestCase):
 
     def test_overtime_insurance_cutoff_payday_and_no_double_expense(self):
         w=self.world();e=self.hire(w,'contract');w.staff_auto_open=False
-        w.update(9*3600);r=e['attendance']['2026-10-02']
+        self.clock[0]=self.clock[0].replace(hour=8);w.update(0)
+        self.clock[0]+=timedelta(hours=9,minutes=30);w.update(9.5*3600);r=e['attendance']['2026-10-02']
         hour=8_000_000/22/8
         self.assertAlmostEqual(r['gross'],hour*10) # Friday overtime 200%.
         self.assertAlmostEqual(r['insurance'],hour*8*.105)

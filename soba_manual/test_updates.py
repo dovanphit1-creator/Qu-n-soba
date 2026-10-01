@@ -3,7 +3,7 @@ from updates import release_update,fetch_update,RELEASES_URL
 
 class UpdateTests(unittest.TestCase):
     def release(self,**changes):
-        data={'tag_name':'v1.3.0','html_url':RELEASES_URL+'/tag/v1.3.0','body':'Sửa lỗi','draft':False,'prerelease':False,'assets':[{'name':'QuanMi.exe','state':'uploaded'}]}
+        data={'tag_name':'v99.0.0','html_url':RELEASES_URL+'/tag/v99.0.0','body':'Sửa lỗi','draft':False,'prerelease':False,'assets':[{'name':'QuanMi.exe','state':'uploaded'}]}
         data.update(changes);return data
     def test_numeric_versions_and_current(self):
         self.assertTrue(release_update(self.release(tag_name='v1.10.0'),'1.9.0'))

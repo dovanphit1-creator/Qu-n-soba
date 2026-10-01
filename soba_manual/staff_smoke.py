@@ -15,13 +15,18 @@ def check_staff_ui(app,output):
         assert matches,('Missing staff button',action)
         app.click(matches[0].center)
     button(('staff_tab','hire'))
+    assert not app.world.applicants()
+    button(('post_recruitment',))
     candidate=next(c for c in app.world.applicants() if c['role']=='contract')
     button(('hire_review',candidate['id']));button(('hire_confirm',))
     employee=app.world.employee(candidate['id']);assert employee and not employee['enabled']
     button(('staff_tab','team'));button(('shift_toggle',employee['id']));assert employee['enabled']
-    button(('shift_hours',employee['id'],1));assert employee['shift_hours']==9
+    button(('overtime',employee['id'],1));assert employee['shift_hours']==8 and employee['overtime_hours']==1
     button(('staff_tab','leave'));button(('request_leave',));assert employee['leave_sent']=='2026-10'
+    button(('staff_tab','coverage'));assert app.world.coverage_report()
     app.draw();pg.image.save(app.canvas,str(Path(output).with_name('staff-preview.png')))
+    button(('staff_tab','clock'));app.draw()
+    pg.image.save(app.canvas,str(Path(output).with_name('timeclock-preview.png')))
     button(('staff_tab','settings'))
     app.draw();pg.image.save(app.canvas,str(Path(output).with_name('background-preview.png')))
     employee['leaves']['2026-10']=[]

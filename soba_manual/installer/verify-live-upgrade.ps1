@@ -3,7 +3,7 @@ $installDir=Join-Path $env:LOCALAPPDATA 'Programs\QuanMiCuaToi'
 $exe=Join-Path $installDir 'Quán Mì Của Tôi.exe'
 $save=Join-Path $env:LOCALAPPDATA 'QuanSobaManual\save-vnd.json'
 $oldSetup=Join-Path $PWD 'old-setup.exe'
-Invoke-WebRequest 'https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.1.0/QuanMiCuaToi-Setup.exe' -OutFile $oldSetup
+Invoke-WebRequest 'https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.2.0/QuanMiCuaToi-Setup.exe' -OutFile $oldSetup
 $p=Start-Process $oldSetup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
 if ($p.ExitCode -ne 0) { throw 'Old version install failed' }
 $env:PYTHONPATH='soba_manual'
@@ -16,15 +16,9 @@ w.open_shop();w.spawn_left=100000
 p=w.add_party(1);w.respond(p.id,'accept');w.update(p.buy_seconds);w.collect(p.id);w.seat(p.id,0)
 w.start_pot(0);w.cash=7654321;w.save(save_path())
 data=json.loads(save_path().read_text(encoding='utf-8'))
-data.pop('service_time_scale',None)
-data['version']=4
-for key in ('employees','candidates','next_employee','staff_cooking','payroll','background_enabled','player_idle','staff_auto_open','staff_opened_shop','leave_requested','staff_calendar_date'):
+data['version']=5
+for key in ('recruitment_posted','recruitment_round','coverage_start','coverage_end','day_decisions','cover_invites','clock_events'):
     data.pop(key,None)
-for party in data['parties']:
-    party.pop('drinks',None);party.pop('drinks_served',None)
-for name in list(data['stock']):
-    if name not in ('Mì tươi','Nước dùng','Hành','Tôm','Bò','Trứng'):
-        data['stock'].pop(name);data['stock_value'].pop(name)
 
 save_path().write_text(json.dumps(data),encoding='utf-8')
 '@ | python -
