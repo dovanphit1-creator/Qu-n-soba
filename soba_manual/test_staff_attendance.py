@@ -69,12 +69,12 @@ class AttendanceTests(unittest.TestCase):
     def test_v5_migration_preserves_money_hours_and_contract(self):
         e=self.hire('contract');self.advance(3600)
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/'save.json';self.w.save(p);data=json.loads(p.read_text());data['version']=5
+            p=Path(d)/'save.json';self.w.save(p);data=json.loads(p.read_text(encoding="utf-8"));data['version']=5
             for k in ('recruitment_posted','recruitment_round','coverage_start','coverage_end','day_decisions','cover_invites','clock_events'):data.pop(k)
             for e0 in data['employees']:
                 e0['shift_hours']=10
                 for k in ('plans','clocked_in','clock_mode','clock_date','cover_days','announced_plan','overtime_hours'):e0.pop(k)
-            p.write_text(json.dumps(data));w=World.load(p);new=w.employees[0]
+            p.write_text(json.dumps(data),encoding="utf-8");w=World.load(p);new=w.employees[0]
             self.assertEqual(w.cash,self.w.cash);self.assertEqual(new['attendance'],e['attendance']);self.assertEqual(new['shift_hours'],8);self.assertEqual(new['overtime_hours'],2)
             self.assertTrue(p.with_suffix('.v5.bak').exists())
 
