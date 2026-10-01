@@ -392,8 +392,16 @@ class StaffMixin:
                 continue
             if not was:self.note(f'{e["name"]} đến nhận việc.')
         active=[e for e in self.employees if e['present']]
-        if active and self.staff_auto_open and self.staff_shutdown_date!=key and not self.day_decisions.get(key) and not self.open and not self.closing:
-            if self.open_shop():self.staff_opened_shop=True
+        if active and not self.open:
+            reason=self.opening_blocker(automatic=True)
+            if not reason:
+                if self.open_shop():self.staff_opened_shop=True
+            else:
+                for e in active:
+                    status='Chờ mở quán: '+reason
+                    if e['status']!=status:
+                        e['status']=status
+                        self.note(e['name']+': '+status)
         more_today=any(any(stop>self.minute for start,stop,mode in self.day_plan(e,day)['segments']) for e in self.employees)
         if self.staff_opened_shop and not active and not more_today and self.open:
             self.closing=True

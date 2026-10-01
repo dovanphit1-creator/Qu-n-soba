@@ -730,19 +730,25 @@ class World(StaffMixin,FinanceMixin):
                 self.note('Nhà cung cấp đã giao đơn ' + order['placed'] + ' vào kho, không thu thêm tiền.')
         return changed
 
-    def open_shop(self):
-        if self.day_decisions.get(self.now.date().isoformat())=='closed':
-            self.note('Hôm nay đã chọn cho quán nghỉ. Đổi quyết định ở Nhân sự → Thiếu người để mở lại.');return False
-        if self.open:
-            return False
+    def opening_blocker(self, automatic=False):
+        decision=self.day_decisions.get(self.now.date().isoformat())
+        if decision=='closed':return 'Hôm nay đã chọn nghỉ kinh doanh; đổi ở Nhân sự → Thiếu người.'
+        if automatic and not self.staff_auto_open:return 'Tự mở quán đang TẮT; bật ở Nhân sự → Chạy nền.'
+        if automatic and decision=='player':return 'Hôm nay chủ quán tự mở; bấm MỞ QUÁN hoặc chọn Theo lịch nhân viên.'
+        if self.clean<1:return 'Chưa có bát sạch để phục vụ.'
         from collections import Counter
-        available = any(all(self.stock[name] >= qty for name,qty in Counter(['Mì tươi', *item['toppings']]).items()) for item in self.menu.values())
-        if self.clean < 1 or not available:
-            self.note('Cần bát sạch và đủ nguyên liệu làm ít nhất 1 món trong menu để mở quán.')
-            return False
-        if self.cash < 0:
-            self.note('Cần thanh toán chi phí còn thiếu trước khi mở quán.')
-            return False
+        available=any(all(self.stock[name]>=qty for name,qty in Counter(['Mì tươi',*item['toppings']]).items()) for item in self.menu.values())
+        if not available:return 'Kho chưa đủ nguyên liệu làm một món trong menu; bổ sung ở Chợ.'
+        if self.cash<0:return 'Ngân sách đang âm, chưa thể mở quán.'
+        return ''
+
+    def open_shop(self):
+        if self.open:return False
+        reason=self.opening_blocker()
+        if reason:
+            self.note(reason);return False
+        # A stock shutdown only lasts until supplies are available again.
+        self.staff_shutdown_date=''
         if self.lease is None:self.sign_lease(0)
         self.open, self.closing = True, False
         self.dirt_clock = 0

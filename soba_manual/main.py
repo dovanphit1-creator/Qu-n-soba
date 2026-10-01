@@ -509,6 +509,8 @@ class App(ManagementUI,StaffUI,FinanceUI):
         self.text(f'Danh tiếng {w.reputation:.2f}%', (650, 214), 26, GREEN, True)
         self.button((1030, 173, 260, 82), 'MỞ QUÁN', ('open',))
         self.button((1305, 173, 253, 82), 'Lưu và thoát' if self.persistent else 'Chơi lại từ đầu', ('quit',) if self.persistent else ('modal','confirm_new'), color='#7c674b')
+        if any(e['present'] for e in w.employees):
+            self.text('Nhân viên đã đến · '+w.opening_blocker(automatic=True),(47,285),16,RED)
         tabs = [('overview','Tổng quan'), ('inventory','Kho nguyên liệu'), ('market','Chợ'),
                 ('expansion','Bàn / tầng'), ('supplier','Nhà cung cấp'), ('menu','Tạo menu'),
                 ('staff','Nhân sự'), ('finance','Chi phí'), ('day','Ngày'), ('month','Tháng'), ('year','Năm')]

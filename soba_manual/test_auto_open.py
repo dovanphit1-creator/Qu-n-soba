@@ -47,4 +47,32 @@ class AutoOpenScreenTests(unittest.TestCase):
         self.assertIsNone(a.modal);self.assertFalse(a.staff_panel)
         self.assertIn(('close',),[action for r,action in a.buttons])
 
+    def test_restock_after_stock_shutdown_reopens_during_same_shift(self):
+        w=self.app.world;w.staff_shutdown_date=w.now.date().isoformat()
+        w.stock['Mì tươi']=0
+        self.arrive();self.assertFalse(w.open)
+        self.assertIn('nguyên liệu',self.employee['status'])
+        w.restock('Mì tươi',4)
+        self.app.modal='report';self.app.staff_panel=True
+        self.app.step(1);self.app.draw()
+        self.assertTrue(w.open);self.assertEqual(w.staff_shutdown_date,'')
+        self.assertIsNone(self.app.modal);self.assertFalse(self.app.staff_panel)
+        self.assertIn(('close',),[a for r,a in self.app.buttons])
+
+    def test_closed_save_with_stale_closing_flag_and_normal_decision(self):
+        w=self.app.world;w.closing=True
+        w.day_decisions[w.now.date().isoformat()]='normal'
+        self.arrive();self.assertTrue(w.open);self.assertFalse(w.closing)
+
+    def test_explicit_manual_and_auto_off_choices_remain_respected(self):
+        w=self.app.world;w.staff_auto_open=False
+        self.arrive();self.assertFalse(w.open)
+        self.assertIn('TẮT',self.employee['status'])
+        count=len(w.logs);self.app.step(1);self.assertEqual(len(w.logs),count)
+        w.staff_auto_open=True;w.day_decisions[w.now.date().isoformat()]='player'
+        self.app.step(1);self.assertFalse(w.open)
+        self.assertIn('chủ quán',self.employee['status'])
+        w.decide_day(w.now.date().isoformat(),'normal')
+        self.app.step(1);self.assertTrue(w.open)
+
 if __name__=='__main__':unittest.main()
