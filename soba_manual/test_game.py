@@ -156,11 +156,11 @@ class RulesTest(unittest.TestCase):
         for spot in w.dirt[:]:w.sweep(spot)
         self.assertTrue(w.close_shop())
         report=w.last_report
-        self.assertEqual(report['ingredients'],6000)
+        self.assertEqual(report['ingredients'],STOCK_COST['Mì tươi'])
         self.assertEqual(report['gas'],800)
         self.assertEqual(report['electricity'],350)
         self.assertEqual(report['water'],500)
-        self.assertEqual(report['profit'],-7650)
+        self.assertEqual(report['profit'],-STOCK_COST['Mì tươi']-1650)
         self.assertEqual(w.cash,start_cash-1650)
         cash=w.cash
         self.assertFalse(w.close_shop())
@@ -257,7 +257,7 @@ class RulesTest(unittest.TestCase):
         self.assertTrue(w.sign_contract())
         self.assertEqual(w.contract_until,'2026-10-30')
         self.assertTrue(w.place_order({'Mì tươi':10,'Trứng':5}))
-        self.assertEqual(w.cash,10_000_000-77600)
+        self.assertEqual(w.cash,10_000_000-(STOCK_COST['Mì tươi']*97//100*10+STOCK_COST['Trứng']*97//100*5))
         self.assertEqual(w.stock['Mì tươi'],0)
         self.assertFalse(w.place_order({'Mì tươi':1}))
         clock[0]=datetime(2026,10,1,0,59,59,tzinfo=timezone.utc) # 07:59:59 VN
@@ -265,9 +265,9 @@ class RulesTest(unittest.TestCase):
         clock[0]+=timedelta(seconds=1)
         w.update(0);self.assertEqual(w.stock['Mì tươi'],10)
         w.update(0);self.assertEqual(w.stock['Mì tươi'],10)
-        self.assertEqual(w.unit_cost('Mì tươi'),5820)
+        self.assertEqual(w.unit_cost('Mì tươi'),STOCK_COST['Mì tươi']*97//100)
         w.consume('Mì tươi')
-        self.assertEqual(w.totals()['2026-10-01']['ingredients'],5820)
+        self.assertEqual(w.totals()['2026-10-01']['ingredients'],STOCK_COST['Mì tươi']*97//100)
         clock[0]=datetime(2026,10,1,23,tzinfo=VIETNAM)
         self.assertFalse(w.place_order({'Mì tươi':1}))
         clock[0]=datetime(2026,10,2,22,tzinfo=VIETNAM)
@@ -309,7 +309,7 @@ class RulesTest(unittest.TestCase):
         w=World()
         self.assertTrue(w.save_menu_item('Soba đôi trứng',65000,{'Trứng':2,'Hành':1}))
         item=w.menu['Soba đôi trứng']
-        self.assertEqual(w.recipe_cost(item['toppings']),15000)
+        self.assertEqual(w.recipe_cost(item['toppings']),STOCK_COST['Mì tươi']+2*STOCK_COST['Trứng']+STOCK_COST['Hành'])
         self.assertFalse(w.save_menu_item('Soba đôi trứng',10,{}))
         self.assertFalse(w.save_menu_item('Lỗi',100,{'Trứng':7}))
         self.assertFalse(w.save_menu_item('Lỗi',0,{}))
@@ -318,12 +318,15 @@ class RulesTest(unittest.TestCase):
         for name in ['Bát/đĩa',*STOCK_COST]:w.restock(name,10)
         w.open_shop();w.spawn_left=100000
         p=w.add_party(1);w.respond(p.id,'accept');w.update(p.buy_seconds)
-        self.assertEqual(p.orders,['Soba đôi trứng']);self.assertEqual(p.paid,65000)
+        self.assertEqual(p.orders,['Soba đôi trứng']);self.assertEqual(p.paid,65000+sum(__import__('catalog').DRINK_PRICES.get(d,0) for d in p.drinks))
         self.assertFalse(w.save_menu_item('Món khác',10000,{}))
         w.collect(p.id);w.seat(p.id,0);w.start_pot(0);w.update(210);w.lift(0)
         b=w.bowls[0];w.move_prep(b.id,0)
         for name in p.recipes[0]:w.topping(b.id,name)
-        w.serve(b.id,0);w.update(max((w.eating_remaining(g) for g in w.parties),default=0)+1)
+        w.serve(b.id,0)
+        for drink in p.drinks:
+            if drink:w.serve_drink(drink,0)
+        w.update(max((w.eating_remaining(g) for g in w.parties),default=0)+1)
         self.assertIn('5/5',w.reviews[-1])
 
     def test_migrate_v2_keeps_old_tables_and_active_tickets(self):

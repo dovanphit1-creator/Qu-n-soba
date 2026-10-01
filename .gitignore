@@ -219,3 +219,21 @@ __marimo__/
 
 # Local game progress
 soba_save.json
+
+# Generated game assets and browser vendor bundle (rebuilt from pinned dependencies)
+soba_manual/assets/
+soba_web/game/assets/
+soba_web/game/holidays/
+soba_web/game/dateutil/
+soba_web/game/app.py
+soba_web/game/model.py
+soba_web/game/management.py
+soba_web/game/brand.py
+soba_web/game/vn_calendar.py
+soba_web/game/staff.py
+soba_web/game/staff_ui.py
+soba_web/game/catalog.py
+soba_web/game/audio.py
+soba_web/game/background.py
+soba_web/game/six.py
+soba_web/game/favicon.png

@@ -28,7 +28,9 @@ def check_expansion_ui(app, output):
     button(('buy_table',1));button(('buy_chair',2));button(('buy_chair',2))
     screenshot('expansion-preview')
     button(('tab','supplier'));button(('contract',))
-    for name in STOCK_COST:button(('order_qty',name,10))
+    for i,name in enumerate(STOCK_COST):
+        if i and i%6==0:button(('supplier_page',1))
+        button(('order_qty',name,10))
     button(('order',));assert len(w.deliveries)==1
     screenshot('supplier-preview')
     clock[0]=datetime(2026,10,2,7,59,59,tzinfo=VIETNAM)
@@ -42,7 +44,9 @@ def check_expansion_ui(app, output):
     app.event(pg.event.Event(pg.TEXTINPUT,text='Soba trứng đôi'))
     app.event(pg.event.Event(pg.KEYDOWN,key=pg.K_TAB))
     app.event(pg.event.Event(pg.TEXTINPUT,text='65000'))
+    button(('recipe_page',1))
     button(('recipe_qty','Trứng',1));button(('recipe_qty','Trứng',1))
+    button(('recipe_page',-1))
     button(('recipe_qty','Hành',1))
     screenshot('menu-preview')
     button(('save_menu',))

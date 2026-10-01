@@ -11,10 +11,11 @@ if '--smoke-test' in sys.argv or '--verify-new-player' in sys.argv:
     os.environ['SDL_AUDIODRIVER'] = 'dummy'
 import pygame as pg
 from model import (World, RECIPES, STOCK_COST, TABLE_LAYOUT, POT_POS, BOWL_POS,
-                   COOK_SECONDS, LIFT_WINDOW, save_path, vnd, DISH_COST, DIRT_POS)
+                   COOK_SECONDS, LIFT_WINDOW, save_path, vnd, DISH_COST, DIRT_POS, DRINKS, STOCK_UNITS)
 
 from vn_calendar import WEEKDAYS
 from management import ManagementUI
+from staff_ui import StaffUI
 from brand import GAME_TITLE, WINDOWS_APP_ID, GAME_VERSION, PUBLISHER
 
 W, H = 1600, 1000
@@ -23,22 +24,25 @@ CREAM = '#fff2d2'
 GOLD = '#f4ba53'
 GREEN = '#426f57'
 RED = '#ba4d3c'
-TOPPING_COLOR = {'Nước dùng': '#b77b32', 'Hành': '#64a950', 'Tôm': '#ee9060', 'Bò': '#8e5443', 'Trứng': '#f6d15d'}
+TOPPING_COLOR = {'Nước dùng': '#b77b32', 'Hành': '#64a950', 'Tôm': '#ee9060', 'Bò': '#8e5443', 'Trứng': '#f6d15d', 'Măng':'#d8bd70','Kaeshi':'#754524','Vị cay':'#c14122','Bột ớt':'#e66132','Nori':'#264431', 'Coca-Cola':'#d72728','Trà xanh':'#4c9a4a','Bò húc':'#bc962f'}
 PEOPLE = ['#487c98', '#b65e4b', '#728855', '#9b7ba0', '#e0a444', '#617894']
 SINK = pg.Rect(799, 281, 347, 66)
 RAW = pg.Rect(793, 558, 191, 62)
 TRASH = pg.Rect(1001, 558, 143, 62)
 MACHINE = pg.Rect(617, 286, 101, 100)
 TICKET = pg.Rect(719, 326, 47, 66)
-TOPPING_RECTS = {name: pg.Rect(793 + i * 71, 650, 65, 68) for i, name in enumerate(TOPPING_COLOR)}
+TOPPING_RECTS = {name: pg.Rect(793 + (i%5)*71, 642+(i//5)*39, 65, 35) for i, name in enumerate(n for n in TOPPING_COLOR if n not in DRINKS)}
 
+DRINK_RECTS={name:pg.Rect(795+i*118,913,111,32) for i,name in enumerate(DRINKS)}
 
 def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
-class App(ManagementUI):
+class App(ManagementUI,StaffUI):
     def __init__(self, headless=False, persistent=True):
+        self.background=None
+        self.no_input_seconds=0
         self.persistent=persistent
         self.update_queue=None
         self.available_update=None
@@ -75,6 +79,10 @@ class App(ManagementUI):
         self.has_save = self.persistent and save_path().exists()
         if not self.has_save:self.modal='welcome'
         self.last_warning = ''
+        self.sound=None
+        try:
+            if pg.mixer.get_init():self.sound=pg.mixer.Sound(str(Path(__file__).with_name('assets')/'noodle-ready.wav'))
+        except pg.error:pass
         self.scale = 1
         self.offset = (0, 0)
         self.update_size()
@@ -299,22 +307,26 @@ class App(ManagementUI):
                 self.text('Kéo xuống', (x, y+22), 15, INK, True, True)
                 self.text('quầy topping', (x, y+39), 13, INK, False, True)
         # Ingredient bin and waste.
-        self.box(RAW, '#eadbb8', 8, '#887551')
-        for i in range(7):
-            pg.draw.line(self.canvas, '#c8a661', (808+i*6, 574), (811+i*6, 601), 3)
-        self.text('MÌ TƯƠI', (865, 565), 19, INK, True)
-        self.text(f'{world.stock["Mì tươi"]} phần · kéo', (865, 591), 16)
+        if world.stock['Mì tươi']>0:
+            self.box(RAW, '#eadbb8', 8, '#887551')
+            for i in range(7):pg.draw.line(self.canvas,'#c8a661',(808+i*6,574),(811+i*6,601),3)
+            self.text('MÌ TƯƠI',(865,565),19,INK,True)
+            self.text(f'{world.stock["Mì tươi"]} phần · kéo',(865,591),16)
         self.box(TRASH, '#686958', 8)
         self.text('THÙNG RÁC', TRASH.center, 18, 'white', True, True)
         self.text('Nhấp phải nồi để đổ bỏ mì', (800, 622), 16, '#405649')
         # Toppings.
-        for name, rect in TOPPING_RECTS.items():
-            self.box(rect, '#8b795b', 5)
-            self.box(rect.inflate(-8, -22).move(0, -5), TOPPING_COLOR[name], 5)
-            short = 'Dùng' if name == 'Nước dùng' else name
-            self.text(short, (rect.centerx, rect.y+18), 17, 'white', True, True)
-            self.text(str(world.stock[name]), (rect.centerx, rect.bottom-12), 16, 'white', True, True)
-        self.text('Kéo topping xuống bát · kéo bát ra bàn', (795, 723), 17, '#405649')
+        for name,rect in TOPPING_RECTS.items():
+            if world.stock[name]<=0:continue
+            self.box(rect,TOPPING_COLOR[name],5)
+            short='Dùng' if name=='Nước dùng' else name
+            self.text(short,(rect.centerx,rect.y+9),13,'white',True,True)
+            self.text(str(world.stock[name]),(rect.centerx,rect.bottom-7),12,'white',True,True)
+        self.text('Topping → bát · bát / đồ uống → bàn',(795,725),16,'#405649')
+        for name,rect in DRINK_RECTS.items():
+            if world.stock[name]<=0:continue
+            self.box(rect,TOPPING_COLOR[name],5)
+            self.text(f'{name} {world.stock[name]}',rect.center,14,'white',True,True)
         for i, (x, y) in enumerate(BOWL_POS):
             self.box((x-49, y-30, 98, 76), '#a58b64', 6, '#86704d')
             pg.draw.ellipse(self.canvas, '#bba37c', (x-31, y-18, 62, 37), 2)
@@ -344,6 +356,10 @@ class App(ManagementUI):
                 self.text('Bàn sạch' if table.capacity else 'Chưa có ghế',(x,y),19,GREEN,True,True)
             if table.dirty and not groups:
                 self.bowl((x,y+8),dirty=True,size=24)
+        for employee in world.employees:
+            if employee['present'] and employee['floor']==self.floor:
+                self.person(employee['x'],employee['y'],'#efae41' if employee['role']=='baito' else '#eeeeee',self.animation*7)
+                self.text(employee['name']+' · '+employee['status'],(employee['x'],employee['y']-49),12,INK,True,True)
         # Living customers and passers-by.
         for w in world.walkers:
             for j in range(w['size']):
@@ -438,6 +454,9 @@ class App(ManagementUI):
             self.wrap(f'Nhóm {selected.id:03} chưa giao phiếu. Chờ khách mua ở máy rồi nhấp phiếu màu vàng.', (1208, 551), 340, 22)
         else:
             self.wrap('Nhấp nhóm hoặc bàn để xem đúng món của từng người. Giao bát theo thứ tự 1, 2, 3, 4 trên phiếu.', (1208, 551), 340, 22)
+        self.button((1207,775,352,37),'Nhân viên / lịch làm việc',('staff_panel',),small=True)
+        if selected and selected.drinks:
+            self.text('Uống: '+', '.join(d or '—' for d in selected.drinks),(1208,746),16)
         self.text(f'Sàn: {len(w.dirt)} chỗ bẩn', (1207, 837), 19, RED if w.dirt else GREEN, True)
         self.button((1384, 825, 175, 45), 'Đánh giá', ('modal','reviews'), small=True, color='#836647')
         self.button((1207, 879, 352, 45), 'Dọn xong · xác nhận đóng' if w.closing else 'Đóng quán / kết thúc ca', ('close',), small=True, color='#785b42')
@@ -460,12 +479,14 @@ class App(ManagementUI):
         self.button((1305, 173, 253, 82), 'Lưu và thoát' if self.persistent else 'Chơi lại từ đầu', ('quit',) if self.persistent else ('modal','confirm_new'), color='#7c674b')
         tabs = [('overview','Tổng quan'), ('inventory','Kho nguyên liệu'), ('market','Chợ'),
                 ('expansion','Bàn / tầng'), ('supplier','Nhà cung cấp'), ('menu','Tạo menu'),
-                ('day','Theo ngày'), ('month','Theo tháng'), ('year','Theo năm')]
+                ('staff','Nhân sự'), ('day','Ngày'), ('month','Tháng'), ('year','Năm')]
         for i, (key, label) in enumerate(tabs):
-            self.button((36+i*170, 305, 161, 52), label, ('tab',key),
+            self.button((36+i*153, 305, 145, 52), label, ('tab',key),
                         color=GREEN if self.manager_tab==key else '#7c876d')
         self.box((35, 380, 1525, 520), '#fff3d9', 12)
-        if self.manager_tab=='expansion':
+        if self.manager_tab=='staff':
+            self.render_staff()
+        elif self.manager_tab=='expansion':
             self.render_expansion()
         elif self.manager_tab=='supplier':
             self.render_supplier()
@@ -474,17 +495,21 @@ class App(ManagementUI):
         elif self.manager_tab in ('inventory','market'):
             market = self.manager_tab=='market'
             self.text('CHỢ · CHỈ MUA KHI ĐÓNG QUÁN' if market else 'KHO NGUYÊN LIỆU TỒN', (60, 398), 25, INK, True)
-            for i, name in enumerate(['Bát/đĩa', *STOCK_COST]):
+            names=['Bát/đĩa', *STOCK_COST] if market else ['Bát/đĩa',*(n for n in STOCK_COST if w.stock[n]>0)]
+            self.stock_page=min(self.stock_page,max(0,(len(names)-1)//6))
+            for i, name in enumerate(names[self.stock_page*6:self.stock_page*6+6]):
                 y = 448+i*61
                 count = w.clean if name=='Bát/đĩa' else w.stock[name]
                 cost = DISH_COST if name=='Bát/đĩa' else STOCK_COST[name]
                 self.text(name, (62, y+8), 23, INK, True)
                 self.text(f'Tồn: {count}', (285, y+9), 22, GREEN)
-                self.text(vnd(cost) + '/cái' if name=='Bát/đĩa' else vnd(cost)+'/phần', (440, y+10), 19)
+                self.text(vnd(cost) + '/cái' if name=='Bát/đĩa' else vnd(cost)+'/'+STOCK_UNITS[name], (440, y+10), 19)
                 if market:
                     for j, amount in enumerate([1,10,50]):
                         self.button((755+j*252,y,240,44), f'Mua {amount} · {vnd(cost*amount)}',
                                     ('buy',name,amount), w.cash>=cost*amount, small=True)
+            self.button((60,843,170,35),'Trước',('stock_page',-1),self.stock_page>0,small=True)
+            self.button((250,843,170,35),'Sau',('stock_page',1),(self.stock_page+1)*6<len(names),small=True)
             if not market:
                 self.wrap('Bát/đĩa là dụng cụ dùng lại sau khi rửa. Nguyên liệu tồn chưa sử dụng không bị tính vào giá vốn hôm nay.',
                           (880, 475), 580, 25, '#687259')
@@ -492,12 +517,12 @@ class App(ManagementUI):
         elif self.manager_tab in ('day','month','year'):
             rows = sorted(w.totals(self.manager_tab).items(), reverse=True)
             self.text('LỊCH SỬ KINH DOANH · VND', (60, 398), 25, INK, True)
-            for text, x in [('Kỳ',60),('Doanh thu',310),('Nguyên liệu đã dùng',590),('Điện + nước + ga',925),('Lợi nhuận',1270)]:
+            for text, x in [('Kỳ',60),('Doanh thu',310),('Nguyên liệu đã dùng',590),('Vận hành + lương',925),('Lợi nhuận',1270)]:
                 self.text(text, (x,455), 20, GREEN, True)
             start = self.history_page*7
             for i,(key,row) in enumerate(rows[start:start+7]):
                 y=501+i*43
-                values=[key,vnd(row['revenue']),vnd(row['ingredients']),vnd(row['utilities']),vnd(row['profit'])]
+                values=[key,vnd(row['revenue']),vnd(row['ingredients']),vnd(row['utilities']+row.get('wages',0)+row.get('employer_insurance',0)+row.get('termination',0)),vnd(row['profit'])]
                 for value,x in zip(values,[60,310,590,925,1270]):
                     self.text(value,(x,y),20, RED if x==1270 and row['profit']<0 else INK)
             if not rows:
@@ -508,11 +533,12 @@ class App(ManagementUI):
         else:
             today=w.totals().get(w.now.date().isoformat(),{})
             self.text('HÔM NAY', (60,410),28,INK,True)
-            y=470
-            for label, key in [('Doanh thu','revenue'),('Nguyên liệu đã sử dụng','ingredients'),('Điện, nước, ga','utilities'),('Lợi nhuận','profit')]:
+            today['staff_cost']=today.get('wages',0)+today.get('employer_insurance',0)
+            y=460
+            for label, key in [('Doanh thu','revenue'),('Nguyên liệu đã sử dụng','ingredients'),('Điện, nước, ga','utilities'),('Lương + BH quán','staff_cost'),('Lợi nhuận','profit')]:
                 self.text(label,(60,y),24)
                 self.text(vnd(today.get(key,0)),(480,y),24,GREEN,True)
-                y+=67
+                y+=55
             self.wrap('Chuẩn bị trước khi mở quán', (880, 415),570,28,INK,True)
             self.wrap('Mua bát/đĩa và nguyên liệu ở Chợ. Khi mở quán, bạn phải tự vận hành và không thể mua thêm hàng.',(880,470),585,25)
             self.wrap('Kết ca: bấm Đóng quán để ngừng nhận nhóm mới, phục vụ hết khách, xử lý hết mì, rửa bát và lau bàn/sàn. Bấm xác nhận đóng để nhận tổng kết.',(880,605),585,23)
@@ -529,7 +555,9 @@ class App(ManagementUI):
         shade=pg.Surface((W,H),pg.SRCALPHA); shade.fill((10,28,23,190)); self.canvas.blit(shade,(0,0))
         self.buttons=[]
         self.box((260,110,1080,785),'#fff0d1',20,'#bfa36b',3)
-        if self.modal=='welcome':
+        if self.modal in ('hire_contract','fire_staff'):
+            self.render_staff_contract()
+        elif self.modal=='welcome':
             self.text(GAME_TITLE,(800,185),43,INK,True,True)
             self.text('CHÀO MỪNG CHỦ QUÁN MỚI',(800,253),28,GREEN,True,True)
             lines=[
@@ -557,12 +585,14 @@ class App(ManagementUI):
             row=self.world.last_report
             self.text('TỔNG KẾT KINH DOANH HÔM NAY',(310,149),34,INK,True)
             self.text(row['date']+' · Đã đóng quán',(310,207),24,GREEN,True)
-            y=262
+            row['staff_extra']=row.get('employer_insurance',0)+row.get('termination',0)
+            row.setdefault('wages',0)
+            y=250
             for label,key in [('Doanh thu bán phiếu','revenue'),('Giá vốn nguyên liệu đã dùng / hỏng','ingredients'),
-                              ('Điện','electricity'),('Nước','water'),('Ga','gas'),('LỢI NHUẬN','profit')]:
+                              ('Điện','electricity'),('Nước','water'),('Ga','gas'),('Lương đã phát sinh','wages'),('BH quán / phạt','staff_extra'),('LỢI NHUẬN','profit')]:
                 self.text(label,(312,y),24,INK,key=='profit')
                 self.text(vnd(row[key]),(995,y),25,GREEN if row[key]>=0 else RED,True)
-                y+=57
+                y+=43
             self.text('Ngân sách còn lại: '+vnd(row['cash']),(310,625),27,GREEN,True)
             self.wrap('Tiền nhập kho đã trừ khi mua; giá vốn không bị trừ lần nữa. Điện/nước/ga thanh toán lần này: '+vnd(row['payment']), (312,677),960,20)
             self.button((855,811,420,55),'Về trang đóng quán',('dismiss',))
@@ -600,7 +630,14 @@ class App(ManagementUI):
 
     def draw(self):
         self.buttons = []
-        if self.world.open:
+        if self.staff_panel:
+            self.canvas.fill('#e6e9da')
+            self.box((35,380,1525,520),'#fff3d9',12)
+            self.text(GAME_TITLE+' · NHÂN SỰ',(45,50),36,INK,True)
+            self.text('Quán tiếp tục hoạt động khi xem nhân sự',(45,120),24)
+            self.button((1180,60,370,60),'Trở lại quán',('staff_panel',))
+            self.render_staff()
+        elif self.world.open:
             self.render_floor()
             self.render_side()
         else:
@@ -662,11 +699,13 @@ class App(ManagementUI):
             self.selected = p.id
             if p.phase == 'ready':
                 return ('party',p.id)
-        if RAW.collidepoint(point):
+        if RAW.collidepoint(point) and self.world.stock['Mì tươi']>0:
             return ('raw',0)
         for name, rect in TOPPING_RECTS.items():
-            if rect.collidepoint(point):
+            if rect.collidepoint(point) and self.world.stock[name]>0:
                 return ('topping',name)
+        for name,rect in DRINK_RECTS.items():
+            if rect.collidepoint(point) and self.world.stock[name]>0:return ('drink',name)
         for b in self.world.bowls:
             position = BOWL_POS[b.slot] if b.stage == 'prep' else POT_POS[b.slot]
             if dist(point, position) < 46:
@@ -686,7 +725,7 @@ class App(ManagementUI):
             if rect.collidepoint(point):
                 self.action(action)
                 return
-        if self.modal or not self.world.open:
+        if self.modal or self.staff_panel or not self.world.open:
             return
         for spot in self.world.dirt[:]:
             if spot // len(DIRT_POS)==self.floor and dist(point,DIRT_POS[spot % len(DIRT_POS)]) < 35:
@@ -730,6 +769,9 @@ class App(ManagementUI):
                 if dist(point,pos) < 53:
                     self.world.start_pot(i)
                     break
+        elif kind=='drink' and table is not None:
+            groups=self.world.at_table(table)
+            self.world.serve_drink(ident,table,self.selected if len(groups)>1 else None)
         elif kind == 'topping':
             for b in self.world.bowls:
                 if b.stage == 'prep' and dist(point,BOWL_POS[b.slot]) < 45:
@@ -784,7 +826,7 @@ class App(ManagementUI):
         elif kind=='dismiss':
             self.modal=None
         elif kind=='new' and not self.world.open:
-            self.world=World(); self.modal=None; self.manager_tab='overview'; self.init_management(); self.persist()
+            self.world=World(); self.staff_panel=False; self.modal=None; self.manager_tab='overview'; self.init_management(); self.persist()
         elif kind=='open':
             if self.world.open_shop():self.persist()
         elif kind=='answer':
@@ -803,8 +845,10 @@ class App(ManagementUI):
 
     def event(self,event):
         if self.management_input(event):return
+        if event.type in (pg.KEYDOWN,pg.MOUSEBUTTONDOWN):self.no_input_seconds=0
         if event.type==pg.QUIT:
-            self.action(('quit',))
+            if self.background and self.world.background_enabled:self.background.hide();self.persist()
+            else:self.action(('quit',))
         elif event.type==pg.WINDOWFOCUSLOST:
             self.drag=self.down=None
             self.persist()
@@ -823,26 +867,37 @@ class App(ManagementUI):
             self.drag=None
         elif event.type==pg.MOUSEMOTION:
             self.mouse=self.point(event.pos)
-            if self.down and not self.modal and self.world.open and dist(self.mouse,self.down)>7:
+            if self.down and not self.modal and not self.staff_panel and self.world.open and dist(self.mouse,self.down)>7:
                 if self.drag is None:self.drag=self.pending_drag
         elif event.type==pg.MOUSEBUTTONDOWN:
             self.mouse=self.point(event.pos)
             if event.button==1:
                 self.down=self.mouse
-                self.pending_drag=self.source(self.mouse) if not self.modal and self.world.open else None
-            elif event.button==3 and not self.modal and self.world.open:
+                self.pending_drag=self.source(self.mouse) if not self.modal and not self.staff_panel and self.world.open else None
+            elif event.button==3 and not self.modal and not self.staff_panel and self.world.open:
                 self.click(self.mouse,True)
         elif event.type==pg.MOUSEBUTTONUP and event.button==1:
             self.mouse=self.point(event.pos)
-            if self.drag and not self.modal and self.world.open:self.drop(self.drag,self.mouse)
+            if self.drag and not self.modal and not self.staff_panel and self.world.open:self.drop(self.drag,self.mouse)
             else:self.click(self.mouse)
             self.drag=self.down=None
 
     def step(self,dt):
         self.poll_updates()
+        self.no_input_seconds+=dt
+        self.world.player_idle=self.no_input_seconds>=30
+        if self.background:self.background.poll()
+        if not self.running:return
         # Help panels and lost window focus never pause an open restaurant.
         if self.world.process_deliveries():self.persist()
         self.world.update(dt)
+        if self.world.sound_events:
+            if self.sound:self.sound.play()
+            self.world.sound_events.clear()
+        if self.world.speech_events:
+            from audio import speak
+            for message in self.world.speech_events:speak(message)
+            self.world.speech_events.clear()
         if self.world.open:self.animation+=dt
         self.auto_save+=dt
         if self.auto_save>=15:
@@ -852,14 +907,21 @@ class App(ManagementUI):
         if self.persistent and not any(flag in sys.argv for flag in ('--smoke-test','--verify-new-player')):
             from updates import start_check
             self.update_queue=start_check()
+        if sys.platform=='win32' and self.persistent and not any(flag in sys.argv for flag in ('--smoke-test','--verify-new-player')):
+            from background import Background
+            self.background=Background(self)
+            if self.world.background_enabled and not self.background.enable(True):
+                self.world.background_enabled=False
+            if '--background' in sys.argv and self.world.background_enabled:self.background.hide()
         while self.running:
-            dt=self.clock.tick(60)/1000
+            dt=min(1.0,self.clock.tick(10 if self.background and self.background.hidden else 60)/1000)
             for event in pg.event.get():
                 self.event(event)
                 if not self.running:break
             if not self.running:break
             self.step(dt)
-            self.draw()
+            if not self.background or not self.background.hidden:self.draw()
+        if self.background:self.background.stop()
         pg.quit()
 
 
@@ -933,6 +995,9 @@ def smoke_test(output):
     pg.image.save(app.canvas, str(Path(output).with_suffix('.png')))
     from expansion_smoke import check_expansion_ui
     check_expansion_ui(app,output)
+    from staff_smoke import check_staff_ui,check_windows_background
+    check_staff_ui(app,output)
+    check_windows_background(App,output)
     from exit_smoke import check_window_exit
     check_window_exit(App)
     from update_smoke import check_update_ui
@@ -940,7 +1005,7 @@ def smoke_test(output):
     pg.quit()
     Path(output).write_text(json.dumps({'ok': True, 'platform': sys.platform,
                                       'frozen': bool(getattr(sys, 'frozen', False)),
-                                      'checks': ['update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
+                                      'checks': ['staff-ui','shift-automation','staff-save','tray-shutdown', 'update-notification-ui','quit-open-shop','resume-active-shift','quit-closed-shop','permanent-game-name','bundled-noodle-icon','shared-tables','buy-tables-chairs','floor-navigation','supplier-8am-delivery','custom-menu-input','expanded-save', 'vnd-economy','empty-stock','closed-market','no-pause','cleanup-close','profit-report','vietnam-clock', 'lunar-holidays', 'render', 'accept', 'ticket', 'drag-seat',
                                                  '210-second-cook', 'toppings', 'serve',
                                                  'clear', 'wipe', 'manual-wash']}), encoding='utf-8')
 
@@ -987,4 +1052,5 @@ if __name__ == '__main__':
             output=str(Path(sys.argv[sys.argv.index(flag)+1]).resolve())
             (smoke_test if flag=='--smoke-test' else verify_new_player)(output)
     else:
-        App().run()
+        from background import single_instance
+        if single_instance():App().run()

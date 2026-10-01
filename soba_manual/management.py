@@ -1,6 +1,6 @@
 """Closed-shop management controls, including Unicode menu text input."""
 import pygame as pg
-from model import STOCK_COST, TABLE_COST, CHAIR_COST, FLOOR_COST, vnd, supplier_price
+from model import STOCK_COST, TABLE_COST, CHAIR_COST, FLOOR_COST, vnd, supplier_price, DRINKS, STOCK_UNITS
 
 INK='#26372e'
 GREEN='#426f57'
@@ -8,6 +8,10 @@ RED='#ba4d3c'
 
 class ManagementUI:
     def init_management(self):
+        self.init_staff_ui()
+        self.stock_page=0
+        self.supplier_page=0
+        self.recipe_page=0
         self.floor = 0
         self.order_quantities = {name: 0 for name in STOCK_COST}
         self.menu_page = 0
@@ -17,7 +21,7 @@ class ManagementUI:
         self.menu_original = None
         self.menu_name = ''
         self.menu_price = ''
-        self.menu_quantities = {name: 0 for name in STOCK_COST if name != 'Mì tươi'}
+        self.menu_quantities = {name: 0 for name in STOCK_COST if name != 'Mì tươi' and name not in DRINKS}
         self.input_focus = None
         self.composition = ''
 
@@ -45,13 +49,15 @@ class ManagementUI:
         status='Có hiệu lực đến trước '+w.contract_until if w.contract_active else 'Chưa có hợp đồng còn hiệu lực'
         self.text(status,(65,445),20,GREEN)
         self.button((930,435,587,43),'Ký hợp đồng 1 tháng · đơn hàng giá lẻ giảm 3%',('contract',),not w.contract_active,small=True)
-        for i,name in enumerate(STOCK_COST):
+        for i,name in enumerate(list(STOCK_COST)[self.supplier_page*6:self.supplier_page*6+6]):
             y=495+i*48
             self.text(name,(65,y+7),21,INK,True)
             self.text(vnd(supplier_price(name))+'/phần',(230,y+9),17)
             for x,label,delta in [(450,'−10',-10),(514,'−1',-1),(697,'+1',1),(761,'+10',10)]:
                 self.button((x,y,60,36),label,('order_qty',name,delta),small=True)
             self.text(str(self.order_quantities[name]),(633,y+18),22,INK,True,True)
+        self.button((450,789,160,35),'Trước',('supplier_page',-1),self.supplier_page>0,small=True)
+        self.button((655,789,160,35),'Sau',('supplier_page',1),(self.supplier_page+1)*6<len(STOCK_COST),small=True)
         cost=sum(supplier_price(k)*v for k,v in self.order_quantities.items())
         self.text('Tổng đơn: '+vnd(cost),(66,801),26,GREEN,True)
         self.button((65,847,758,40),'Đặt & thanh toán · giao sáng mai',('order',),w.contract_active and cost>0 and w.cash>=cost and w.now.hour<23,small=True)
@@ -86,12 +92,14 @@ class ManagementUI:
             self.text(value+('|' if self.input_focus==key else ''),(978,y+9),20)
             self.buttons.append((rect,('field',key)))
         self.text('Nguyên liệu: 1 mì tươi (cố định) +',(810,534),20,INK,True)
-        for i,(name,qty) in enumerate(self.menu_quantities.items()):
+        for i,(name,qty) in enumerate(list(self.menu_quantities.items())[self.recipe_page*4:self.recipe_page*4+4]):
             y=562+i*39
             self.text(name,(815,y+5),20)
             self.button((1180,y,70,33),'−',('recipe_qty',name,-1),small=True)
             self.text(str(qty),(1310,y+16),21,INK,True,True)
             self.button((1372,y,70,33),'+',('recipe_qty',name,1),small=True)
+        self.button((815,725,250,30),'Topping trước',('recipe_page',-1),self.recipe_page>0,small=True)
+        self.button((1090,725,350,30),'Topping tiếp',('recipe_page',1),(self.recipe_page+1)*4<len(self.menu_quantities),small=True)
         toppings=[k for k,v in self.menu_quantities.items() for _ in range(v)]
         cost=w.recipe_cost(toppings)
         price=int(self.menu_price or 0)
@@ -102,7 +110,10 @@ class ManagementUI:
 
     def extra_action(self, kind, args):
         w=self.world
-        if kind=='floor':
+        if self.staff_action(kind,args):return True
+        if kind in ('stock_page','supplier_page','recipe_page'):
+            setattr(self,kind,max(0,getattr(self,kind)+args[0]))
+        elif kind=='floor':
             self.floor=args[0]
         elif kind=='buy_table':w.buy_table(args[0]);self.persist()
         elif kind=='buy_chair':w.buy_chair(args[0]);self.persist()

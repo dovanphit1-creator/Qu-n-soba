@@ -37,4 +37,7 @@ def build():
     info=f'''VSVersionInfo(ffi=FixedFileInfo(filevers={version_numbers!r},prodvers={version_numbers!r},mask=0x3f,flags=0,OS=0x40004,fileType=1,subtype=0,date=(0,0)),kids=[StringFileInfo([StringTable('040904B0',[StringStruct('FileDescription',{GAME_TITLE!r}),StringStruct('ProductName',{GAME_TITLE!r}),StringStruct('CompanyName',{PUBLISHER!r}),StringStruct('OriginalFilename',{EXE_NAME!r}),StringStruct('InternalName','QuanMiCuaToi'),StringStruct('FileVersion',{GAME_VERSION!r}),StringStruct('ProductVersion',{GAME_VERSION!r})])]),VarFileInfo([VarStruct('Translation',[1033,1200])])])'''
     (assets/'version.txt').write_text(info,encoding='utf-8')
 
-if __name__=='__main__':build()
+if __name__=='__main__':
+    build()
+    from build_audio import build as build_audio
+    build_audio()

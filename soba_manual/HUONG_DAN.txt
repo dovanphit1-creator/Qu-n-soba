@@ -125,3 +125,15 @@ Mỗi người có tính kiên nhẫn riêng: hỏi chỗ 1–5 phút; đợi b�
 Đã thanh toán thì khách luôn ở lại chờ được xếp chỗ và phục vụ. Thời gian ăn không bị tính thành chậm phục vụ.
 Bát đưa vào bồn khi đang rửa chờ mẻ sau; người chơi phải nhấp Rửa bát lần nữa.
 Thời gian ăn, rửa và lau đang dở được lưu khi thoát Windows và tiếp tục khi mở lại.
+
+BẢN 1.2.0
+- Mì chín phát hai tiếng chuông; âm thanh thiết bị/trình duyệt cần bật.
+- Đồ uống xuất hiện ở quầy dưới bếp khi kho có hàng. Xem phiếu, chọn nhóm ở bàn ghép rồi kéo lon/chai vào bàn.
+- Măng, Kaeshi, vị cay, bột ớt, nori dùng trong Menu tự tạo. Chợ / nhà cung cấp / topping menu có nút chuyển trang.
+- Đánh giá 0–5 sao, danh tiếng tối thiểu 5%, không giới hạn trên.
+- Nhân sự: Phỏng vấn → chọn lương / đọc hợp đồng → Thuê → cài giờ bắt đầu, số giờ → Bật ca.
+- Yêu cầu lịch nghỉ để xem 9 ngày nhân viên chọn; tính cách chỉ xuất hiện sau khi quan sát làm việc.
+- Nhân sự / Vận hành nền: bật Windows chạy nền để nút X ẩn cửa sổ. Chuột phải biểu tượng bát mì → Mở game hoặc Lưu và thoát hoàn toàn.
+- Máy cần bật và không ngủ. Không tính công hoặc bán hàng giả lập khi máy tắt. Bản web cần giữ trang mở, không lưu tiến trình.
+- Có thể mua nguyên liệu và ký đơn giao sáng hôm sau khi đóng quán; nhân viên không tự mua nguyên liệu.
+- Giá tham khảo cố định theo phần đã ghi, chưa phải giá thị trường trực tiếp. Giá vốn tồn kho cũ được giữ lại; giá bán menu đã lưu được giữ nguyên.

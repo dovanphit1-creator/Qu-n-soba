@@ -7,6 +7,8 @@ import random
 import calendar
 from datetime import datetime, timedelta
 from vn_calendar import vn_now, holiday_name, VIETNAM
+from staff import StaffMixin
+from catalog import STOCK_COST, STOCK_UNITS, DRINKS, DRINK_PRICES
 
 COOK_SECONDS = 210.0
 LIFT_WINDOW = 10.0
@@ -17,8 +19,8 @@ RECIPES = {
     'Soba bò': ('Nước dùng', 'Hành', 'Bò'),
     'Soba trứng': ('Nước dùng', 'Hành', 'Trứng'),
 }
-PRICES = {'Kake soba': 35000, 'Soba tôm': 45000, 'Soba bò': 50000, 'Soba trứng': 42000}
-STOCK_COST = {'Mì tươi': 6000, 'Nước dùng': 3000, 'Hành': 1000, 'Tôm': 8000, 'Bò': 10000, 'Trứng': 4000}
+PRICES = {'Kake soba': 65000, 'Soba tôm': 85000, 'Soba bò': 90000, 'Soba trứng': 75000}
+LEGACY_COST = {'Mì tươi':6000,'Nước dùng':3000,'Hành':1000,'Tôm':8000,'Bò':10000,'Trứng':4000}
 SUPPLIER_PERCENT = 97
 
 def supplier_price(name):
@@ -64,6 +66,8 @@ class Party:
     queue_patience: list = field(default_factory=list)
     buy_seconds: float = 0
     paid_age: float = 0
+    drinks: list = field(default_factory=list)
+    drinks_served: list = field(default_factory=list)
 
 
 @dataclass
@@ -86,7 +90,7 @@ class Table:
     soil: int = 0
 
 
-class World:
+class World(StaffMixin):
     def __init__(self, seed=None, practice=False, clock=None):
         self._clock = clock or vn_now
         self.date_key = self.now.date().isoformat()
@@ -94,6 +98,9 @@ class World:
         self.day = 1
         self.elapsed = 0.0
         self.service_time_scale = SERVICE_TIME_SCALE
+        self.init_staff()
+        self.sound_events = []
+        self.speech_events = []
         self.reputation = 7.0
         self.cash = 10_000_000
         self.stock = {name: 0 for name in STOCK_COST}
@@ -178,6 +185,9 @@ class World:
         self.assign_personality(p)
         p.recipes = [self.menu[name]["toppings"][:] for name in p.orders]
         p.prices = [self.menu[name]["price"] for name in p.orders]
+        available_drinks = [name for name in DRINKS if self.stock[name] > sum(g.drinks.count(name)-g.drinks_served.count(name) for g in self.parties)]
+        p.drinks = [self.rng.choice(available_drinks) if available_drinks and self.rng.random()<.35 else "" for _ in range(size)]
+        p.drinks_served = ["" for _ in range(size)]
         self.next_group += 1
         self.parties.append(p)
         self.note(f'Nhóm {p.id:03}: Chúng tôi có {size} người. Quán còn chỗ không?')
@@ -332,7 +342,7 @@ class World:
 
     def topping(self, bid, name):
         b = next((b for b in self.bowls if b.id == bid), None)
-        if not b or name not in STOCK_COST or name == 'Mì tươi':
+        if not b or name not in STOCK_COST or name == 'Mì tươi' or name in DRINKS:
             return False
         if b.stage != 'prep':
             self.note('Kéo bát xuống quầy topping trước khi thêm nguyên liệu.')
@@ -363,10 +373,13 @@ class World:
         p.meals.append({'mushy': b.mushy, 'toppings': b.toppings[:],
                         'eat_left':duration,'eat_total':duration,
                         'wait':max(0,p.age-p.paid_age),
+                        'cleanliness': len(self.dirt) + int(t.needs_wipe),
                         'spill_at':duration*self.rng.uniform(.25,.75) if self.rng.random()<.18 else -1})
         if self.rng.random()<.08:
             self.mark_dirty(t.floor,f'Nước dùng rơi khi phục vụ nhóm {p.id:03}, bàn {index+1}',t.slot%4)
         self.bowls.remove(b)
+        for key,job in list(self.staff_cooking.items()):
+            if job.get('bid')==bid:self.staff_cooking.pop(key,None)
         self.served += 1
         if len(p.meals) == p.size:
             p.phase, p.phase_time = 'eating', 0
@@ -414,32 +427,51 @@ class World:
         self.note(f'Rửa {self.washing} bát: khoảng {self.wash_left:.0f} giây. Bát thêm sau cần bấm rửa lượt mới.')
         return True
 
+    def serve_drink(self, name, index, gid=None):
+        if name not in DRINKS or self.stock[name]<=0 or not 0<=index<len(self.tables):return False
+        groups=[p for p in self.at_table(index) if any(d and p.drinks_served[i]!=d for i,d in enumerate(p.drinks))]
+        p=next((p for p in groups if p.id==gid),None) if gid is not None else (groups[0] if len(groups)==1 else None)
+        if not p:return False
+        target=next((i for i,d in enumerate(p.drinks) if d==name and p.drinks_served[i]!=d),None)
+        if target is None:
+            self.note('Đồ uống không khớp phiếu của nhóm đã chọn.');return False
+        self.consume(name);p.drinks_served[target]=name
+        self.note(f'Đã giao {name} cho khách {target+1}, nhóm {p.id:03}.')
+        return True
+
     def review(self, p):
         from collections import Counter
-        scores = []
-        for i, meal in enumerate(p.meals):
-            need, actual = Counter(p.recipes[i]), Counter(meal['toppings'])
-            errors = sum((need - actual).values()) + sum((actual - need).values())
-            strict = {'Dễ tính': .55, 'Bình thường': .9, 'Khó tính': 1.25}[p.temper[i]]
-            score = max(1, min(5, round(5 - errors * strict - (1.4 * strict if meal['mushy'] else 0)
-                                      - max(0, meal.get('wait',0) - 600) / 300)))
-            delta = {1: -.8, 2: -.4, 3: 0, 4: .35, 5: .7}[score]
-            self.reputation = max(0, self.reputation + delta)
-            reason = 'Đúng món, ngon!' if not errors and not meal['mushy'] else ', '.join(
-                x for x in ('Sai/thừa/thiếu topping' if errors else '', 'Mì nhão' if meal['mushy'] else '') if x)
-            if meal.get('wait',0) > 600:
-                reason += ' · Đợi hơi lâu'
-            self.reviews.append(f'Nhóm {p.id:03}, khách {i+1} ({p.temper[i]}): {score}/5 — {reason}')
+        scores=[]
+        for i,meal in enumerate(p.meals):
+            need,actual=Counter(p.recipes[i]),Counter(meal['toppings'])
+            errors=sum((need-actual).values())+sum((actual-need).values())
+            strict={'Dễ tính':.7,'Bình thường':1.0,'Khó tính':1.35}[p.temper[i]]
+            wait=meal.get('wait',0)
+            dirt=meal.get('cleanliness',0)
+            missing_drink=bool(p.drinks and p.drinks[i] and p.drinks_served[i]!=p.drinks[i])
+            deduction=(errors*.85+(1.7 if meal['mushy'] else 0)+max(0,wait-420)/420+min(1,dirt*.15)+(1 if missing_drink else 0))*strict
+            score=max(0,min(5,round(4.8-deduction+self.rng.uniform(-.25,.2))))
+            # Individual reviews have bounded influence, independent of current reputation.
+            delta={0:-1.2,1:-.85,2:-.45,3:-.1,4:.25,5:.5}[score]
+            self.reputation=max(5,self.reputation+delta)
+            reasons=[]
+            if errors:reasons.append('Sai/thừa/thiếu topping')
+            if meal['mushy']:reasons.append('Mì nhão')
+            if wait>420:reasons.append('Đợi món lâu')
+            if dirt:reasons.append('Quán chưa sạch')
+            if missing_drink:reasons.append('Thiếu đồ uống đã trả tiền')
+            reason=' · '.join(reasons) or 'Đúng món, mì ngon, phục vụ tốt'
+            self.reviews.append(f'Nhóm {p.id:03}, khách {i+1} ({p.temper[i]}): {score}/5 sao — {reason} ({delta:+.2f}%)')
             scores.append(score)
-        self.reviews = self.reviews[-18:]
-        self.note(f'Nhóm {p.id:03} ăn xong: {sum(scores)/max(1,len(scores)):.1f}/5. Danh tiếng {self.reputation:.2f}%.')
+        self.reviews=self.reviews[-18:]
+        self.note(f'Nhóm {p.id:03} ăn xong: {sum(scores)/max(1,len(scores)):.1f}/5 sao. Danh tiếng {self.reputation:.2f}%.')
 
     def record(self, field, amount):
         key = self.now.date().isoformat()
         row = self.ledger.setdefault(key, {'revenue': 0, 'ingredients': 0, 'electricity': 0,
                                           'water': 0, 'gas': 0, 'purchases': 0,
                                           'equipment': 0, 'utility_paid': 0, 'closes': 0})
-        row[field] += amount
+        row[field] = row.get(field,0) + amount
 
     def totals(self, period='day'):
         result = {}
@@ -447,11 +479,11 @@ class World:
             key = date_key[:{'day': 10, 'month': 7, 'year': 4}[period]]
             total = result.setdefault(key, {k: 0 for k in row})
             for k, value in row.items():
-                total[k] += round(value) if k == 'electricity' else value
+                total[k] = total.get(k,0) + (round(value) if k == 'electricity' else value)
         for total in result.values():
             total['electricity'] = round(total['electricity'])
             total['utilities'] = total['electricity'] + total['water'] + total['gas']
-            total['profit'] = total['revenue'] - total['ingredients'] - total['utilities']
+            total['profit'] = total['revenue'] - total['ingredients'] - total['utilities'] - total.get('wages',0) - total.get('employer_insurance',0) - total.get('termination',0)
         return result
 
     def restock(self, name, count=10):
@@ -496,7 +528,7 @@ class World:
         if not name or len(name) > 28 or not isinstance(price, int) or not 1 <= price <= 999_999_999:
             self.note('Tên món cần 1–28 ký tự; giá bán là số nguyên từ 1 đến 999.999.999 VND.')
             return False
-        if any(k not in STOCK_COST or k == 'Mì tươi' or type(v) is not int or not 0 <= v <= 6 for k,v in quantities.items()) or sum(quantities.values()) > 12:
+        if any(k not in STOCK_COST or k == 'Mì tươi' or k in DRINKS or type(v) is not int or not 0 <= v <= 6 for k,v in quantities.items()) or sum(quantities.values()) > 12:
             self.note('Mỗi topping tối đa 6 phần, tổng tối đa 12 phần.')
             return False
         if name in self.menu and name != original:
@@ -610,11 +642,11 @@ class World:
         for order in self.deliveries:
             if not order['delivered'] and now >= datetime.fromisoformat(order['due']):
                 # Old prepaid orders retain their actual purchase cost after a price change.
-                retail_total = sum(STOCK_COST[k] * v for k,v in order['quantities'].items())
+                retail_total = sum(LEGACY_COST.get(k,STOCK_COST[k]) * v for k,v in order['quantities'].items())
                 for name, quantity in order['quantities'].items():
                     unit = order.get('unit_prices', {}).get(name)
                     if unit is None:
-                        unit = STOCK_COST[name] * order['cost'] / retail_total
+                        unit = LEGACY_COST.get(name,STOCK_COST[name]) * order['cost'] / retail_total
                     self.stock[name] += quantity
                     self.stock_value[name] += quantity * unit
                 order['delivered'] = True
@@ -689,7 +721,9 @@ class World:
         return True
 
     def update(self, dt):
+        dt=max(0,dt)
         self.process_deliveries()
+        self.update_staff(dt)
         if not self.open:
             return
         self.record('electricity', 6000 * dt / 3600)
@@ -703,6 +737,7 @@ class World:
             if age is not None:
                 self.pots[i] += dt
                 if age < COOK_SECONDS <= self.pots[i]:
+                    self.sound_events.append(i)
                     self.note(f'Nồi {i+1} chín! Nhấp vớt ngay trong 10 giây.')
         if self.washing:
             self.wash_left -= dt
@@ -746,7 +781,7 @@ class World:
         for p in self.parties:
             if p.phase=='queue' and p.phase_time+dt>=min(p.queue_patience):
                 p.phase,p.phase_time='leaving',0
-                self.reputation=max(0,self.reputation-.15)
+                self.reputation=max(5,self.reputation-.15)
                 self.note(f'Nhóm {p.id:03} hết kiên nhẫn xếp hàng mua phiếu và rời đi (chưa trả tiền).')
         outside = [p for p in self.parties if p.phase in ('door', 'waiting')]
         lobby = [p for p in self.parties if p.phase in ('queue', 'ready', 'ticket')]
@@ -758,14 +793,14 @@ class World:
                 target = (260 + idx * 190, 225)
                 if p.phase_time > min(p.wait_patience if p.phase == 'waiting' else p.door_patience):
                     p.phase, p.phase_time = 'leaving', 0
-                    self.reputation = max(0, self.reputation - .15)
+                    self.reputation = max(5, self.reputation - .15)
                     self.note(f'Nhóm {p.id:03} đã đợi quá lâu và rời đi.')
             elif p.phase == 'buying':
                 target = (650, 374)
                 if p.phase == 'buying' and p.phase_time >= p.buy_seconds:
                     p.phase, p.phase_time = 'ticket', 0
                     p.paid_age=p.age
-                    p.paid = sum(p.prices)
+                    p.paid = sum(p.prices) + sum(DRINK_PRICES.get(name,0) for name in p.drinks)
                     self.cash += p.paid
                     self.record('revenue', p.paid)
                     self.sold_today += p.paid
@@ -804,11 +839,11 @@ class World:
                 p.y += dy * step
 
     def save(self, path):
-        data = {k: v for k, v in self.__dict__.items() if k not in ('rng', '_clock')}
+        data = {k: v for k, v in self.__dict__.items() if k not in ('rng', '_clock','sound_events','speech_events')}
         data['parties'] = [asdict(p) for p in self.parties]
         data['bowls'] = [asdict(b) for b in self.bowls]
         data['tables'] = [asdict(t) for t in self.tables]
-        data['version'] = 4
+        data['version'] = 5
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temp = path.with_suffix('.tmp')
@@ -819,8 +854,12 @@ class World:
     def load(cls, path):
         data = json.loads(Path(path).read_text(encoding='utf-8'))
         version = data.pop('version')
-        if version not in (2, 3, 4):
+        if version not in (2, 3, 4, 5):
             raise ValueError('Phiên bản lưu không phù hợp')
+        if version == 4:
+            from shutil import copy2
+            backup=Path(path).with_suffix('.v4.bak')
+            if not backup.exists():copy2(path,backup)
         if version == 3:
             from shutil import copy2
             backup=Path(path).with_suffix('.v3.bak')
@@ -837,13 +876,13 @@ class World:
             from shutil import copy2
             backup=Path(path).with_suffix('.v2.bak')
             if not backup.exists():copy2(path,backup)
-            obj.stock_value = {name: qty * STOCK_COST[name] for name, qty in obj.stock.items()}
+            obj.stock_value = {name: qty * LEGACY_COST.get(name,STOCK_COST[name]) for name, qty in obj.stock.items()}
             for i, t in enumerate(obj.tables):
                 t.floor, t.slot = divmod(i, 6)
             obj.floors = max(1, (len(obj.tables)+5)//6)
             for party in obj.parties:
                 party.recipes = [list(RECIPES[name]) for name in party.orders]
-                party.prices = [PRICES[name] for name in party.orders]
+                party.prices = [{'Kake soba':35000,'Soba tôm':45000,'Soba bò':50000,'Soba trứng':42000}[name] for name in party.orders]
                 if party.phase in ('seated', 'eating'):
                     party.seats = list(range(party.size))
         # Convert stored durations once; new legacy profiles already use the new scale.
@@ -866,6 +905,12 @@ class World:
                 obj.wash_left*=ratio
                 obj.wipe_left*=ratio
         obj.service_time_scale = SERVICE_TIME_SCALE
+        obj.reputation=max(5,obj.reputation)
+        for name in STOCK_COST:
+            obj.stock.setdefault(name,0);obj.stock_value.setdefault(name,0)
+        for party in obj.parties:
+            if not party.drinks:party.drinks=['']*party.size
+            if not party.drinks_served:party.drinks_served=['']*party.size
         for party in obj.parties:
             obj.assign_personality(party)
             for i,meal in enumerate(party.meals):

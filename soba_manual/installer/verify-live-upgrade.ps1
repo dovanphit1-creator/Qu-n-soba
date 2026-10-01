@@ -17,6 +17,15 @@ p=w.add_party(1);w.respond(p.id,'accept');w.update(p.buy_seconds);w.collect(p.id
 w.start_pot(0);w.cash=7654321;w.save(save_path())
 data=json.loads(save_path().read_text(encoding='utf-8'))
 data.pop('service_time_scale',None)
+data['version']=4
+for key in ('employees','candidates','next_employee','staff_cooking','payroll','background_enabled','player_idle','staff_auto_open','staff_opened_shop','leave_requested','staff_calendar_date'):
+    data.pop(key,None)
+for party in data['parties']:
+    party.pop('drinks',None);party.pop('drinks_served',None)
+for name in list(data['stock']):
+    if name not in ('Mì tươi','Nước dùng','Hành','Tôm','Bò','Trứng'):
+        data['stock'].pop(name);data['stock_value'].pop(name)
+
 save_path().write_text(json.dumps(data),encoding='utf-8')
 '@ | python -
 if ($LASTEXITCODE -ne 0) { throw 'Could not create live shift fixture' }
