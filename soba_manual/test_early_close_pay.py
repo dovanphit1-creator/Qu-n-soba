@@ -72,12 +72,12 @@ class EarlyClosePayTests(unittest.TestCase):
     def test_already_closed_171_save_releases_before_first_frame_pay(self):
         f=self.fixture();w=f.w;key=self.close(f)
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/'save.json';w.save(p);data=json.loads(p.read_text())
+            p=Path(d)/'save.json';w.save(p);data=json.loads(p.read_text(encoding='utf-8'))
             data['staff_reports']=[r for r in data['staff_reports'] if r.get('reason')!='staff_released']
             e=data['employees'][0];e['plans'][key].pop('released_at')
             e['plans'][key]['segments']=[[480,1080,'baito']]
             e['clock_mode']='baito';e['clocked_in']=True;e['present']=True
-            p.write_text(json.dumps(data));loaded=World.load(p);loaded._clock=lambda:f.clock[0]
+            p.write_text(json.dumps(data),encoding='utf-8');loaded=World.load(p);loaded._clock=lambda:f.clock[0]
             row=dict(loaded.employees[0]['attendance'][key]);cash=loaded.cash
             f.clock[0]+=timedelta(seconds=10);loaded.update(10)
             self.assertEqual(loaded.employees[0]['attendance'][key],row);self.assertEqual(loaded.cash,cash)
