@@ -786,7 +786,8 @@ class App(ManagementUI,StaffUI,FinanceUI):
         ongoing=w.washing if kind=='wash' else (w.wipe_table==index if kind=='wipe' else w.sweep_spot==index)
         owner=getattr(w,kind+'_owner')
         if ongoing:
-            if owner not in ('player','auto'):return False
+            # Resume abandoned work, including saves with a dismissed owner.
+            if owner not in ('player','auto') and w.cleanup_active(kind,owner):return False
             setattr(w,kind+'_owner','player')
         else:
             fn={'wash':w.wash,'wipe':w.wipe,'sweep':w.sweep}[kind]

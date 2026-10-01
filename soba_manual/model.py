@@ -206,8 +206,13 @@ class World(StaffMixin,FinanceMixin):
         self.assign_personality(p)
         p.recipes = [self.menu[name]["toppings"][:] for name in p.orders]
         p.prices = [self.menu[name]["price"] for name in p.orders]
-        available_drinks = [name for name in DRINKS if self.stock[name] > sum(g.drinks.count(name)-g.drinks_served.count(name) for g in self.parties)]
-        p.drinks = [self.rng.choice(available_drinks) if available_drinks and self.rng.random()<.35 else "" for _ in range(size)]
+        drinks_left = Counter(self.stock)-required_stock(self)
+        p.drinks = []
+        for _ in range(size):
+            available_drinks = [name for name in DRINKS if drinks_left[name]>0]
+            drink = self.rng.choice(available_drinks) if available_drinks and self.rng.random()<.35 else ""
+            p.drinks.append(drink)
+            if drink:drinks_left[drink]-=1
         p.drinks_served = ["" for _ in range(size)]
         self.next_group += 1
         self.parties.append(p)
@@ -250,6 +255,7 @@ class World(StaffMixin,FinanceMixin):
         from collections import Counter
         need=Counter()
         for recipe in p.recipes:need+=Counter(['Mì tươi',*recipe])
+        need+=Counter(drink for drink in p.drinks if drink)
         reserved=required_stock(self)
         return all(self.stock[n]-reserved[n]>=q for n,q in need.items())
 
@@ -265,7 +271,7 @@ class World(StaffMixin,FinanceMixin):
                 self.note('Khu mua phiếu đã đông. Hãy xếp bàn cho các nhóm trước.')
                 return False
             if not self.party_stock_available(p):
-                self.note('Không đủ phần mì cho nhóm này. Hãy từ chối khách và mua thêm sau khi đóng quán.')
+                self.note('Không đủ nguyên liệu hoặc đồ uống cho nhóm này. Hãy từ chối khách và mua thêm sau khi đóng quán.')
                 return False
             p.phase, p.phase_time = 'queue', 0
             if not p.entered:
