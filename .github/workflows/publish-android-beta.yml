@@ -13,44 +13,74 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      TESTED_REF: 'android-beta2-verified'
-      TESTED_RUN: '36906688143'
-      TESTED_COMMIT: '228ff11a071d7382cceeae1eb1120857a354f8b6'
+      TESTED_REF: 'android-beta3-verified'
+      TESTED_RUN: '36912565452'
+      TESTED_COMMIT: 'c678b7bc57dc34e03da41abddb2061662b82b8bd'
     steps:
-      - name: Require successful tests for the exact Android source
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
+      - name: Require successful device tests for exact Android source
         run: |
-          gh api "repos/$GH_REPO/git/ref/heads/$TESTED_REF" | jq -e --arg sha "$TESTED_COMMIT" ' .object.sha == $sha '
+          gh api "repos/$GH_REPO/git/ref/heads/$TESTED_REF" | jq -e --arg sha "$TESTED_COMMIT" '.object.sha == $sha'
           gh run watch "$TESTED_RUN" --exit-status
-          gh api "repos/$GH_REPO/actions/runs/$TESTED_RUN" > run.json
-          jq -e --arg sha "$TESTED_COMMIT" '.head_sha == $sha and .conclusion == "success" and .head_branch == "android-native"' run.json
-      - name: Download only the APK from the tested run
+          gh api "repos/$GH_REPO/actions/runs/$TESTED_RUN" | jq -e --arg sha "$TESTED_COMMIT" '.head_sha == $sha and .conclusion == "success" and .head_branch == "android-native"'
+          gh run download "$TESTED_RUN" --name QuanMiCuaToi-Android-1.8.0-beta.3 --dir tested
+      - name: Apply public signature patch and verify identical game payload
         run: |
-          gh run download "$TESTED_RUN" --name QuanMiCuaToi-Android-1.8.0-beta.2 --dir apk
-          test -s apk/QuanMiCuaToi-Android-1.8.0-beta.2.apk
-          expected=$(awk '{print $1}' apk/SHA256SUMS.txt)
-          actual=$(sha256sum apk/QuanMiCuaToi-Android-1.8.0-beta.2.apk | awk '{print $1}')
-          test "$expected" = "$actual"
-      - name: Publish Android prerelease without replacing latest Windows release
+          pip install bsdiff4==1.2.6
+          python3 - <<'VERIFY'
+          import base64, bsdiff4, hashlib, io, zipfile
+          from pathlib import Path
+          original=Path('tested/QuanMiCuaToi-Android-1.8.0-beta.3.apk').read_bytes()
+          assert hashlib.sha256(original).hexdigest()=='93a5247eb4d04c4c2e39edd0d0c9bb4111c77daa6f0228819a8d6e7c21ccc4ea'
+          patch=base64.b64decode(Path('.github/release-artifacts/android-beta3-signature.bsdiff.b64').read_text())
+          data=bsdiff4.patch(original,patch)
+          assert len(data)==23222287
+          assert hashlib.sha256(data).hexdigest()=='ee32ef315a3bc35518b708d38113f1766b40059f0f3bdf27b6f5b69a52b4ef44'
+          with zipfile.ZipFile(io.BytesIO(original)) as a,zipfile.ZipFile(io.BytesIO(data)) as b:
+              assert {n:a.read(n) for n in a.namelist() if not n.startswith('META-INF/')}=={n:b.read(n) for n in b.namelist() if not n.startswith('META-INF/')}
+          Path('apk').mkdir(exist_ok=True)
+          Path('apk/QuanMiCuaToi-Android-1.8.0-beta.3.apk').write_bytes(data)
+          Path('apk/SHA256SUMS.txt').write_text('ee32ef315a3bc35518b708d38113f1766b40059f0f3bdf27b6f5b69a52b4ef44  QuanMiCuaToi-Android-1.8.0-beta.3.apk\n')
+          print('PASS: stable-signed APK has exactly the tested game payload')
+          VERIFY
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs apk/QuanMiCuaToi-Android-1.8.0-beta.3.apk > cert.txt
+          grep -F 'Signer #1 certificate SHA-256 digest: 0dd468be6fcebbd06d46546248df067343f3e04f430b22382953d2813d7de4c9' cert.txt
+      - name: Publish compatible Android channel without replacing Windows latest
         run: |
           cat > notes.md <<'MD'
-          Bản Android thử nghiệm của **Quán Mì Của Tôi**, nhà phát hành **Đỗ Văn Phi**.
-          Dùng gameplay Python 1.7.3, giữ tên game và icon bát mì. Bản iPhone tiếp tục được giữ riêng trên nhánh iphone-native.
+          **Quán Mì Của Tôi — Android 1.8.0-beta.3**, nhà phát hành **Đỗ Văn Phi**.
 
-          Tải tệp **QuanMiCuaToi-Android-1.8.0-beta.2.apk** bên dưới, mở trên điện thoại Android để cài. Yêu cầu Android 8.0 trở lên và Android System WebView cập nhật. Có thể cần cho phép trình duyệt cài ứng dụng từ nguồn này; đây chưa phải bản Google Play.
+          Thêm tự kiểm tra phiên bản khi vào game và kiểm tra lại khi quay lại sau 6 giờ. Khi có APK mới hơn, game hiện thông báo tiếng Việt, bản đang chơi, ghi chú cập nhật và nút **Tải bản mới** / **Để sau**. Bấm tải mở APK mới trong trình duyệt để người chơi xác nhận cài đặt. Mất mạng không chặn chơi. Giữ gameplay Python 1.7.3, tên game, icon bát mì và dữ liệu lưu.
 
-          Game chơi ngang, chạm/kéo/giữ, có phóng to; toàn bộ bộ chạy và mã game nằm trong APK. Tiến trình lưu riêng trên máy. Gỡ ứng dụng/xóa dữ liệu sẽ mất tiến trình. Bản beta dùng khóa debug, chưa đảm bảo cập nhật giữ dữ liệu qua những bản beta tiếp theo.
+          Từ bản này dùng khóa ký APK cố định để các bản tiếp theo có thể cài đè và giữ tiến trình. **Beta.1 và beta.2 dùng khóa tạm khác, nên không cài đè beta.3 lên chúng. Không gỡ bản cũ nếu chưa sao lưu tiến trình: gỡ ứng dụng/xóa dữ liệu sẽ mất bản lưu.**
 
-          Đã qua kiểm tra Android giả lập về khởi động bộ game đóng gói, chạm bắt đầu, lưu và khôi phục ngân sách, bảo vệ dữ liệu lưu. Đã sửa lỗi tiếng Việt trong dữ liệu lưu và kiểm tra tên món tự tạo có dấu/emoji sau khi mở lại. Vẫn cần phản hồi từ điện thoại thật. Nhân viên không được đảm bảo tiếp tục làm việc khi Android đình chỉ ứng dụng nền.
+          Android 8.0 trở lên, Android System WebView cập nhật. Đây là APK cài trực tiếp, chưa phải bản Google Play. Game và runtime được đóng gói để chơi offline; tiến trình lưu trên máy. Nhân viên không được đảm bảo làm việc khi Android đình chỉ ứng dụng nền.
+
+          Đã kiểm tra trên Android 36: 4 kiểm tra đạt, không lỗi; chọn phiên bản, lọc nền tảng, thông báo thật và thao tác nút tải, lỗi mất mạng, chạm chơi, lưu và khôi phục ngân sách/tiếng Việt/emoji. Khóa riêng không đưa lên repo; SHA-256 và chứng chỉ APK đã xác minh.
+
+          [android-apk-channel:androidbeta]
           MD
-          gh release create android-1.8.0-beta.2 apk/QuanMiCuaToi-Android-1.8.0-beta.2.apk apk/SHA256SUMS.txt --target "$TESTED_REF" --prerelease --latest=false --title 'Quán Mì Của Tôi — Android 1.8.0-beta.2' --notes-file notes.md
-      - name: Mark the first Android beta as superseded
+          gh release create android-1.8.0-beta.3 apk/QuanMiCuaToi-Android-1.8.0-beta.3.apk apk/SHA256SUMS.txt --target "$TESTED_REF" --prerelease --latest=false --title 'Quán Mì Của Tôi — Android 1.8.0-beta.3' --notes-file notes.md
+      - name: Prepare verified APK Git blob for the same-origin website download
         run: |
-          cat > obsolete-notes.md <<'MD'
-          Bản này đã được thay thế bởi **Android 1.8.0-beta.2** vì lỗi mã hóa tiếng Việt trong bản lưu của beta.1.
-          Hãy tải bản mới tại https://github.com/dovanphit1-creator/Qu-n-soba/releases/tag/android-1.8.0-beta.2 .
-          MD
-          gh release edit android-1.8.0-beta.1 --title 'Quán Mì Của Tôi — Android beta.1 (đã thay thế)' --notes-file obsolete-notes.md --prerelease --latest=false
+          python3 - <<'BLOB'
+          import base64, json, os, urllib.request, hashlib
+          from pathlib import Path
+          data=Path('apk/QuanMiCuaToi-Android-1.8.0-beta.3.apk').read_bytes()
+          assert hashlib.sha256(data).hexdigest()=='ee32ef315a3bc35518b708d38113f1766b40059f0f3bdf27b6f5b69a52b4ef44'
+          request=urllib.request.Request('https://api.github.com/repos/'+os.environ['GH_REPO']+'/git/blobs',data=json.dumps({'encoding':'base64','content':base64.b64encode(data).decode()}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Content-Type':'application/json'},method='POST')
+          with urllib.request.urlopen(request,timeout=120) as response:blob=json.load(response)
+          print('VERIFIED_ANDROID_BLOB='+blob['sha'])
+          BLOB
