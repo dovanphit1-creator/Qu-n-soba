@@ -3,7 +3,7 @@ $installDir=Join-Path $env:LOCALAPPDATA 'Programs\QuanMiCuaToi'
 $exe=Join-Path $installDir 'Quán Mì Của Tôi.exe'
 $save=Join-Path $env:LOCALAPPDATA 'QuanSobaManual\save-vnd.json'
 $oldSetup=Join-Path $PWD 'old-setup.exe'
-Invoke-WebRequest 'https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.7.0/QuanMiCuaToi-Setup.exe' -OutFile $oldSetup
+Invoke-WebRequest 'https://github.com/dovanphit1-creator/Qu-n-soba/releases/download/1.7.1/QuanMiCuaToi-Setup.exe' -OutFile $oldSetup
 $p=Start-Process $oldSetup -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait -PassThru
 if ($p.ExitCode -ne 0) { throw 'Old version install failed' }
 $env:PYTHONPATH='soba_manual'

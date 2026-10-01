@@ -63,19 +63,21 @@ class StockShutdownTests(unittest.TestCase):
         w.update(0);self.assertTrue(w.closing)
         f.tick(100);self.assertFalse(w.open)
 
-    def test_other_menu_cannot_reopen_stock_shutdown_until_new_delivery(self):
+    def test_closed_staff_rest_today_even_after_new_delivery(self):
         f=self.fixture('close');w=f.w;p=f.seat_customer()
         w.menu={'Món khác':{'toppings':['Hành'],'price':30000}}
         w.stock[p.recipes[0][0]]=0
         w.update(0);self.assertTrue(w.closing)
         f.tick(500);self.assertFalse(w.open)
-        self.assertIn('Đã đóng sớm',w.opening_blocker(automatic=True))
+        self.assertIn('nghỉ hôm nay',w.opening_blocker(automatic=True))
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'save.json';w.save(path);loaded=World.load(path)
             loaded._clock=lambda:f.clock[0]
-            self.assertIn('Đã đóng sớm',loaded.opening_blocker(automatic=True))
+            self.assertIn('nghỉ hôm nay',loaded.opening_blocker(automatic=True))
         w.restock('Hành',1);w.update(0)
-        self.assertTrue(w.open)
+        self.assertFalse(w.open);self.assertFalse(f.e['present'])
+        self.assertTrue(w.open_shop())  # Owner can open manually, staff stay home.
+        w.update(0);self.assertFalse(f.e['present'])
 
 
 if __name__=='__main__':unittest.main()

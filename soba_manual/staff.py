@@ -159,7 +159,7 @@ class StaffMixin(ShiftMixin):
 
     def day_plan(self,e,day):
         key=day.isoformat()
-        if key in e['plans']:return e['plans'][key]
+        if key in e['plans']:return self.apply_day_release(e['plans'][key],key)
         cover=e['cover_days'].get(key)
         eligible=self.day_decisions.get(key)!='closed' and (bool(cover) or (e['enabled'] and key not in self.ensure_leave(e,day)))
         start=cover['start'] if cover else e['shift_start']
@@ -167,6 +167,15 @@ class StaffMixin(ShiftMixin):
         e['plans'][key]=plan
         # Bound plans; attendance and all actual clock entries remain separate.
         for old in sorted(e['plans'])[:-62]:e['plans'].pop(old,None)
+        return self.apply_day_release(plan,key)
+
+    def apply_day_release(self,plan,key):
+        release=next((r for r in reversed(self.staff_reports) if r.get('reason')=='staff_released' and r['date']==key),None)
+        if release and not plan.get('released_at'):
+            at=datetime.fromisoformat(release['at'])
+            minute=at.hour*60+at.minute+at.second/60+at.microsecond/60_000_000
+            plan['released_at']=release['at']
+            plan['segments']=[[start,min(stop,minute),mode] for start,stop,mode in plan['segments'] if start<minute]
         return plan
 
     def clock_state(self,e,now):
@@ -182,6 +191,8 @@ class StaffMixin(ShiftMixin):
         if e['role']=='baito' and plan['late'] and mode and e['announced_plan']!=now.date().isoformat():
             self.note(f'{e["name"]} đến muộn {plan["late"]} phút. Chỉ trả từ lúc điểm danh.');e['announced_plan']=now.date().isoformat()
         if not mode:
+            if plan.get('released_at') and now>=datetime.fromisoformat(plan['released_at']):
+                return False,'Đã nghỉ hôm nay · quán đóng sớm'
             if plan['absence'] and plan['start']<=minute<plan['end']:return False,'Nghỉ đột xuất'
             if plan['late'] and plan['start']<=minute<plan['start']+plan['late']:return False,'Chưa tới / đến muộn'
             if plan['segments'] and plan['segments'][0][0]<=minute<plan['segments'][-1][1]:return False,'Giải lao · không tính công'
@@ -205,6 +216,17 @@ class StaffMixin(ShiftMixin):
                 self.clock_state(e,right)
             day+=timedelta(days=1)
         return total
+
+    def release_staff_day(self,at):
+        """Finish today's actual work; preserve tomorrow's shifts and signed CVs."""
+        key=at.date().isoformat()
+        first=not any(r.get('reason')=='staff_released' and r['date']==key for r in self.staff_reports)
+        if first:self.staff_reports.append({'date':key,'at':at.isoformat(),'reason':'staff_released','text':'Quán đóng sớm: đã chốt công, kết thúc các ca còn lại và cho nhân viên nghỉ hôm nay.'})
+        for e in self.employees:
+            plan=self.day_plan(e,at.date())
+            if first:self.note(f'{e["name"]}: đã chốt ca và về nghỉ vì quán đóng sớm hôm nay.')
+            self.clock_state(e,at)
+            e['present']=False;e['job']=None;e['status']='Đã nghỉ hôm nay · quán đóng sớm'
 
     def ensure_leave(self,e,day):
         month=day.isoformat()[:7]
@@ -361,6 +383,9 @@ class StaffMixin(ShiftMixin):
 
     def update_staff(self,dt):
         now=self.now;day=now.date();key=day.isoformat()
+        # Recover already-closed 1.7.1 saves before accounting for this frame.
+        if not self.open and self.staff_shutdown_date==key and any(r.get('reason')=='stock_shutdown' and r['date']==key for r in self.staff_reports):
+            self.release_staff_day(max(datetime.combine(day,datetime.min.time(),tzinfo=now.tzinfo),now-timedelta(seconds=dt)))
         for e in self.employees:
             self.ensure_leave(e,day)
             # Only elapsed running time is paid. No wages for time the program was closed.

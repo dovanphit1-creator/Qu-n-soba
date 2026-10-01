@@ -735,6 +735,8 @@ class World(StaffMixin,FinanceMixin):
         if decision=='closed':return 'Hôm nay đã chọn nghỉ kinh doanh; đổi ở Nhân sự → Thiếu người.'
         if automatic and not self.staff_auto_open:return 'Tự mở quán đang TẮT; bật ở Nhân sự → Chạy nền.'
         if automatic and decision=='player':return 'Hôm nay chủ quán tự mở; bấm MỞ QUÁN hoặc chọn Theo lịch nhân viên.'
+        if automatic and any(self.day_plan(e,self.now.date()).get('released_at') for e in self.employees):
+            return 'Nhân viên đã chốt ca và nghỉ hôm nay vì quán đóng sớm.'
         if self.clean<1:return 'Chưa có bát sạch để phục vụ.'
         from collections import Counter
         available=any(all(self.stock[name]>=qty for name,qty in Counter(['Mì tươi',*item['toppings']]).items()) for item in self.menu.values())
@@ -800,6 +802,7 @@ class World(StaffMixin,FinanceMixin):
             self.note('Chưa thể đóng: hãy rửa hết bát, lau các bàn và nhấp LAU ở các vết bẩn trên sàn.')
             return False
         payment = 0
+        if self.staff_shutdown_date==self.now.date().isoformat():self.release_staff_day(self.now)
         self.record('closes', 1)
         key = self.now.date().isoformat()
         self.last_report = dict(self.totals()[key], date=key, cash=self.cash, payment=payment)
