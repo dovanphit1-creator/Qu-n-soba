@@ -17,11 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: |
-          if ! command -v ffmpeg || [ ! -f /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf ]; then
-            sudo apt-get -o Acquire::Retries=1 -o Acquire::https::Timeout=20 install -y ffmpeg fonts-dejavu-core
-          fi
-      - run: pip install pygame-ce==2.5.7 pygbag==0.9.3 holidays==0.105 pillow==11.3.0
+      - run: pip install pygame-ce==2.5.7 pygbag==0.9.3 holidays==0.105 pillow==11.3.0 soundfile==0.13.1
       - run: python soba_manual/build_brand_assets.py && python soba_manual/build_audio.py
       - run: python soba_ios/build.py
       - uses: actions/upload-artifact@v4
@@ -55,7 +51,7 @@ jobs:
           with open(os.environ['GITHUB_ENV'],'a') as out:out.write('IPHONE_SIMULATOR='+device['udid']+'\n')
           PY
       - name: Test native saves and launch bundled Python game
-        run: xcodebuild -project soba_ios/QuanMiCuaToi.xcodeproj -scheme QuanMiCuaToi -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" -resultBundlePath soba_ios/build/IPhoneTests.xcresult CODE_SIGNING_ALLOWED=NO test
+        run: xcodebuild -project soba_ios/QuanMiCuaToi.xcodeproj -scheme QuanMiCuaToi -destination "platform=iOS Simulator,id=$IPHONE_SIMULATOR" -parallel-testing-enabled NO -resultBundlePath soba_ios/build/IPhoneTests.xcresult CODE_SIGNING_ALLOWED=NO test
       - name: Verify gameplay reached native persistent storage
         run: |
           GAME_DATA_DIR=$(xcrun simctl get_app_container "$IPHONE_SIMULATOR" vn.dovanphi.quanmicuatoi data)

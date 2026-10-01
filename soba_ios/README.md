@@ -31,13 +31,13 @@ Workflow trong `.github/workflows/build-ios.yml`:
 Để dựng thủ công trên Linux:
 
 ```sh
-pip install pygame-ce==2.5.7 pygbag==0.9.3 holidays==0.105 pillow==11.3.0
+pip install pygame-ce==2.5.7 pygbag==0.9.3 holidays==0.105 pillow==11.3.0 soundfile==0.13.1
 python soba_manual/build_brand_assets.py
 python soba_manual/build_audio.py
 python soba_ios/build.py
 ```
 
-Cần `ffmpeg`, `fonts-dejavu-core`; chép `soba_ios/Game` và `soba_ios/Assets.xcassets` sang Mac cùng mã nguồn. Hoặc lấy artifact `ios-offline-resources` từ workflow.
+Font DejaVu được lấy từ gói phát hành chính thức, xác minh SHA-256 và giữ giấy phép; âm thanh chuyển bằng libsndfile qua SoundFile. Không cần cài ffmpeg hoặc gói hệ thống. Chép `soba_ios/Game` và `soba_ios/Assets.xcassets` sang Mac cùng mã nguồn. Hoặc lấy artifact `ios-offline-resources` từ workflow.
 
 Trên Mac có Xcode:
 

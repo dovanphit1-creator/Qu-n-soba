@@ -18,6 +18,7 @@ OUTPUT = ROOT / 'Game'
 
 def build():
     import holidays, dateutil, six
+    import soundfile
     from PIL import Image
     STAGE.mkdir(parents=True, exist_ok=True)
     for name in ('model', 'management', 'brand', 'vn_calendar', 'staff', 'staff_ui', 'catalog',
@@ -38,12 +39,22 @@ def build():
     version.write_text(version.read_text().replace('from importlib.metadata import version', '')
                        .replace('__version__ = version("holidays")', '__version__ = ' + repr(holidays.__version__)))
     assets = STAGE / 'assets'; assets.mkdir(exist_ok=True)
-    for name in ('DejaVuSans.ttf', 'DejaVuSans-Bold.ttf'):
-        shutil.copy2(Path('/usr/share/fonts/truetype/dejavu') / name, assets / name)
+    font_archive = ROOT / 'build/dejavu-fonts-ttf-2.37.tar.bz2'
+    font_hash = 'fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7'
+    if not font_archive.exists() or hashlib.sha256(font_archive.read_bytes()).hexdigest() != font_hash:
+        with urllib.request.urlopen('https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2', timeout=90) as response:
+            font_data = response.read()
+        if hashlib.sha256(font_data).hexdigest() != font_hash:
+            raise ValueError('DejaVu font checksum mismatch')
+        font_archive.write_bytes(font_data)
+    with tarfile.open(font_archive) as fonts:
+        for name in ('DejaVuSans.ttf', 'DejaVuSans-Bold.ttf'):
+            (assets / name).write_bytes(fonts.extractfile('dejavu-fonts-ttf-2.37/ttf/' + name).read())
+        (assets / 'DejaVu-LICENSE.txt').write_bytes(fonts.extractfile('dejavu-fonts-ttf-2.37/LICENSE').read())
     shutil.copy2(SOURCE / 'assets/game.png', assets / 'game.png')
     shutil.copy2(SOURCE / 'assets/game.png', STAGE / 'favicon.png')
-    subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(SOURCE / 'assets/noodle-ready.wav'),
-                    '-c:a', 'libvorbis', str(assets / 'noodle-ready.ogg')], check=True)
+    samples, rate = soundfile.read(SOURCE / 'assets/noodle-ready.wav')
+    soundfile.write(assets / 'noodle-ready.ogg', samples, rate, subtype='VORBIS')
     subprocess.run([sys.executable, '-m', 'pygbag', '--build', '--no_opt', '--title', 'Quán Mì Của Tôi', str(STAGE)], check=True)
     shutil.copytree(STAGE / 'build/web', OUTPUT, dirs_exist_ok=True)
     # Pygbag's gzip writer can leave its footer unfinished on process exit.
