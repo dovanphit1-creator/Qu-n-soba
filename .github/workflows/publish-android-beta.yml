@@ -17,8 +17,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      TESTED_RUN: '36904190315'
-      TESTED_COMMIT: '5d1055dcfb404f9d561426e916da93f1146e0138'
+      TESTED_RUN: '36906688143'
+      TESTED_COMMIT: '228ff11a071d7382cceeae1eb1120857a354f8b6'
     steps:
       - name: Require successful tests for the exact Android source
         run: |
@@ -27,10 +27,10 @@ jobs:
           jq -e --arg sha "$TESTED_COMMIT" '.head_sha == $sha and .conclusion == "success" and .head_branch == "android-native"' run.json
       - name: Download only the APK from the tested run
         run: |
-          gh run download "$TESTED_RUN" --name QuanMiCuaToi-Android-1.8.0-beta.1 --dir apk
-          test -s apk/QuanMiCuaToi-Android-1.8.0-beta.1.apk
+          gh run download "$TESTED_RUN" --name QuanMiCuaToi-Android-1.8.0-beta.2 --dir apk
+          test -s apk/QuanMiCuaToi-Android-1.8.0-beta.2.apk
           expected=$(awk '{print $1}' apk/SHA256SUMS.txt)
-          actual=$(sha256sum apk/QuanMiCuaToi-Android-1.8.0-beta.1.apk | awk '{print $1}')
+          actual=$(sha256sum apk/QuanMiCuaToi-Android-1.8.0-beta.2.apk | awk '{print $1}')
           test "$expected" = "$actual"
       - name: Publish Android prerelease without replacing latest Windows release
         run: |
@@ -38,10 +38,17 @@ jobs:
           Bản Android thử nghiệm của **Quán Mì Của Tôi**, nhà phát hành **Đỗ Văn Phi**.
           Dùng gameplay Python 1.7.3, giữ tên game và icon bát mì. Bản iPhone tiếp tục được giữ riêng trên nhánh iphone-native.
 
-          Tải tệp **QuanMiCuaToi-Android-1.8.0-beta.1.apk** bên dưới, mở trên điện thoại Android để cài. Yêu cầu Android 8.0 trở lên và Android System WebView cập nhật. Có thể cần cho phép trình duyệt cài ứng dụng từ nguồn này; đây chưa phải bản Google Play.
+          Tải tệp **QuanMiCuaToi-Android-1.8.0-beta.2.apk** bên dưới, mở trên điện thoại Android để cài. Yêu cầu Android 8.0 trở lên và Android System WebView cập nhật. Có thể cần cho phép trình duyệt cài ứng dụng từ nguồn này; đây chưa phải bản Google Play.
 
           Game chơi ngang, chạm/kéo/giữ, có phóng to; toàn bộ bộ chạy và mã game nằm trong APK. Tiến trình lưu riêng trên máy. Gỡ ứng dụng/xóa dữ liệu sẽ mất tiến trình. Bản beta dùng khóa debug, chưa đảm bảo cập nhật giữ dữ liệu qua những bản beta tiếp theo.
 
-          Đã qua kiểm tra Android giả lập về khởi động bộ game đóng gói, chạm bắt đầu, lưu và khôi phục ngân sách, bảo vệ dữ liệu lưu. Vẫn cần phản hồi từ điện thoại thật. Nhân viên không được đảm bảo tiếp tục làm việc khi Android đình chỉ ứng dụng nền.
+          Đã qua kiểm tra Android giả lập về khởi động bộ game đóng gói, chạm bắt đầu, lưu và khôi phục ngân sách, bảo vệ dữ liệu lưu. Đã sửa lỗi tiếng Việt trong dữ liệu lưu và kiểm tra tên món tự tạo có dấu/emoji sau khi mở lại. Vẫn cần phản hồi từ điện thoại thật. Nhân viên không được đảm bảo tiếp tục làm việc khi Android đình chỉ ứng dụng nền.
           MD
-          gh release create android-1.8.0-beta.1 apk/QuanMiCuaToi-Android-1.8.0-beta.1.apk apk/SHA256SUMS.txt --target "$TESTED_COMMIT" --prerelease --latest=false --title 'Quán Mì Của Tôi — Android 1.8.0-beta.1' --notes-file notes.md
+          gh release create android-1.8.0-beta.2 apk/QuanMiCuaToi-Android-1.8.0-beta.2.apk apk/SHA256SUMS.txt --target "$TESTED_COMMIT" --prerelease --latest=false --title 'Quán Mì Của Tôi — Android 1.8.0-beta.2' --notes-file notes.md
+      - name: Mark the first Android beta as superseded
+        run: |
+          cat > obsolete-notes.md <<'MD'
+          Bản này đã được thay thế bởi **Android 1.8.0-beta.2** vì lỗi mã hóa tiếng Việt trong bản lưu của beta.1.
+          Hãy tải bản mới tại https://github.com/dovanphit1-creator/Qu-n-soba/releases/tag/android-1.8.0-beta.2 .
+          MD
+          gh release edit android-1.8.0-beta.1 --title 'Quán Mì Của Tôi — Android beta.1 (đã thay thế)' --notes-file obsolete-notes.md --prerelease --latest=false
