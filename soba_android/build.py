@@ -28,6 +28,9 @@ def build():
     # The runtime loads the tar, not its source ZIP. Remove duplicate sources.
     (assets/'iphone.apk').unlink(missing_ok=True)
     html=(assets/'index.html').read_text().replace('Bản iPhone','Bản Android')
+    html=html.replace('/runtime/packages/', '/assets/game/runtime/packages/')
+    rc=assets/'runtime/cpythonrc.py'
+    rc.write_text(rc.read_text().replace('/runtime/packages/', '/assets/game/runtime/packages/'))
     html=html.replace('<head>', '<head><script src="native-bridge.js"></script>',1)
     (assets/'index.html').write_text(html)
     shutil.copy2(ROOT/'bridge.js',assets/'native-bridge.js')

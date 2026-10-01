@@ -19,6 +19,7 @@ public final class MainActivity extends Activity {
     SaveStore store;
     TextToSpeech speech;
     boolean gameReady=false;
+    volatile boolean exitPending=false;
     private static final String ORIGIN="https://appassets.androidplatform.net";
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -53,7 +54,7 @@ public final class MainActivity extends Activity {
     void command(String json){if(web!=null)web.evaluateJavascript("window.sobaIOSCommands && window.sobaIOSCommands.push("+json+")",null);}
     final class NativeBridge {
         @JavascriptInterface public String initialSave(){try{return store.initial();}catch(Exception e){runOnUiThread(()->{web.stopLoading();showError();});throw new IllegalStateException("Cannot read saved progress",e);}}
-        @JavascriptInterface public boolean save(String snapshot,String backups){try{store.write(snapshot,backups);return true;}catch(Exception e){return false;}}
+        @JavascriptInterface public boolean save(String snapshot,String backups){try{store.write(snapshot,backups);if(exitPending)runOnUiThread(()->{exitPending=false;finish();});return true;}catch(Exception e){return false;}}
         @JavascriptInterface public void ready(){runOnUiThread(()->gameReady=true);}
         @JavascriptInterface public void reload(){runOnUiThread(()->{gameReady=false;web.reload();});}
         @JavascriptInterface public void speak(String text){runOnUiThread(()->{if(speech!=null)speech.speak(text,TextToSpeech.QUEUE_ADD,null,"order");});}
@@ -74,7 +75,9 @@ public final class MainActivity extends Activity {
     @Override public void onBackPressed(){
         if(!gameReady){super.onBackPressed();return;}
         new AlertDialog.Builder(this).setMessage("Lưu và thoát game?").setPositiveButton("Thoát",(d,w)->{
-            web.evaluateJavascript("window.sobaIOSCommands.push({kind:'save'});true",r->web.postDelayed(()->finish(),500));
+            exitPending=true;
+            command("{\"kind\":\"save\"}");
+            web.postDelayed(()->{if(exitPending){exitPending=false;new AlertDialog.Builder(this).setMessage("Chưa lưu được game. Hãy kiểm tra dung lượng máy và thử lại.").setPositiveButton("OK",null).show();}},5000);
         }).setNegativeButton("Chơi tiếp",null).show();
     }
     @Override protected void onDestroy(){if(web!=null){web.removeJavascriptInterface("NativeGame");web.destroy();}if(speech!=null)speech.shutdown();super.onDestroy();}
