@@ -1,12 +1,14 @@
 """Reproducible noodle-bowl icon; keep this design fixed across releases."""
 from pathlib import Path
 from PIL import Image, ImageDraw
+import shutil
 from brand import GAME_TITLE, EXE_NAME, GAME_VERSION, PUBLISHER
 
 
 def build():
     root=Path(__file__).parent
     assets=root/'assets';assets.mkdir(exist_ok=True)
+    shutil.copy2(root/'loading-art/restaurant.jpg',assets/'loading-restaurant.jpg')
     scale=4
     im=Image.new('RGBA',(256*scale,256*scale),(0,0,0,0))
     d=ImageDraw.Draw(im)

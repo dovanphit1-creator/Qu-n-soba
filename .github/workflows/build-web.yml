@@ -1,0 +1,51 @@
+name: Build shared loading screen and web game
+on:
+  push:
+    branches: [loading-screen-web]
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pygame-ce==2.5.7 pygbag==0.9.3 holidays==0.105 pillow==11.3.0 soundfile==0.13.1 python-dateutil==2.9.0.post0 six==1.17.0
+      - run: python soba_manual/build_brand_assets.py && python soba_manual/build_audio.py && python soba_manual/build_loading_screen.py
+      - run: python -m unittest discover -s soba_manual -p 'test*.py'
+      - run: python soba_web/build.py
+      - name: Package complete disposable web edition
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil,hashlib,json,tarfile
+          from soba_manual.brand import GAME_VERSION
+          root=Path('web-dist');root.mkdir(exist_ok=True)
+          shutil.copytree('soba_web/game/build/web',root/'play',dirs_exist_ok=True)
+          for name in ('index.html','loading-restaurant.jpg','game-icon.png','updates.js'):
+              shutil.copy2(Path('soba_web')/name if (Path('soba_web')/name).exists() else root/'play'/name,root/name)
+          shutil.copy2('soba_manual/assets/game.png',root/'icon.png')
+          shutil.copy2('soba_web/voice.js',root/'voice.js')
+          shutil.copytree('soba_web/voice',root/'voice',dirs_exist_ok=True)
+          (root/'version.json').write_text(json.dumps({'game_version':GAME_VERSION}))
+          art=Path('soba_manual/loading-art/restaurant.jpg').read_bytes()
+          assert (root/'loading-restaurant.jpg').read_bytes()==art==(root/'play/loading-restaurant.jpg').read_bytes()
+          with tarfile.open(root/'play/game.tar.gz') as bundle:
+              assert any(n.endswith('/app.py') for n in bundle.getnames())
+              assert any(n.endswith('/assets/loading-restaurant.jpg') for n in bundle.getnames())
+              for member in bundle:
+                  if member.isfile():bundle.extractfile(member).read()
+          assert '__LOADING_VERSION__' not in (root/'index.html').read_text()
+          print('PASS: web art, closed Python archive, version and update notification are packaged')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuanMiCuaToi-Web-1.7.4
+          path: web-dist
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Shared-loading-art
+          path: soba_manual/assets/loading-windows.png

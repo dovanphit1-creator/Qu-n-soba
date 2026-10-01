@@ -31,7 +31,7 @@ def build():
                 text=text.replace('platform.window.sobaSpeak(message)', 'platform.window.sobaSpeak(base64.b64encode(message.encode("utf-8")).decode("ascii"))')
                 data=text.encode()
             if name.endswith('/brand.py'):
-                data=data.decode().replace("GAME_VERSION = '1.8.0'", "GAME_VERSION = '1.8.0-beta.3'").encode()
+                data=data.decode().replace("GAME_VERSION = '1.8.0'", "GAME_VERSION = '1.8.0-beta.4'").encode()
             members.append((name,data))
     payload=io.BytesIO()
     with tarfile.open(fileobj=payload,mode='w') as tar:
@@ -46,6 +46,7 @@ def build():
     rc=assets/'runtime/cpythonrc.py'
     rc.write_text(rc.read_text().replace('/runtime/packages/', '/assets/game/runtime/packages/'))
     html=html.replace('if(window.MM)window.MM.UME=true;', 'window.sobaStartRequested=true;if(window.MM)window.MM.UME=true;')
+    html=html.replace('1.8.0 · Nhà phát hành','1.8.0-beta.4 · Nhà phát hành')
     html=html.replace('<head>', '<head><script src="native-bridge.js"></script>',1)
     (assets/'index.html').write_text(html)
     shutil.copy2(ROOT/'bridge.js',assets/'native-bridge.js')

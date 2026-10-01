@@ -1,4 +1,12 @@
 """Top-down manual restaurant game. Run: python soba_manual/main.py."""
+# Keep the native artwork visible while imports and saved data load.
+import sys
+pyi_splash = None
+if sys.platform == 'win32' and getattr(sys, 'frozen', False):
+    try:
+        pyi_splash = __import__('pyi_splash')
+    except ImportError:
+        pass
 import math
 import json
 import os
@@ -1025,10 +1033,10 @@ class App(ManagementUI,StaffUI,FinanceUI,ShiftsUI):
             self.persist(); self.auto_save=0
 
     def run(self):
-        if self.persistent and not any(flag in sys.argv for flag in ('--smoke-test','--verify-new-player')):
+        if self.persistent and not any(flag in sys.argv for flag in ('--smoke-test','--verify-new-player','--verify-loading-screen')):
             from updates import start_check
             self.update_queue=start_check()
-        if sys.platform=='win32' and self.persistent and not any(flag in sys.argv for flag in ('--smoke-test','--verify-new-player')):
+        if sys.platform=='win32' and self.persistent and not any(flag in sys.argv for flag in ('--smoke-test','--verify-new-player','--verify-loading-screen')):
             from background import Background
             self.background=Background(self)
             if self.world.background_enabled and not self.background.enable(True):
@@ -1181,15 +1189,33 @@ def verify_new_player(output):
         'checks':['fresh-start','empty-inventory','one-table-four-chairs','independent-users','resume-own-save']}),encoding='utf-8')
 
 
+def verify_loading_screen(output):
+    import hashlib
+    assert pyi_splash is not None and pyi_splash.is_alive(), 'The EXE must show its native picture during startup'
+    app=App(headless=True)
+    app.draw()
+    image=Path(__file__).with_name('assets')/'loading-restaurant.jpg'
+    report={'ok':True,'frozen':bool(getattr(sys,'frozen',False)),'native_splash_alive':True,'shared_art_sha256':hashlib.sha256(image.read_bytes()).hexdigest(),'game_version':GAME_VERSION}
+    pyi_splash.close()
+    report['closed_after_first_frame']=not pyi_splash.is_alive()
+    assert report['closed_after_first_frame']
+    pg.quit()
+    Path(output).write_text(json.dumps(report),encoding='utf-8')
+
+
 if __name__ == '__main__':
-    flag=next((arg for arg in ('--smoke-test','--verify-new-player') if arg in sys.argv),None)
+    flag=next((arg for arg in ('--smoke-test','--verify-new-player','--verify-loading-screen') if arg in sys.argv),None)
     if flag:
         import tempfile
         # Verification must never read, change or ship a player's actual save.
         with tempfile.TemporaryDirectory(prefix='quanmi-verification-') as profile:
             os.environ['LOCALAPPDATA']=profile
             output=str(Path(sys.argv[sys.argv.index(flag)+1]).resolve())
-            (smoke_test if flag=='--smoke-test' else verify_new_player)(output)
+            (smoke_test if flag=='--smoke-test' else verify_loading_screen if flag=='--verify-loading-screen' else verify_new_player)(output)
     else:
         from background import single_instance
-        if single_instance():App().run()
+        if single_instance():
+            app=App();app.draw()
+            if pyi_splash is not None:pyi_splash.close()
+            app.run()
+        elif pyi_splash is not None:pyi_splash.close()

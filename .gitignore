@@ -268,3 +268,7 @@ soba_android/local.properties
 *.p12
 *.pfx
 upload-password.txt
+
+# Shared loading images are copied by the builders.
+soba_web/game-icon.png
+soba_web/loading-restaurant.jpg
