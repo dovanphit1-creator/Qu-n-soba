@@ -1,0 +1,15 @@
+# Shared loading release — 2026-10-02
+
+Official name: Quán Mì Của Tôi. Publisher: Đỗ Văn Phi. The noodle-bowl icon remains unchanged.
+
+- Web 1.7.4 is deployed publicly at https://quan-mi-cua-toi-web.dovanphit1.chatgpt.site (Site version 15, commit 28bae32292612e3c848a967252cf5f7f11190d75). Browser confirmed painting → first gameplay frame; browser progress is disposable.
+- Windows 1.7.4 source/tag: 500abede9b88fd6cfa8c27e9f01c803055859cf4 on loading-screen-windows. Workflow 36944957990 passed 111 gameplay tests, actual native splash/first frame, executable service cycle, install/reinstall/uninstall save preservation, and updating with the released old game running.
+- Windows installer: 33251022 bytes; SHA256 468c4f76b5ad7ef1ce2c948897acc6551f6364260206967a83d3da9956e1e5c7.
+- Android 1.8.0-beta.4 tested source: d4a2c9ee023abb11a66037363943619879d562b9 (android-beta4-verified), device workflow 36945190992; publisher workflow 36945990527. Four device checks passed, including offline startup/touch/save restore and real update notification.
+- APK: 24119462 bytes; SHA256 57746fffc4a505966e8fb2c1f336418e1b230c58fb8c539102901895c8a99ab7. Same application ID and owner-held certificate as beta.3 (SHA256 0dd468be6fcebbd06d46546248df067343f3e04f430b22382953d2813d7de4c9). All non-signature ZIP entries equal the exact tested APK. Private key/password never enter GitHub.
+- Android stable signature publication uses a public binary delta against the exact tested artifact. Never substitute a CI debug key.
+- Android APK update notifications still use release marker [android-apk-channel:androidbeta]. Windows latest stays 1.7.4; Android is a separate prerelease channel.
+- Canonical restaurant painting: soba_manual/loading-art/restaurant.jpg in game source branches; SHA256 6462a8328e5f328e57a87714f3010ad2eff4692649c66dce434cf2e1bc847cbf. Same image/layout across editions; no artificial delays or fabricated percentages.
+- The parked iphone-native source also uses shared artwork/HTML. There is no new installable iPhone release. Paid Apple enrollment/signing and unresolved iOS validation must be completed before distribution. Every future iOS release must implement compatible native update notifications before shipping. The unsigned Play bundle is internal; separate Play update channel from sideload APK before an official Play release.
+
+Homepage https://dovanphit1-creator.github.io/Qu-n-soba/ contains direct same-origin EXE/APK downloads, exact title/H1, Vietnamese description, canonical URL, indexable robots meta, WebSite/VideoGame JSON-LD, painting social image, and sitemap.xml. Automated SEO and exact download-byte checks are required. Google Search Console ownership/indexing submission remains pending user authentication. SEO does not guarantee immediate indexing or ranking.
