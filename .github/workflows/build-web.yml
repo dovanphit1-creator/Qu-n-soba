@@ -16,7 +16,7 @@ jobs:
       - run: python soba_manual/build_brand_assets.py && python soba_manual/build_audio.py && python soba_manual/build_loading_screen.py
       - run: python -m unittest discover -s soba_manual -p 'test*.py'
       - run: python soba_web/build.py
-      - run: node soba_web/test_audio.cjs && python soba_web/test_audio_bridge.py && python soba_web/test_v2.py && python soba_web/test_package.py && python soba_web/test_boot.py && node soba_web/test_presentation.cjs
+      - run: node soba_web/test_audio.cjs && python soba_web/test_audio_bridge.py && python soba_web/test_v2.py && python soba_web/test_v21.py && python soba_web/test_package.py && python soba_web/test_boot.py && node soba_web/test_presentation.cjs
       - name: Package complete disposable web edition
         run: |
           python - <<'PY'
@@ -28,7 +28,7 @@ jobs:
           for name in ('index.html','loading-restaurant.jpg','game-icon.png','updates.js','game-audio.js','mobile-presentation.js','manifest.webmanifest','v2-text.js'):
               shutil.copy2(Path('soba_web')/name if (Path('soba_web')/name).exists() else root/'play'/name,root/name)
           shutil.copy2('soba_manual/assets/game.png',root/'icon.png')
-          (root/'version.json').write_text(json.dumps({'game_version':'2.0.0'}))
+          (root/'version.json').write_text(json.dumps({'game_version':'2.1.0'}))
           art=Path('soba_manual/loading-art/restaurant.jpg').read_bytes()
           assert (root/'loading-restaurant.jpg').read_bytes()==art==(root/'play/loading-restaurant.jpg').read_bytes()
           with tarfile.open(root/'play/game.tar.gz') as bundle:
@@ -41,7 +41,7 @@ jobs:
           PY
       - uses: actions/upload-artifact@v4
         with:
-          name: QuanMiCuaToi-Web-2.0.0
+          name: QuanMiCuaToi-Web-2.1.0
           path: web-dist
           retention-days: 30
       - uses: actions/upload-artifact@v4

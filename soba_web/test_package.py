@@ -4,7 +4,7 @@ from unittest.mock import patch
 from importlib.metadata import PackageNotFoundError
 os.environ['SDL_VIDEODRIVER']='dummy';os.environ['SDL_AUDIODRIVER']='dummy'
 with tempfile.TemporaryDirectory() as d:
- with tarfile.open('soba_web/game/build/web/game.tar.gz') as t:t.extractall(d,filter='data')
+ with tarfile.open(Path(__file__).resolve().parent/'game/build/web/game.tar.gz') as t:t.extractall(d,filter='data')
  assets=Path(d)/'assets';sys.path.insert(0,str(assets))
  with patch('importlib.metadata.version',side_effect=PackageNotFoundError('missing distribution metadata')) as query:
   from v2app import V2App as App

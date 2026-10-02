@@ -50,7 +50,7 @@ class V2App(PixelArt,CameraMixin,App):
    e=pg.event.Event(kind,pos=(e.x*dw,e.y*dh),button=1)
   elif getattr(e,'touch',False) and self.finger_events:return
   if e.type==pg.WINDOWFOCUSLOST:
-   self.cancel_movement();self.release_clean();self.pointer_down=None;self.primary_finger=None;return
+   self.cancel_movement();self.release_clean();self.pointer_down=None;self.primary_finger=None;self.down=None;self.pressed_action=None;return
   if e.type==pg.VIDEORESIZE:
    self.display=pg.display.set_mode((max(800,e.w),max(500,e.h)),pg.RESIZABLE);self.update_size();return
   if self.modal=='name':
@@ -61,7 +61,9 @@ class V2App(PixelArt,CameraMixin,App):
   elif self.modal=='phone_app' and self.active_app in ('menu','staff','shifts'):
    if self.shifts_input(e) or self.management_input(e):return
   if e.type==pg.KEYDOWN:
-   if e.key==pg.K_ESCAPE:self.close_view();return
+   if e.key==pg.K_ESCAPE:
+    if self.placing:self.placing=None
+    self.close_view();return
    if e.key in KEYS and self.modal is None:self.camera_keys.add(e.key)
    if e.key==pg.K_r and self.placing:self.place_rot=1-self.place_rot
    return
@@ -126,10 +128,10 @@ class V2App(PixelArt,CameraMixin,App):
    if pos and math.dist(p,pos)<30:return ('bowl',b.id)
   for g in reversed(w.parties):
    if g.phase in ('seated','eating'):continue
-   if self.floor==0 and pg.Rect(g.x-45,g.y-65,90,95).collidepoint(p):return ('guest',g.id)
+   if self.floor==0 and pg.Rect(g.x-max(45,g.size*12+15),g.y-65,max(90,g.size*24+30),95).collidepoint(p):return ('guest',g.id)
   for f in reversed(w.fixtures):
    if f.floor==self.floor and f.rect.collidepoint(p):
-    if f.kind=='stove':return ('pot',min(range(6),key=lambda i:math.dist(p,f.point(.17+i%3*.33,.28+i//3*.43))))
+    if f.kind=='stove':return ('pot',min(range(6),key=lambda i:math.dist(p,f.slot_point(i))))
     return ('fixture',f.id)
   if self.floor==0 and pg.Rect(220,245,140,60).collidepoint(p):return ('door',0)
   for d in w.dirt:
@@ -138,7 +140,7 @@ class V2App(PixelArt,CameraMixin,App):
  def bowl_pos(self,b):
   if b.id in self.world.free_bowls:return self.world.free_bowls[b.id][:2] if self.world.free_bowls[b.id][2]==self.floor else None
   f=self.world.fixture('pass' if b.stage=='prep' else 'stove',self.floor)
-  return f.point(.17+b.slot%3*.33,.28+b.slot//3*.43) if f else None
+  return f.slot_point(b.slot) if f else None
  def interaction(self,title,options):
   self.dialog_title=title;self.options=options;self.modal='interact';self.cancel_movement();self.page=0
  def interact(self,target):
@@ -153,6 +155,7 @@ class V2App(PixelArt,CameraMixin,App):
    self.interaction('BIỂN TREO CỬA',[('Xác nhận đóng quán' if w.closing else 'Ngừng đón khách · dọn và đóng' if w.open else 'Lật biển · Mở quán',('door_toggle',))]);return
   if kind=='guest':
    p=w.group(ident)
+   if not p:self.warn('Nhóm khách đã rời đi.');return
    if not self.near((p.x,p.y)):self.warn('Đến gần nhóm khách để nói chuyện.');return
    self.selected=p.id
    if p.phase in ('door','waiting'):
@@ -181,6 +184,7 @@ class V2App(PixelArt,CameraMixin,App):
    self.interaction(label,[('Trong bát: '+(' + '.join(b.toppings) or 'Mì chưa thêm topping'),('dismiss',)),('Cầm bát',('take_bowl',ident)),('Đổ bỏ bát mì',('discard_bowl',ident))]);return
   if kind=='dirt':self.warn('Đến gần rồi ấn giữ vết bẩn để lau.');return
   f=w.by_id(ident)
+  if not f:return
   if not self.fixture_near(f):self.warn('Hãy đi đến gần đồ vật.');return
   if f.table>=0:
    t=w.tables[f.table]
@@ -289,7 +293,7 @@ class V2App(PixelArt,CameraMixin,App):
    return
   if kind=='receipt':self.receipt_gid=args[0];self.modal='receipt';return
   if kind=='get_ticket':
-   if args[0] not in w.receipts:return
+   if args[0] not in w.receipts or w.receipts[args[0]]['location'] not in ('board','table'):return
    if self.empty_hand():w.receipts[args[0]]['location']='hand';self.hand={'kind':'ticket','gid':args[0]};self.modal=None
    return
   if kind=='pin_ticket':
@@ -311,6 +315,7 @@ class V2App(PixelArt,CameraMixin,App):
   if kind=='put_down':
    if not self.hand:return
    h=self.hand;pos=self.owner+self.move_direction*40 if self.move_direction.length_squared() else self.owner+pg.Vector2(0,35)
+   pos=pg.Vector2(w.safe_point(pos,self.floor))
    if h['kind']=='parcel':
     p=next(q for q in w.parcels if q['id']==h['id']);p.update(x=pos.x,y=pos.y,floor=self.floor,held=False)
    elif h['kind']=='bowl':w.free_bowls[h['id']]=(pos.x,pos.y,self.floor);w.carried_bowl=None
@@ -347,7 +352,11 @@ class V2App(PixelArt,CameraMixin,App):
    self.input_focus=None;return
   if kind=='cabinet':w.by_id(args[0]).opened=args[1];self.modal=None;return
   if kind=='open_store':
-   f=w.by_id(args[0]);f.opened=True;p=next(q for q in w.parcels if q['id']==self.hand['id'])
+   f=w.by_id(args[0])
+   if not f or not self.hand or self.hand['kind']!='parcel':self.modal=None;return
+   p=next((q for q in w.parcels if q['id']==self.hand['id']),None)
+   if not p:self.hand=None;self.modal=None;return
+   f.opened=True;p['opened']=True
    if w.unpack(p,f):self.hand=None
    self.modal=None;return
   if kind=='take_ingredient':
@@ -357,7 +366,7 @@ class V2App(PixelArt,CameraMixin,App):
     cost=w.unit_cost(n);w.stock[n]-=1;w.stock_value[n]-=cost;self.hand={'kind':'ingredient','name':n,'cost':cost};self.modal=None
    return
   if kind=='return_ingredient':
-   if self.hand and storage_for(self.hand['name'])==w.by_id(args[0]).kind:
+   if self.hand and self.hand['kind']=='ingredient' and w.by_id(args[0]) and storage_for(self.hand['name'])==w.by_id(args[0]).kind:
     h=self.hand;w.stock[h['name']]+=1;w.stock_value[h['name']]+=h['cost'];self.hand=None;self.modal=None
    return
   if kind=='lift':
@@ -375,7 +384,9 @@ class V2App(PixelArt,CameraMixin,App):
    t=w.tables[args[0]]
    if t.dirty:self.hand={'kind':'dirty','count':t.dirty};w.carried_dirty=t.dirty;t.dirty=0;t.needs_wipe=True;self.modal=None
    return
-  if kind=='serve':self.serve_hand(*args);return
+  if kind=='serve':
+   if self.hand and self.hand['kind']=='bowl':self.serve_hand(*args)
+   return
   if kind=='rice_start':
    if w.stock.get('Gạo',0)>0 and args[0] not in w.rice_jobs:
     w.consume('Gạo');w.rice_jobs[args[0]]={'left':300};self.modal=None
@@ -388,7 +399,7 @@ class V2App(PixelArt,CameraMixin,App):
   if kind=='field':self.request_name('Tên món' if args[0]=='name' else 'Giá bán VND',self.menu_name if args[0]=='name' else self.menu_price,('menu_field',args[0]));return
   if kind=='shift_name':self.request_name('Tên ca làm việc',self.shift_name,('shift',));return
   if kind=='floor':
-   self.floor=args[0];self.owner.update(300,420);self.camera_origin=self.camera_goal();return
+   self.floor=args[0];self.camera_floor=self.floor;self.owner.update(w.safe_point((300,420),self.floor));self.camera_origin=self.camera_goal();self.cancel_movement();return
   if kind=='presentation':self.return_view='phone';self.modal='presentation';return
   if kind=='music_toggle':
    if sys.platform=='emscripten':
@@ -410,6 +421,7 @@ class V2App(PixelArt,CameraMixin,App):
    if p.get('parcel'):self.world.parcels=[q for q in self.world.parcels if q['id']!=p['parcel']];self.hand=None
    self.placing=None;self.modal=None
  def step(self,dt):
+  self.world.escorting=self.escort
   super().step(dt)
   if not self.world.open:self.animation+=dt
   if self.escort:
@@ -417,6 +429,7 @@ class V2App(PixelArt,CameraMixin,App):
    if not p or p.phase!='ready':self.escort=None
    else:
     delta=self.owner-pg.Vector2(p.x,p.y)
+    p.walking=delta.length()>55
     if delta.length()>55:delta=delta.normalize()*min(delta.length()-55,120*dt);p.x+=delta.x;p.y+=delta.y
   if self.modal=='name' and sys.platform=='emscripten':
    import platform,json
@@ -426,19 +439,7 @@ class V2App(PixelArt,CameraMixin,App):
     if data.get('cancel'):self.modal=None
     else:self.name_value=data['value'];self.action(('name_done',))
  def render_scene(self):
-  w=self.world;self.canvas.fill('#b7c3a5')
-  self.px((0,98,1600,55),'#63766e')
-  for x in range(0,1600,100):self.px((x,122,52,4),'#deddb6')
-  self.px((0,155,1600,91),'#aeb698')
-  for x in range(0,1600,40):self.px((x,158,4,88),'#9da98d')
-  self.px((24,258,1552,678),'#715339');self.px((40,282,1520,638),'#c6a774')
-  for y in range(292,920,32):
-   self.px((40,y,1520,4),'#b39663')
-   for x in range(40+(y//32%2)*80,1560,160):self.px((x,y,4,32),'#b39663')
-  self.px((24,246,196,40),'#705238');self.px((360,246,1216,40),'#705238')
-  self.px((220,246,140,40),'#c5a16a' if w.open else '#835b3b')
-  if w.open:self.px((220,246,16,72),'#916b47')
-  else:self.px((280,254,4,24),'#d5bc7a')
+  w=self.world;self.room_art()
   self.text('ĐANG MỞ' if w.open and not w.closing else 'NGỪNG ĐÓN' if w.closing else 'ĐÓNG CỬA',(290,266),14,'#fff1bc',True,True)
   for d in w.dirt:
    if d//len(DIRT_POS)==self.floor:
@@ -447,10 +448,11 @@ class V2App(PixelArt,CameraMixin,App):
    if f.floor!=self.floor:continue
    self.fixture_sprite(f)
    label=f.name if f.table>=0 else FURNITURE[f.kind][0]
-   self.text(label,(f.rect.centerx,f.rect.y-13),13,INK,True,True)
+   if self.fixture_near(f):
+    width=min(260,len(label)*8+16);self.box((f.rect.centerx-width/2,f.rect.y-45,width,20),'#29463c',0);self.text(label,(f.rect.centerx,f.rect.y-35),12,CREAM,True,True)
    if f.kind=='stove':
     for i in range(6):
-     pos=f.point(.17+i%3*.33,.28+i//3*.43);state=w.pot_state(i)
+     pos=f.slot_point(i);state=w.pot_state(i)
      label=str(i+1)+' · '+('Trống' if state=='empty' else 'VỚT!' if state=='ready' else 'NHÃO' if state=='mushy' else str(math.ceil(COOK_SECONDS-w.pots[i]))+'s')
      self.text(label,(pos[0],pos[1]+24),11,'#f9ebba',True,True)
    if f.table>=0:
@@ -470,7 +472,7 @@ class V2App(PixelArt,CameraMixin,App):
   if self.floor==0:
    for p in w.parties:
     if p.phase in ('seated','eating'):continue
-    self.person(p.x,p.y,'#7e94af',self.animation*5)
+    for j in range(p.size):self.person(p.x+(j-(p.size-1)/2)*24,p.y+(j%2)*8,'#7e94af',self.animation*5 if getattr(p,'walking',False) else 0,variant=p.id+j)
     self.text(f'N{p.id:03} · {p.size} người',(p.x,p.y-65),14,INK,True,True)
     if p.phase=='ticket':self.px((p.x+14,p.y-28,16,24),'#fff1ba')
    for person in w.walkers:
@@ -488,12 +490,12 @@ class V2App(PixelArt,CameraMixin,App):
    for p in w.at_table(i):
     for j,seat in enumerate(p.seats):
      angle=-math.pi/2+seat*math.tau/t.capacity;xx=x+math.cos(angle)*57;yy=y+math.sin(angle)*57
-     self.person(xx,yy,'#9e85a0')
+     self.person(xx,yy,'#9e85a0',variant=p.id+j)
      if j<len(p.meals):self.pixel_bowl(xx,yy+20,p.meals[j]['toppings'])
     self.text(f'N{p.id:03}',(x,y-4),13,INK,True,True)
   for e in w.employees:
    if e['present'] and e['floor']==self.floor:
-    self.person(e['x'],e['y'],'#d3ac67' if e['role']=='baito' else '#b7cbbc',self.animation*5);self.text(e['name'],(e['x'],e['y']-58),12,INK,center=True)
+    self.person(e['x'],e['y'],'#d3ac67' if e['role']=='baito' else '#b7cbbc',self.animation*5,action=e.get('job',{}).get('action',[''])[0] if e.get('job') else None);self.text(e['name'],(e['x'],e['y']-58),12,INK,center=True)
     if e.get('job') and e['job']['action'][0] in ('serve','prep','clear'):self.pixel_bowl(e['x'],e['y']-12,dirty=e['job']['action'][0]=='clear')
   for p in w.parcels:
    if not p['held'] and p['floor']==self.floor:self.parcel_sprite(p)
@@ -565,7 +567,7 @@ class V2App(PixelArt,CameraMixin,App):
    self.pager(len(w.totals(self.history_period)))
   elif self.active_app=='settings':
    self.button((400,345,800,65),'Màn hình / nhạc',('presentation',))
-   self.button((400,435,800,65),'Cách chơi 2.0',('help_v2',))
+   self.button((400,435,800,65),'Cách chơi 2.1',('help_v2',))
    if w.floors<3:self.button((400,525,800,65),'Xây thêm tầng · '+vnd({1:3000000,2:5000000}[w.floors]),('build_floor',),not w.open)
  def draw_app_icon(self,key,x,y):
   # Distinct small pixel symbols for each application.
@@ -597,7 +599,7 @@ class V2App(PixelArt,CameraMixin,App):
     platform.window.sobaFullscreenRect=json.dumps([self.offset[0]+r.x*self.scale,self.offset[1]+r.y*self.scale,r.w*self.scale,r.h*self.scale])
    return
   if m in ('v2welcome','help_v2'):
-   self.panel('QUÁN MÌ CỦA TÔI · 2.0.0')
+   self.panel('QUÁN MÌ CỦA TÔI · 2.1.0')
    lines=['Bạn có 10 triệu VND và một quán trống. Mở điện thoại để đặt mua đồ.',
     'Xe giao thùng trước cửa. Đến gần → nhận → mở thùng → đặt đồ hoặc cất vào tủ.',
     'Mua bộ bàn ghế, máy vé, bếp, bàn ra món, tủ lạnh, tủ gia vị, tủ bát và bồn rửa.',
@@ -678,7 +680,7 @@ class V2App(PixelArt,CameraMixin,App):
   self.box((15,949,1570,37),'#29463c',0)
   msg=self.world.logs[-1] if self.world.logs else 'Chạm sàn trống, giữ và kéo để di chuyển. Mở điện thoại để bắt đầu.'
   self.text(msg[:135],(27,958),17,CREAM)
-  self.text('Phiên bản 2.0.0 · Nhà phát hành Đỗ Văn Phi',(800,994),12,'#596b56',center=True)
+  self.text('Phiên bản 2.1.0 · Nhà phát hành Đỗ Văn Phi',(800,994),12,'#596b56',center=True)
   if self.hand:
    h=self.hand;label={'parcel':'Thùng hàng','bowl':'Bát '+str(h.get('id','')),'ticket':'Phiếu nhóm '+str(h.get('gid','')),'ingredient':h.get('name',''),'dirty':'Chồng bát bẩn'}[h['kind']]
    if h['kind']=='bowl':
