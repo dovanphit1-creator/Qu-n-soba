@@ -2,7 +2,12 @@
 import math
 import pygame as pg
 
-VIEW = pg.Rect(0, 97, 1177, 850)
+WORLD = pg.Rect(0, 97, 1177, 850)
+VIEW = pg.Rect(0, 97, 1600, 850)
+MINI = pg.Rect(1413,112,171,124)
+DOOR = pg.Rect(222,245,131,42)
+DESK = pg.Rect(392,244,185,40)
+REACH = 145
 ZOOM = 1.75
 KEYS = {pg.K_w:(0,-1), pg.K_UP:(0,-1), pg.K_s:(0,1), pg.K_DOWN:(0,1),
         pg.K_a:(-1,0), pg.K_LEFT:(-1,0), pg.K_d:(1,0), pg.K_RIGHT:(1,0)}
@@ -24,8 +29,8 @@ class CameraMixin:
 
     def camera_goal(self):
         width, height = VIEW.width / ZOOM, VIEW.height / ZOOM
-        return pg.Vector2(max(VIEW.left, min(self.owner.x-width/2, VIEW.right-width)),
-                          max(VIEW.top, min(self.owner.y-height/2, VIEW.bottom-height)))
+        return pg.Vector2(max(WORLD.left, min(self.owner.x-width/2, WORLD.right-width)),
+                          max(WORLD.top, min(self.owner.y-height/2, WORLD.bottom-height)))
 
     def point(self, point):
         logical = super().point(point)
@@ -51,10 +56,11 @@ class CameraMixin:
         return not any(r.inflate(20,20).collidepoint(point) for r in obstacles)
 
     def movement_floor(self, logical):
-        if not VIEW.collidepoint(logical) or pg.Rect(990,112,171,124).collidepoint(logical):return False
+        if not VIEW.collidepoint(logical) or MINI.collidepoint(logical):return False
         point=(self.camera_origin.x+(logical[0]-VIEW.x)/ZOOM,
                self.camera_origin.y+(logical[1]-VIEW.y)/ZOOM)
         if any(rect.collidepoint(point) for rect,_ in self.buttons):return False
+        if DOOR.collidepoint(point) or DESK.collidepoint(point):return False
         if self.hit_party(point) or self.hit_table(point) is not None or self.cleaning_target(point):return False
         from app import MACHINE,TICKET,SINK,RAW,TRASH,TOPPING_RECTS,DRINK_RECTS
         from model import POT_POS,BOWL_POS
@@ -100,6 +106,17 @@ class CameraMixin:
 
     def action(self, action):
         kind=action[0]
+        if kind=='staff_panel' and self.modal=='desk':self.modal=None
+        if kind=='answer' and self.modal=='guest':
+            p=self.world.group(action[1])
+            if not p or p.phase not in ('door','waiting') or not self.near_party(p):
+                self.modal=None;return
+            result=super().action(action);self.modal=None;return result
+        if kind=='close' and self.modal=='entrance':
+            self.modal=None
+            return super().action(action)
+        if kind=='context':
+            self.modal=action[1];self.cancel_movement();return
         if kind=='presentation':self.cancel_movement();self.modal='presentation';return
         if kind=='music_toggle':
             import sys
@@ -142,8 +159,105 @@ class CameraMixin:
         # Re-map a stationary pointer after the camera pans, before hit testing.
         if hasattr(self,'camera_pointer'): self.mouse=self.point(self.camera_pointer)
 
+
+    def button(self, rect, label, action, *args, **kwargs):
+        if self.world.open and action[0]=='close' and rect[1]<97:
+            label='Cách chơi';action=('modal','help')
+        return super().button(rect,label,action,*args,**kwargs)
+
+    def render_side(self):
+        # No sidebar or invisible sidebar hitboxes. These signs live in world coordinates.
+        self.box(DOOR,'#426f57',5)
+        self.text('CỬA QUÁN',DOOR.center,14,'#fff2d2',True,True)
+        self.box(DESK,'#755235',5)
+        self.text('BẢNG QUẢN LÝ',DESK.center,14,'#fff2d2',True,True)
+        nearby=[p for p in self.world.parties if p.phase in ('door','waiting') and self.near_party(p)]
+        if nearby:
+            p=nearby[0]
+            self.text('Chạm nhóm để tiếp đón',(p.x,p.y-86),15,'#234c43',True,True)
+
+    def near_party(self,p):
+        if p.table>=0:
+            if self.world.tables[p.table].floor!=self.floor:return False
+            target=self.world.table_position(p.table)
+        else:
+            if self.floor!=0:return False
+            target=(p.x,p.y)
+        return self.owner.distance_to(target)<=REACH
+
+    def source(self,point):
+        p=self.hit_party(point)
+        if p and not self.near_party(p):return None
+        return super().source(point)
+
+    def click(self,point,right=False):
+        if self.camera_active() and not right:
+            # Header and floor navigation still use their regular buttons.
+            if any(rect.collidepoint(point) for rect,_ in self.buttons):
+                return super().click(point,right)
+            for rect,kind in ((DOOR,'entrance'),(DESK,'desk')):
+                if rect.collidepoint(point):
+                    if self.owner.distance_to(rect.center)>REACH:
+                        self.last_warning='Hãy đến gần để tương tác.';return
+                    if kind=='entrance' and self.floor!=0:
+                        self.last_warning='Hãy xuống tầng 1 để đóng quán.';return
+                    self.last_warning='';self.modal=kind;self.cancel_movement();return
+            from app import TICKET
+            if TICKET.collidepoint(point):
+                if self.floor!=0 or self.owner.distance_to(TICKET.center)>REACH:
+                    self.last_warning='Hãy đến gần máy bán vé để nhận phiếu.';return
+                result=super().click(point,right)
+                p=self.world.group(self.selected)
+                if p and p.ticket_read:self.modal='guest';self.cancel_movement()
+                return result
+            p=self.hit_party(point)
+            if p:
+                if not self.near_party(p):
+                    self.last_warning='Hãy đi đến gần nhóm khách rồi chạm vào họ.';return
+                self.selected=p.id;self.last_warning='';self.modal='guest';self.cancel_movement();return
+        return super().click(point,right)
+
+    def render_context(self):
+        # Context dialogs are screen-space; simulation continues as with existing dialogs.
+        self.buttons=[]
+        shade=pg.Surface((1600,1000),pg.SRCALPHA);shade.fill((12,28,22,145));self.canvas.blit(shade,(0,0))
+        self.box((270,140,1060,720),'#fff2d2',18,border='#b7b793')
+        if self.modal=='guest':
+            p=self.world.group(self.selected)
+            if not p or p.phase=='leaving':
+                self.text('Nhóm khách đã rời đi',(800,235),30,center=True)
+            elif p.phase in ('door','waiting'):
+                self.text(f'Nhóm {p.id:03} · {p.size} người',(800,205),32,bold=True,center=True)
+                self.text(f'“Chúng tôi có {p.size} người. Quán còn chỗ không?”',(800,290),26,center=True)
+                self.button((365,385,870,70),'Còn chỗ, mời khách vào',('answer',p.id,'accept'))
+                self.button((365,480,870,70),'Hết chỗ, bạn có thể đợi không?',('answer',p.id,'wait'),color='#97713b')
+                self.button((365,575,870,70),'Hết nguyên liệu, hôm nay không nhận khách nữa',('answer',p.id,'decline'),color='#ba4d3c')
+            else:
+                self.text(f'PHIẾU NHÓM {p.id:03} · {p.size} người',(800,198),30,bold=True,center=True)
+                if p.ticket_read:
+                    self.text('Kéo nhóm vào bàn sau khi đóng phiếu.' if p.table<0 else f'Tầng {self.world.tables[p.table].floor+1} · Bàn {p.table+1}',(800,246),22,center=True)
+                    y=286
+                    for i,order in enumerate(p.orders):
+                        self.text(f'{i+1}. {order}'+(' ✓' if i<len(p.meals) else ''),(325,y),22,bold=True)
+                        self.wrap(' · '.join(f'{name} ×{p.recipes[i].count(name)}' for name in dict.fromkeys(p.recipes[i])),(345,y+28),910,17)
+                        y+=75
+                    if p.drinks:self.text('Đồ uống: '+', '.join(d or '—' for d in p.drinks),(325,610),19)
+                else:
+                    self.wrap('Khách đang chọn món hoặc chờ mua phiếu. Đến máy và chạm phiếu màu vàng để nhận khi khách mua xong.',(335,320),930,26)
+                if self.world.refund_amount(p.id):
+                    self.button((400,660,800,55),'Hết nguyên liệu · Hoàn tiền và mời khách về',('refund_review',p.id),small=True,color='#ba4d3c')
+        elif self.modal=='entrance':
+            self.text('CỬA QUÁN',(800,215),34,bold=True,center=True)
+            self.wrap('Ngừng nhận khách mới, phục vụ những khách còn lại và dọn sạch quán trước khi xác nhận kết thúc ca.',(355,320),900,27)
+            self.button((395,525,810,75),'Dọn xong · xác nhận đóng' if self.world.closing else 'Ngừng nhận khách · chuẩn bị đóng quán',('close',))
+        else:
+            self.text('BẢNG QUẢN LÝ',(800,200),34,bold=True,center=True)
+            for i,(label,action) in enumerate([('Nhân viên / lịch làm việc',('staff_panel',)),('Chi phí / hóa đơn',('modal','finance')),('Đánh giá của khách',('modal','reviews')),('Màn hình / nhạc',('presentation',)),('Cách chơi',('modal','help'))]):
+                self.button((410,280+i*85,780,65),label,action)
+        self.button((560,770,480,60),'Trở lại quán',('dismiss',))
+
     def render_modal(self):
-        if self.camera_active():
+        if self.world.open and not self.staff_panel and self.modal in (None,'guest','entrance','desk'):
             self.person(self.owner.x,self.owner.y,'#46b7aa',self.animation*8 if self.camera_keys or self.camera_touch else 0)
             pg.draw.circle(self.canvas,'#fff2d2',(round(self.owner.x),round(self.owner.y+8)),19,2)
             self.text('CHỦ QUÁN',(self.owner.x,self.owner.y-44),13,'#234c43',True,True)
@@ -166,7 +280,7 @@ class CameraMixin:
                 self.box((354,895,617,42),'#233d32',8)
                 self.text('Kéo sát mép để đi tiếp · Thả đúng bàn/nồi', (368,905),16,'#fff2d2')
             # Mini-map gives context even when the door or cooking area is offscreen.
-            mini=pg.Rect(990,112,171,124)
+            mini=MINI
             self.box(mini,'#233d32',8,border='#bcd0b1')
             self.text(f'T{self.floor+1} · Sàn bẩn: {len(self.world.dirt)}',(mini.centerx,mini.y+15),12,'#fff2d2',True,True)
             def map_point(x,y):return (int(mini.x+9+x/1177*153),int(mini.y+29+(y-97)/850*84))
@@ -175,6 +289,8 @@ class CameraMixin:
             for i,t in enumerate(self.world.tables):
                 if t.floor==self.floor:pg.draw.circle(self.canvas,'#755235',map_point(*self.world.table_position(i)),5)
             pg.draw.circle(self.canvas,'#46b7aa',map_point(*self.owner),4)
+        if self.modal in ('guest','entrance','desk'):
+            self.render_context();return
         if self.modal=='presentation':
             self.box((280,130,1040,750),'#fff2d2',16,border='#b7b793')
             self.text('MÀN HÌNH & ÂM THANH',(800,185),32,'#26372e',True,True)
@@ -196,6 +312,6 @@ class CameraMixin:
             import platform
             platform.window.sobaFullscreenRect=''
         if not self.modal and not self.staff_panel:
-            if self.world.open:self.button((1207,825,169,45),'Màn hình / nhạc',('presentation',),small=True)
+            if self.world.open:pass # Settings are reached through the in-world management board.
             else:self.button((680,80,275,38),'Màn hình / nhạc',('presentation',),small=True)
         super().render_modal()

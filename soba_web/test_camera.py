@@ -31,7 +31,7 @@ assert not a.camera_free((836,396)) and not a.camera_free((100,260))
 # Projected points round-trip while the fixed UI keeps its own coordinates.
 for p in (a.owner, (a.camera_origin.x+100,a.camera_origin.y+100)):
  q=a.point(world_to_display(p)); assert abs(q[0]-p[0])<.01 and abs(q[1]-p[1])<.01
-assert a.point(logical_to_display((1400,300)))==(1400,300)
+assert a.point(logical_to_display((1400,50)))==(1400,50)
 # Actual event chain: drag fresh noodles into a pot after the camera moves.
 a.owner.update(750,620);a.camera_origin=a.camera_goal();a.draw()
 start=world_to_display(RAW.center);end=world_to_display(POT_POS[0])
