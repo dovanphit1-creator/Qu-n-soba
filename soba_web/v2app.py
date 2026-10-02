@@ -29,7 +29,9 @@ class V2App(PixelArt,CameraMixin,App):
   # The phone does not duplicate the physical clock or calendar.
   if action[0]=='staff_tab' and action[1] in ('clock','shifts'):return
   if action[0]=='shifts_view':return
-  r=pg.Rect(rect);self.box(r,color if enabled else '#929e8b',2)
+  r=pg.Rect(rect)
+  style=3 if not enabled else 4 if action[0] in ('discard_bowl','discard_pot','refund_confirm') or (action[0]=='answer' and action[-1]=='decline') else 10 if action[0]=='floor' and action[1]==self.floor else 5 if getattr(self,'pressed_action',None)==action else 2
+  self.skin(style,r)
   self.text(label,r.center,17 if small else 22,'#fff3d5',True,True)
   if enabled:self.buttons.append((r,action))
  def world_point(self,logical):return (self.camera_origin.x+(logical[0]-VIEW.x)/ZOOM,self.camera_origin.y+(logical[1]-VIEW.y)/ZOOM)
@@ -440,10 +442,11 @@ class V2App(PixelArt,CameraMixin,App):
     else:self.name_value=data['value'];self.action(('name_done',))
  def render_scene(self):
   w=self.world;self.room_art()
-  self.text('ĐANG MỞ' if w.open and not w.closing else 'NGỪNG ĐÓN' if w.closing else 'ĐÓNG CỬA',(290,266),14,'#fff1bc',True,True)
+  self.sprite('icons',11,(225,246,130,50))
+  self.text('ĐANG MỞ' if w.open and not w.closing else 'NGỪNG ĐÓN' if w.closing else 'ĐÓNG CỬA',(290,278),12,INK,True,True)
   for d in w.dirt:
    if d//len(DIRT_POS)==self.floor:
-    x,y=w.dirt_point(d);self.px((x-14,y-4,32,12),'#92734e');self.px((x-4,y-12,12,28),'#92734e')
+    x,y=w.dirt_point(d);self.dirt_sprite(x,y)
   for f in sorted(w.fixtures,key=lambda f:f.rect.bottom):
    if f.floor!=self.floor:continue
    self.fixture_sprite(f)
@@ -458,7 +461,7 @@ class V2App(PixelArt,CameraMixin,App):
    if f.table>=0:
     t=w.tables[f.table]
     if t.dirty:self.pixel_bowl(*f.rect.center,dirty=True)
-    elif t.needs_wipe:self.px((f.rect.centerx-12,f.rect.centery,28,8),'#92734e')
+    elif t.needs_wipe:self.dirt_sprite(*f.rect.center)
     self.text(f'{len(w.free_seats(f.table))}/{t.capacity} chỗ',(f.rect.centerx,f.rect.centery+20),12,INK,True,True)
   for b in w.bowls:
    if b.id==w.carried_bowl:continue
@@ -466,7 +469,7 @@ class V2App(PixelArt,CameraMixin,App):
    if pos:
     self.pixel_bowl(*pos,b.toppings)
     if getattr(b,'ticket_gid',None):
-     self.px((pos[0]+12,pos[1]-22,16,20),'#fff3c9')
+     self.ticket_sprite(pos[0]+19,pos[1]-14,22)
      r=w.receipts.get(b.ticket_gid)
      if r:self.text(f"{r['number']:03} · {r['table']}",(pos[0],pos[1]+27),11,INK,True,True)
   if self.floor==0:
@@ -474,7 +477,7 @@ class V2App(PixelArt,CameraMixin,App):
     if p.phase in ('seated','eating'):continue
     for j in range(p.size):self.person(p.x+(j-(p.size-1)/2)*24,p.y+(j%2)*8,'#7e94af',self.animation*5 if getattr(p,'walking',False) else 0,variant=p.id+j)
     self.text(f'N{p.id:03} · {p.size} người',(p.x,p.y-65),14,INK,True,True)
-    if p.phase=='ticket':self.px((p.x+14,p.y-28,16,24),'#fff1ba')
+    if p.phase=='ticket':self.ticket_sprite(p.x+22,p.y-20)
    for person in w.walkers:
     for j in range(person['size']):self.person(person['x']+j*28,person['y'],'#b48672',self.animation*6+j)
    if w.truck:
@@ -500,13 +503,14 @@ class V2App(PixelArt,CameraMixin,App):
   for p in w.parcels:
    if not p['held'] and p['floor']==self.floor:self.parcel_sprite(p)
   for gid,r in w.receipts.items():
-   if r['location']=='floor' and r['pos'][2]==self.floor:self.px((r['pos'][0]-8,r['pos'][1]-12,16,24),'#fff0ba')
+   if r['location']=='floor' and r['pos'][2]==self.floor:self.ticket_sprite(*r['pos'][:2])
   self.person(self.owner.x,self.owner.y,'#3f8e79',self.animation*7 if self.camera_keys or self.camera_touch else 0)
   if self.hand:
    if self.hand['kind']=='bowl':self.pixel_bowl(self.owner.x,self.owner.y-12)
    elif self.hand['kind']=='parcel':self.parcel_sprite({'x':self.owner.x,'y':self.owner.y-12})
-   elif self.hand['kind']=='ticket':self.px((self.owner.x+12,self.owner.y-28,16,24),'#fff3ca')
-   else:self.px((self.owner.x+12,self.owner.y-20,20,20),'#e9c37c')
+   elif self.hand['kind']=='ticket':self.ticket_sprite(self.owner.x+20,self.owner.y-20)
+   elif self.hand['kind']=='ingredient':self.ingredient_sprite(self.hand['name'],self.owner.x+18,self.owner.y-14,28)
+   elif self.hand['kind']=='dirty':self.pixel_bowl(self.owner.x+16,self.owner.y-12,dirty=True)
   if self.placing:
    p=self.placing;f=Fixture(-1,p['kind'],*self.place_point,self.floor,self.place_rot)
    error=w.placement_error(f,p.get('moving'),paths=False);r=f.rect
@@ -515,11 +519,12 @@ class V2App(PixelArt,CameraMixin,App):
   self.canvas.blit(pg.transform.scale(self.canvas.subsurface(crop).copy(),VIEW.size),VIEW)
   if self.move_direction.length_squared():
    c=pg.Vector2(VIEW.x,VIEW.y)+(self.owner-self.camera_origin)*ZOOM;d=self.move_direction;s=pg.Vector2(-d.y,d.x)
-   pg.draw.polygon(self.canvas,'#f8e7af',[c+d*65,c+d*42+s*10,c+d*42-s*10])
+   arrow=pg.transform.rotate(self.art('skins',15,(26,38)),-math.degrees(math.atan2(d.x,-d.y)))
+   self.canvas.blit(arrow,arrow.get_rect(center=c+d*58))
  def panel(self,title,phone=False):
   shade=pg.Surface((1600,1000),pg.SRCALPHA);shade.fill((14,31,26,170));self.canvas.blit(shade,(0,0));self.buttons=[]
   r=(28,105,1544,827) if phone else (280,145,1040,715)
-  self.box(r,'#233f38',16);self.box(pg.Rect(r).inflate(-20,-20),'#f1e5c7',10)
+  self.skin(7 if self.modal=='receipt' else 0,r)
   self.text(title,(800,165 if phone else 200),30,INK,True,True)
   self.button((1330,125,195,44) if phone else (635,787,330,48),'Đóng điện thoại' if phone else 'Trở lại quán',('dismiss',),small=True)
  def pager(self,total,size=7,y=830):
@@ -529,13 +534,13 @@ class V2App(PixelArt,CameraMixin,App):
   w=self.world
   if self.modal=='phone':
    shade=pg.Surface((1600,1000),pg.SRCALPHA);shade.fill((14,31,26,150));self.canvas.blit(shade,(0,0));self.buttons=[]
-   self.box((460,110,680,790),'#263e36',24);self.box((480,130,640,750),'#b5cbb4',15)
+   self.skin(8,(460,110,680,790));self.skin(0,(495,185,610,635))
    self.text(w.now.strftime('%H:%M'),(515,155),22,INK,True);self.text('QUÁN MÌ CỦA TÔI',(800,230),27,INK,True,True)
    apps=[('market','Chợ'),('furniture','Nội thất'),('staff','Nhân sự'),('shifts','Tạo ca'),('menu','Thực đơn'),('supplier','Nhà cung cấp'),('finance','Tài chính'),('history','Sổ kinh doanh'),('settings','Cài đặt')]
    colors=['#c58b58','#aa7855','#669085','#8d90ac','#b5a160','#669889','#7187a2','#aa8572','#789577']
    for i,(key,label) in enumerate(apps):
     x=510+i%3*200;y=290+i//3*165
-    self.box((x+25,y,115,100),colors[i],9);self.draw_app_icon(key,x+80,y+48)
+    self.draw_app_icon(key,x+80,y+48)
     self.text(label,(x+82,y+127),19,INK,True,True)
     self.buttons.append((pg.Rect(x,y,165,150),('app',key)))
    self.button((620,817,360,40),'Cất điện thoại',('dismiss',),small=True);return
@@ -550,7 +555,10 @@ class V2App(PixelArt,CameraMixin,App):
     if self.active_app=='furniture':
      label,cost,_,_=FURNITURE[n];act=('buy_fixture',n)
     else:label=n;cost=DISH_COST if n=='Bát/đĩa' else STOCK_COST[n];act=('buy',n,1)
-    self.text(label,(80,y+12),23,INK,True);self.text(vnd(cost),(710,y+15),21)
+    if self.active_app=='furniture':self.sprite('furniture',list(FURNITURE).index(n),(78,y+3,46,46))
+    elif n=='Bát/đĩa':self.sprite('icons',13,(78,y+3,46,46))
+    else:self.ingredient_sprite(n,101,y+26,42)
+    self.text(label,(145,y+12),23,INK,True);self.text(vnd(cost),(710,y+15),21)
     self.button((1030,y,210,47),'Đặt 1',act,not w.open and w.cash>=cost and (self.active_app!='furniture' or not w.already_owned(n)),small=True)
     if self.active_app=='market':self.button((1260,y,235,47),'Đặt 10 · '+vnd(cost*10),('buy',n,10),not w.open and w.cash>=cost*10,small=True)
    self.pager(len(items))
@@ -570,22 +578,8 @@ class V2App(PixelArt,CameraMixin,App):
    self.button((400,435,800,65),'Cách chơi 2.1',('help_v2',))
    if w.floors<3:self.button((400,525,800,65),'Xây thêm tầng · '+vnd({1:3000000,2:5000000}[w.floors]),('build_floor',),not w.open)
  def draw_app_icon(self,key,x,y):
-  # Distinct small pixel symbols for each application.
-  c='#fff0d0'
-  if key=='market':
-   self.px((x-32,y-12,64,32),c);self.px((x-20,y+24,12,12),c);self.px((x+16,y+24,12,12),c);self.px((x-40,y-28,12,20),c)
-  elif key=='furniture':self.px((x-32,y-12,64,20),c);self.px((x-28,y+8,8,32),c);self.px((x+20,y+8,8,32),c)
-  elif key=='staff':self.disk((x,y-16),16,c);self.px((x-24,y+4,48,28),c)
-  elif key in ('menu','history'):
-   self.px((x-28,y-32,56,68),c)
-   for yy in range(-20,28,12):self.px((x-16,y+yy,32,4),'#687d60')
-  elif key=='shifts':
-   self.px((x-30,y-30,60,60),c);self.px((x-22,y-22,44,12),'#7f8b9c')
-   for xx in range(-16,24,16):self.px((x+xx,y+4,8,12),'#7f8b9c')
-  elif key=='supplier':self.px((x-32,y-20,48,44),c);self.px((x+16,y-8,20,32),c);self.disk((x-16,y+28),8,c);self.disk((x+24,y+28),8,c)
-  elif key=='finance':self.px((x-32,y-24,64,52),c);self.disk((x,y),12,'#7187a2')
-  else:
-   for i in range(3):self.px((x-32,y-24+i*24,64,4),c);self.px((x-20+i*16,y-28+i*24,12,12),c)
+  keys=['market','furniture','staff','shifts','menu','supplier','finance','history','settings']
+  if key in keys:self.sprite('icons',keys.index(key),(x-43,y-43,86,86))
  def render_ui(self):
   w=self.world;m=self.modal
   if m in ('phone','phone_app'):self.render_phone();return
@@ -599,7 +593,7 @@ class V2App(PixelArt,CameraMixin,App):
     platform.window.sobaFullscreenRect=json.dumps([self.offset[0]+r.x*self.scale,self.offset[1]+r.y*self.scale,r.w*self.scale,r.h*self.scale])
    return
   if m in ('v2welcome','help_v2'):
-   self.panel('QUÁN MÌ CỦA TÔI · 2.1.0')
+   self.panel('QUÁN MÌ CỦA TÔI · 2.1.1')
    lines=['Bạn có 10 triệu VND và một quán trống. Mở điện thoại để đặt mua đồ.',
     'Xe giao thùng trước cửa. Đến gần → nhận → mở thùng → đặt đồ hoặc cất vào tủ.',
     'Mua bộ bàn ghế, máy vé, bếp, bàn ra món, tủ lạnh, tủ gia vị, tủ bát và bồn rửa.',
@@ -674,13 +668,12 @@ class V2App(PixelArt,CameraMixin,App):
   self.text(vnd(self.world.cash),(640,22),25,'#f3cf89',True)
   self.text(f'Danh tiếng {self.world.reputation:.1f}% · Bát sạch {self.world.clean}',(640,60),18,'#c7d7b4')
   for floor in range(self.world.floors):self.button((1080+floor*68,22,60,48),f'T{floor+1}',('floor',floor),small=True)
-  self.button((1430,118,142,80),'ĐIỆN THOẠI',('phone',),small=True)
-  # Pixel handset icon rather than a permanent management sidebar.
-  self.px((1488,208,30,48),'#203d35');self.px((1492,212,22,32),'#c9dcaf');self.px((1500,248,6,4),'#d9e8ba')
+  self.sprite('icons',9,(1470,114,64,98));self.text('Điện thoại',(1500,222),14,CREAM,True,True)
+  self.buttons.append((pg.Rect(1430,118,142,110),('phone',)))
   self.box((15,949,1570,37),'#29463c',0)
   msg=self.world.logs[-1] if self.world.logs else 'Chạm sàn trống, giữ và kéo để di chuyển. Mở điện thoại để bắt đầu.'
   self.text(msg[:135],(27,958),17,CREAM)
-  self.text('Phiên bản 2.1.0 · Nhà phát hành Đỗ Văn Phi',(800,994),12,'#596b56',center=True)
+  self.text('Phiên bản 2.1.1 · Nhà phát hành Đỗ Văn Phi',(800,994),12,'#596b56',center=True)
   if self.hand:
    h=self.hand;label={'parcel':'Thùng hàng','bowl':'Bát '+str(h.get('id','')),'ticket':'Phiếu nhóm '+str(h.get('gid','')),'ingredient':h.get('name',''),'dirty':'Chồng bát bẩn'}[h['kind']]
    if h['kind']=='bowl':
