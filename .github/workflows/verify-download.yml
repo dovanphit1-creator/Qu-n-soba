@@ -25,14 +25,14 @@ jobs:
                   assert len(data)==33251022
                   assert hashlib.sha256(data).hexdigest()=='468c4f76b5ad7ef1ce2c948897acc6551f6364260206967a83d3da9956e1e5c7'
                   print('PASS: two Windows same-origin download buttons; installer HTTP 200; exact release 1.7.4 SHA256.')
-                  apk_path='downloads/android/1.8.0-beta.3/QuanMiCuaToi-Android-1.8.0-beta.3.apk'
-                  assert page.count('href="'+apk_path+'" download="QuanMiCuaToi-Android-1.8.0-beta.3.apk"')==2
+                  apk_path='downloads/android/1.8.0-beta.4/QuanMiCuaToi-Android-1.8.0-beta.4.apk'
+                  assert page.count('href="'+apk_path+'" download="QuanMiCuaToi-Android-1.8.0-beta.4.apk"')==2
                   with urllib.request.urlopen(root+apk_path,timeout=90) as r:
                       assert r.status==200
                       apk=r.read()
-                  assert len(apk)==23222287
-                  assert hashlib.sha256(apk).hexdigest()=='ee32ef315a3bc35518b708d38113f1766b40059f0f3bdf27b6f5b69a52b4ef44'
-                  print('PASS: two same-origin Android buttons; APK HTTP 200; exact stable-signed beta 3 SHA256.')
+                  assert len(apk)==24119462
+                  assert hashlib.sha256(apk).hexdigest()=='57746fffc4a505966e8fb2c1f336418e1b230c58fb8c539102901895c8a99ab7'
+                  print('PASS: two same-origin Android buttons; APK HTTP 200; exact stable-signed beta 4 SHA256.')
 
                   with urllib.request.urlopen('https://api.github.com/repos/dovanphit1-creator/Qu-n-soba/releases/latest',timeout=20) as r:
                       release=json.load(r)
