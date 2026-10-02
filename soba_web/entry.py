@@ -16,18 +16,18 @@ async def main():
     try:
         status('loading', 'Đang mở quán…')
         import pygame as pg
-        from app import App
+        from v2app import V2App as App
         from camera import CameraMixin
         class ReadySignal:
             def play(self):
                 import platform
                 platform.window.sobaAudio.noodleReady()
-        class BrowserApp(CameraMixin, App):
+        class BrowserApp(App):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.sound = ReadySignal()
-                self.init_camera()
-                from model import World
+                # Camera and physical inventory are initialized by V2App.
+                from v2world import V2World as World
                 class BrowserWorld(World):
                     def respond(world, gid, action):
                         group = world.group(gid)

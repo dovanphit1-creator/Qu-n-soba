@@ -7,7 +7,7 @@ with tempfile.TemporaryDirectory() as d:
  with tarfile.open('soba_web/game/build/web/game.tar.gz') as t:t.extractall(d,filter='data')
  assets=Path(d)/'assets';sys.path.insert(0,str(assets))
  with patch('importlib.metadata.version',side_effect=PackageNotFoundError('missing distribution metadata')) as query:
-  from app import App
+  from v2app import V2App as App
   import holidays
   from vn_calendar import holiday_name
   from datetime import date
