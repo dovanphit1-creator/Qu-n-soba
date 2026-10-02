@@ -17,14 +17,16 @@ async def main():
         status('loading', 'Đang mở quán…')
         import pygame as pg
         from app import App
+        from camera import CameraMixin
         class ReadySignal:
             def play(self):
                 import platform
                 platform.window.sobaAudio.noodleReady()
-        class BrowserApp(App):
+        class BrowserApp(CameraMixin, App):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.sound = ReadySignal()
+                self.init_camera()
                 from model import World
                 class BrowserWorld(World):
                     def respond(world, gid, action):

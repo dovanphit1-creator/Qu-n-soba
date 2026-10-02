@@ -25,9 +25,12 @@ for old_sound in ('noodle-ready.wav','noodle-ready.ogg'):
 for name in ('model.py','management.py','brand.py','vn_calendar.py','staff.py','staff_ui.py','catalog.py','audio.py','background.py','operations.py','finance.py','finance_ui.py','shifts.py','shifts_ui.py'):
     shutil.copy2(SOURCE/name,GAME/name)
 shutil.copy2(ROOT/'entry.py',GAME/'main.py')
+shutil.copy2(ROOT/'camera.py',GAME/'camera.py')
 (GAME/'audio.py').write_text('def speak(message,dishes=None):\n    pass  # Web edition keeps subtitles, with no spoken dish names.\n')
-(GAME/'brand.py').write_text((SOURCE/'brand.py').read_text().replace("GAME_VERSION = '1.7.4'","GAME_VERSION = '1.7.5'"))
+(GAME/'brand.py').write_text((SOURCE/'brand.py').read_text().replace("GAME_VERSION = '1.7.4'","GAME_VERSION = '1.8.0'"))
 (GAME/'app.py').write_text((SOURCE/'main.py').read_text().replace("if pg.mixer.get_init():self.sound=pg.mixer.Sound(str(Path(__file__).with_name('assets')/'noodle-ready.wav'))","self.sound=None  # Web audio is managed independently by Web Audio."))
+app_file=GAME/'app.py'
+app_file.write_text(app_file.read_text().replace('Tự đón khách, nhận phiếu, nấu mì, phục vụ và dọn sạch khi hết ca.', 'Đi bằng WASD / mũi tên hoặc nút trên màn hình. Camera theo chủ quán.').replace('Phím 1/2/3 đổi tầng cả khi đang kéo. Quản lý bàn/tầng, nhà cung cấp và menu khi đóng quán.', 'WASD / mũi tên: đi. Kéo sát mép để đi tiếp. Giữ để dọn. Phím 1/2/3 đổi tầng.'))
 subprocess.run([sys.executable,'-m','pygbag','--build','--no_opt','--title','Quán Mì Của Tôi','--icon',str(GAME/'favicon.png'),str(GAME)],check=True)
 p=GAME/'build/web/index.html'
 s=p.read_text()
@@ -37,14 +40,18 @@ s=s.replace('"#7f7f7f"','"#26372e"').replace('fb_ar   :  1.77','fb_ar   :  1.6')
 s=s.replace('</head>','<style>body{background:#26372e!important;color:#fff2d2;font-family:Arial,sans-serif}#pyconsole,#crt,#dlg,.iframe{display:none!important}#infobox{color:#fff2d2!important;background:#26372e!important;padding:20px;font:20px Arial}</style></head>')
 s=s.replace('</body>','<script>window.addEventListener("pageshow",e=>{if(e.persisted)location.reload()});</script></body>')
 s=s.replace('Loading, please wait ...','Đang tải game, vui lòng chờ…')
-s=s.replace('</body>', (ROOT/'boot-status.html').read_text().replace('__LOADING_VERSION__','1.7.5')+'<script src="game-audio.js"></script><script src="updates.js"></script></body>')
+s=s.replace('</body>', (ROOT/'boot-status.html').read_text().replace('__LOADING_VERSION__','1.8.0')+'<script src="game-audio.js"></script><script src="updates.js"></script></body>')
 p.write_text(s)
 # Write a closed archive; pygbag can leave an unfinished gzip footer.
 with zipfile.ZipFile(p.parent/'game.apk') as source:
-    with tarfile.open(p.parent/'game.tar.gz','w:gz') as archive:
+    with tarfile.open(p.parent/'game-closed.tar.gz','w:gz') as archive:
         for name in source.namelist():
             if name.endswith('/'):continue
             data=source.read(name);entry=tarfile.TarInfo(name);entry.size=len(data);archive.addfile(entry,io.BytesIO(data))
+(p.parent/'game-closed.tar.gz').replace(p.parent/'game.tar.gz')
+with tarfile.open(p.parent/'game.tar.gz') as check:
+    for member in check:
+        if member.isfile():check.extractfile(member).read()
 for folder in (p.parent,ROOT):
     shutil.copy2(SOURCE/'assets/loading-restaurant.jpg',folder/'loading-restaurant.jpg')
     shutil.copy2(SOURCE/'assets/game.png',folder/'game-icon.png')
