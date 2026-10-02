@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [android-native]
-    paths: ['soba_android/**', '.github/workflows/build-android.yml']
+    paths: ['soba_android/**', 'soba_ios/build.py', 'soba_manual/**', 'soba_web/boot-status.html', '.github/workflows/build-android.yml']
 permissions:
   contents: read
 concurrency:
