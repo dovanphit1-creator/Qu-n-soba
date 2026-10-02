@@ -1,4 +1,5 @@
 """Build an offline iOS game bundle; never changes the disposable public web build."""
+import re
 import hashlib
 import json
 import shutil
@@ -29,7 +30,7 @@ def build():
     app = app.replace('tài khoản Windows', 'iPhone')
     app = app.replace('pg.display.set_mode(size, pg.RESIZABLE)', 'pg.display.set_mode((1600, 1000))')
     (STAGE / 'app.py').write_text(app)
-    brand = (STAGE / 'brand.py').read_text().replace("GAME_VERSION = '1.7.3'", "GAME_VERSION = '1.8.0'")
+    brand = re.sub(r"GAME_VERSION = '[^']+'", "GAME_VERSION = '1.8.0'", (STAGE / 'brand.py').read_text())
     (STAGE / 'brand.py').write_text(brand)
     for module in (holidays, dateutil):
         shutil.copytree(Path(module.__file__).parent, STAGE / module.__name__, dirs_exist_ok=True,
@@ -52,6 +53,7 @@ def build():
             (assets / name).write_bytes(fonts.extractfile('dejavu-fonts-ttf-2.37/ttf/' + name).read())
         (assets / 'DejaVu-LICENSE.txt').write_bytes(fonts.extractfile('dejavu-fonts-ttf-2.37/LICENSE').read())
     shutil.copy2(SOURCE / 'assets/game.png', assets / 'game.png')
+    shutil.copy2(SOURCE / 'assets/loading-restaurant.jpg', assets / 'loading-restaurant.jpg')
     shutil.copy2(SOURCE / 'assets/game.png', STAGE / 'favicon.png')
     samples, rate = soundfile.read(SOURCE / 'assets/noodle-ready.wav')
     soundfile.write(assets / 'noodle-ready.ogg', samples, rate, subtype='VORBIS')
@@ -77,13 +79,14 @@ def build():
     html = html.replace('https://pygame-web.github.io/cdn/0.9.3/', './runtime/')
     html = html.replace('data-os="vtx,snd,gui"', 'data-os="stdout,snd,gui"')
     html = html.replace('import json\n', 'import json\nimport os\nos.environ["PYGPI"] = str(platform.window.location.origin) + "/runtime/packages/"\n', 1)
-    import re
     html = re.sub(r'<script src="[^\"]*browserfs.min.js"></script>', '', html)
     html = html.replace('navigator.serviceWorker.register(', 'Promise.reject(')
     html = html.replace('fb_ar   :  1.77', 'fb_ar   :  1.6').replace('fb_width : "1280"', 'fb_width : "1600"').replace('fb_height : "720"', 'fb_height : "1000"')
     html = html.replace('lang="en-us"', 'lang="vi"').replace('Ready to start ! Please click/touch page', 'Chạm để bắt đầu')
     html = html.replace('</head>', '<style>html,body{margin:0;overflow:hidden;background:#26372e!important;color:#fff2d2;touch-action:none}canvas{touch-action:none}#stdout,#status,#progress,#spinner,#pyconsole,#crt,#dlg,.iframe{display:none!important}</style></head>')
-    boot = (ROOT.parent / 'soba_web/boot-status.html').read_text()
+    boot = (ROOT.parent / 'soba_web/boot-status.html').read_text().replace('__LOADING_VERSION__','1.8.0')
+    shutil.copy2(SOURCE/'assets/loading-restaurant.jpg',OUTPUT/'loading-restaurant.jpg')
+    shutil.copy2(SOURCE/'assets/game.png',OUTPUT/'game-icon.png')
     boot = re.sub(r'<a href="[^\"]+">Tải bản Windows</a>', '', boot)
     boot = boot.replace('Quán Mì của tôi', 'Quán Mì Của Tôi').replace('Bản web không lưu. Tải lại hoặc đóng trang là chơi từ đầu.', 'Bản iPhone · Tiến trình lưu riêng trên máy.')
     boot = boot.replace('Tải lại game', 'Mở lại game').replace('location.reload()', "window.webkit.messageHandlers.game.postMessage({kind:'reload'})")
