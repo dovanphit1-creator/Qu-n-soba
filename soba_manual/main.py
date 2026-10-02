@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-if '--smoke-test' in sys.argv or '--verify-new-player' in sys.argv:
+if '--smoke-test' in sys.argv or '--verify-new-player' in sys.argv or '--verify-loading-screen' in sys.argv:
     os.environ['SDL_VIDEODRIVER'] = 'dummy'
     os.environ['SDL_AUDIODRIVER'] = 'dummy'
 import pygame as pg
