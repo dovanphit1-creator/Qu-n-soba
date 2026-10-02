@@ -8,6 +8,15 @@ import pygame as pg
 from v2world import FURNITURE
 CREAM='#fff0ce';INK='#243f39';WOOD='#956743';MINT='#82aa90'
 class PixelArt:
+ def queue_sprite(self,method,depth,args):
+  queue=getattr(self,'_scene_queue',None)
+  if queue is None:return False
+  override=getattr(self,'_depth_override',None)
+  if override is None and method in ('pixel_bowl','ticket_sprite','dirt_sprite'):
+   x,y=args[:2]
+   supports=[f.rect.bottom+.5 for f in self.world.fixtures if f.floor==self.floor and (f.table>=0 or f.kind in ('pass','board')) and f.visual_rect.collidepoint(x,y)]
+   if supports:depth=max(depth,max(supports))
+  queue.append((depth if override is None else override,len(queue),method,args));return True
  def px(self,r,c):pg.draw.rect(self.canvas,c,pg.Rect(*(int(v//2*2) for v in r)))
  def disk(self,p,r,c):
   x,y=p
@@ -34,7 +43,13 @@ class PixelArt:
    self._art_cache[key]=pg.transform.scale(cell,size)
   return self._art_cache[key]
  def sprite(self,sheet,index,rect):
-  r=pg.Rect(rect);self.canvas.blit(self.art(sheet,index,r.size),r)
+  r=pg.Rect(rect)
+  if sheet in ('furniture','ingredients','icons'):
+   from v2world import sprite_aspect
+   ratio=sprite_aspect(sheet,index);w=min(r.w,r.h*ratio);h=w/ratio
+   fitted=pg.Rect(0,0,max(2,int(w)//2*2),max(2,int(h)//2*2));fitted.midbottom=r.midbottom
+   self.canvas.blit(self.art(sheet,index,fitted.size),fitted)
+  else:self.canvas.blit(self.art(sheet,index,r.size),r)
  def skin(self,index,rect):
   r=pg.Rect(rect)
   if r.w<=0 or r.h<=0:return
@@ -55,10 +70,14 @@ class PixelArt:
   if max(pg.Rect(rect).size)<32:pg.draw.rect(self.canvas,c,rect);return
   self.skin(index,rect)
  def ingredient_sprite(self,name,x,y,size=32):
+  if self.queue_sprite('ingredient_sprite',y+size/2,(name,x,y,size)):return
   names=['Mì tươi','Nước dùng','Hành','Tôm','Bò','Trứng','Măng','Kaeshi','Vị cay','Bột ớt','Nori','Coca-Cola','Trà xanh','Bò húc','Gạo']
   if name in names:self.sprite('ingredients',names.index(name),(x-size/2,y-size/2,size,size))
- def ticket_sprite(self,x,y,size=24):self.sprite('icons',10,(x-size*.35,y-size*.5,size*.7,size))
+ def ticket_sprite(self,x,y,size=24):
+  if self.queue_sprite('ticket_sprite',y+size/2,(x,y,size)):return
+  self.sprite('icons',10,(x-size*.35,y-size*.5,size*.7,size))
  def dirt_sprite(self,x,y):
+  if self.queue_sprite('dirt_sprite',y+15,(x,y)):return
   surf=pg.Surface((44,30),pg.SRCALPHA)
   pg.draw.polygon(surf,(116,71,38,165),[(2,16),(8,10),(14,12),(20,4),(28,8),(30,16),(40,16),(42,24),(30,28),(22,24),(14,28),(6,22)])
   pg.draw.lines(surf,(216,181,115,205),False,[(10,18),(16,14),(20,20),(28,16)],2)
@@ -70,6 +89,7 @@ class PixelArt:
   pg.draw.ellipse(surf,(54,43,32,35),surf.get_rect().inflate(-4,-2))
   self.canvas.blit(pg.transform.scale(surf,(w,h)),(x-w//2,y-h//2))
  def person(self,x,y,color,step=0,scale=1,action=None,variant=None):
+  if self.queue_sprite('person',y+14,(x,y,color,step,scale,action,variant)):return
   owner=color=='#3f8e79';row=0;sheet='owner'
   if owner:
    d=self.move_direction
@@ -79,7 +99,7 @@ class PixelArt:
    sheet='guests';row={'#7e94af':1,'#b48672':0,'#9e85a0':2,'#cfaa64':3}[color]
   if sheet=='guests' and row!=3 and variant is not None:row=variant%3
   if owner and self.clean_hold:sheet='actions';row=3;step=self.animation*5
-  elif owner and self.hand:sheet='actions';row=1
+  elif owner and self.hand and not step:sheet='actions';row=1;step=self.animation*1.5
   elif owner and not step:sheet='actions';row=0;step=self.animation*2
   elif action in ('prep','top','start','lift'):sheet='actions';row=2;step=self.animation*5
   elif action in ('wash','clean_wait','wipe','sweep'):sheet='actions';row=3;step=self.animation*5
@@ -87,16 +107,26 @@ class PixelArt:
   frame=int(step)%4 if step else 1
   self.shadow(x+3,y+10,36,14)
   bob=2 if not step and int(self.animation*1.5)%3==1 else 0
-  self.sprite(sheet,row*4+frame,(round(x/2)*2-22,round(y/2)*2-62+bob,44,76))
+  # Keep a fixed height and feet baseline; pose widths retain their natural proportions.
+  from v2world import sprite_aspect
+  width=min(64,max(24,int(76*sprite_aspect(sheet,row*4+frame))//2*2))
+  self.canvas.blit(self.art(sheet,row*4+frame,(width,76)),(round(x/2)*2-width//2,round(y/2)*2-62+bob))
  def pixel_bowl(self,x,y,toppings=(),dirty=False):
+  if self.queue_sprite('pixel_bowl',y+20,(x,y,toppings,dirty)):return
   self.sprite('environment' if dirty or toppings else 'icons',11 if dirty else 10 if toppings else 15,(x-22,y-20,44,40))
  def fixture_sprite(self,f):
+  if self.queue_sprite('fixture_sprite',f.rect.bottom,(f,)):return
   r=f.rect;kind=f.kind;idx=list(FURNITURE).index(kind)
   self.shadow(r.centerx+4,r.bottom-4,r.w,22)
   rise=24 if kind not in ('clock','calendar','board') else 8
   self.sprite('furniture',idx,(r.x,r.y-rise,r.w,r.h+rise))
   if kind in ('bowls','drinks','spice','fridge'):
    self.text('MỞ' if f.opened else 'ĐÓNG',(r.centerx,r.bottom-10),10,'#fff1cf',True,True)
+  if kind in ('bowls','drinks','spice','fridge') and f.opened:
+   # A visible open-door shadow and stocked item make cabinet state readable in-world.
+   from v2world import storage_for
+   names=[n for n,q in self.world.stock.items() if q>0 and storage_for(n)==kind]
+   if names:self.ingredient_sprite(names[0],r.centerx,r.centery,28)
   if kind=='board':
    for i,receipt in enumerate([r for r in self.world.receipts.values() if r['location']=='board'][-6:]):
     x=r.x+12+i*22;self.ticket_sprite(x+8,r.y+14)
@@ -108,12 +138,16 @@ class PixelArt:
       t=(self.animation*15+j*11)%34;self.px((x-8+j*8+int(math.sin(t/8)*2)*2,y-16-t,4,8),'#ece5cf')
   if kind=='rice' and self.world.rice_jobs.get(f.id,{}).get('left',0)>0:
    t=self.animation*12%24;self.px((r.centerx,r.y-t,4,10),'#eee9d8')
- def truck_sprite(self,x,y):self.sprite('environment',14,(x,y-24,196,100))
- def parcel_sprite(self,p):self.sprite('environment',13 if p.get('opened') else 12,(p['x']-24,p['y']-32,48,48))
+ def truck_sprite(self,x,y):
+  if self.queue_sprite('truck_sprite',y+76,(x,y)):return
+  self.sprite('environment',14,(x,y-24,196,100))
+ def parcel_sprite(self,p):
+  if self.queue_sprite('parcel_sprite',p['y']+16,(p,)):return
+  self.sprite('environment',13 if p.get('opened') else 12,(p['x']-24,p['y']-32,48,48))
  def room_art(self):
   if not hasattr(self,'_room_art'):
    dest=self.canvas;self.canvas=pg.Surface((1600,1000));self.canvas.fill('#677367')
-   for area,index,tile in [(pg.Rect(0,98,1600,58),3,96),(pg.Rect(0,156,1600,90),2,80),(pg.Rect(40,282,1520,638),0,128),(pg.Rect(780,282,780,638),1,128)]:
+   for area,index,tile in [(pg.Rect(0,98,1600,58),3,96),(pg.Rect(0,156,1600,90),2,80),(pg.Rect(40,282,1520,638),0,128)]:
     self.canvas.set_clip(area)
     for y in range(area.y,area.bottom,tile):
      for x in range(area.x,area.right,tile):self.sprite('environment',index,(x,y,tile,tile))

@@ -1,6 +1,6 @@
 // Keep native fullscreen requests inside actual player gestures; denial never blocks the game.
 (() => {
-  const mobile = navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches;
+  const mobile = matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth,window.innerHeight)<1100;
   const canvas = document.getElementById('canvas');
   const start = document.getElementById('boot-start');
   const hint = document.getElementById('mobile-landscape-hint');
@@ -34,8 +34,8 @@
       }
     } catch (_) {state.limited=true;}
     try {
-      if (screen.orientation?.lock) await screen.orientation.lock('landscape');
-      else state.limited=true;
+      if (mobile && screen.orientation?.lock) await screen.orientation.lock('landscape');
+      else if(mobile) state.limited=true;
     } catch (_) {state.limited=true;}
     layout();
   }

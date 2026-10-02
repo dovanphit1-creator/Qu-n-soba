@@ -1,5 +1,7 @@
 """Physical inventory, deliveries and receipts for the disposable web edition."""
 import math
+from functools import lru_cache
+from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
 from collections import deque
@@ -32,6 +34,16 @@ def storage_for(name):
  if name in DRINKS:return 'drinks'
  return 'spice' if name in SPICES else 'fridge'
 
+@lru_cache(maxsize=128)
+def sprite_aspect(sheet,index):
+ atlas=pg.image.load(str(Path(__file__).parent/'assets'/'pixel'/f'{sheet}.png'))
+ cw,ch=atlas.get_width()//4,atlas.get_height()//4
+ cell=atlas.subsurface((index%4*cw,index//4*ch,cw,ch))
+ parts=pg.mask.from_surface(cell,128).get_bounding_rects()
+ bounds=max(parts,key=lambda r:r.w*r.h) if parts else cell.get_rect()
+ if sheet=='icons' and index==2 and parts:bounds=bounds.unionall([p for p in parts if p.w*p.h>=bounds.w*bounds.h*.25])
+ return bounds.w/max(1,bounds.h)
+
 @dataclass
 class Fixture:
  id:int;kind:str;x:int;y:int;floor:int=0;rot:int=0;name:str='';opened:bool=False;table:int=-1
@@ -39,10 +51,17 @@ class Fixture:
  def rect(self):
   w,h=FURNITURE[self.kind][2]
   return pg.Rect(self.x,self.y,h if self.rot else w,w if self.rot else h)
+ @property
+ def visual_rect(self):
+  r=self.rect;rise=8 if self.kind in WALL else 24
+  ratio=sprite_aspect('furniture',list(FURNITURE).index(self.kind))
+  w=min(r.w,(r.h+rise)*ratio);h=w/ratio
+  image=pg.Rect(0,0,max(2,int(w)//2*2),max(2,int(h)//2*2));image.midbottom=r.midbottom
+  return image
  def slot_point(self,index):
-  r=self.rect;u=.17+(index%3)*.33
+  r=self.visual_rect;u=.17+(index%3)*.33
   v=(.26+(index//3)*.24) if self.kind=='stove' else (.10+(index//3)*.14)
-  return (r.x+u*r.w,r.y-24+(r.h+24)*v)
+  return (r.x+u*r.w,r.y+r.h*v)
  def point(self,u=.5,v=.5):
   r=self.rect
   return (r.x+(1-v if self.rot else u)*r.w,r.y+(u if self.rot else v)*r.h)
