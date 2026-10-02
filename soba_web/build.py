@@ -20,12 +20,14 @@ for name in ('DejaVuSans.ttf','DejaVuSans-Bold.ttf'):
 shutil.copy2(SOURCE/'assets/game.png',GAME/'assets/game.png')
 shutil.copy2(SOURCE/'assets/game.png',GAME/'favicon.png')
 shutil.copy2(SOURCE/'assets/loading-restaurant.jpg',GAME/'assets/loading-restaurant.jpg')
-(GAME/'assets/noodle-ready.wav').unlink(missing_ok=True)
-samples,rate=soundfile.read(SOURCE/'assets/noodle-ready.wav')
-soundfile.write(GAME/'assets/noodle-ready.ogg',samples,rate,subtype='VORBIS')
+for old_sound in ('noodle-ready.wav','noodle-ready.ogg'):
+    (GAME/'assets'/old_sound).unlink(missing_ok=True)
 for name in ('model.py','management.py','brand.py','vn_calendar.py','staff.py','staff_ui.py','catalog.py','audio.py','background.py','operations.py','finance.py','finance_ui.py','shifts.py','shifts_ui.py'):
     shutil.copy2(SOURCE/name,GAME/name)
-(GAME/'app.py').write_text((SOURCE/'main.py').read_text().replace('noodle-ready.wav','noodle-ready.ogg'))
+shutil.copy2(ROOT/'entry.py',GAME/'main.py')
+(GAME/'audio.py').write_text('def speak(message,dishes=None):\n    pass  # Web edition keeps subtitles, with no spoken dish names.\n')
+(GAME/'brand.py').write_text((SOURCE/'brand.py').read_text().replace("GAME_VERSION = '1.7.4'","GAME_VERSION = '1.7.5'"))
+(GAME/'app.py').write_text((SOURCE/'main.py').read_text().replace("if pg.mixer.get_init():self.sound=pg.mixer.Sound(str(Path(__file__).with_name('assets')/'noodle-ready.wav'))","self.sound=None  # Web audio is managed independently by Web Audio."))
 subprocess.run([sys.executable,'-m','pygbag','--build','--no_opt','--title','Quán Mì Của Tôi','--icon',str(GAME/'favicon.png'),str(GAME)],check=True)
 p=GAME/'build/web/index.html'
 s=p.read_text()
@@ -35,7 +37,7 @@ s=s.replace('"#7f7f7f"','"#26372e"').replace('fb_ar   :  1.77','fb_ar   :  1.6')
 s=s.replace('</head>','<style>body{background:#26372e!important;color:#fff2d2;font-family:Arial,sans-serif}#pyconsole,#crt,#dlg,.iframe{display:none!important}#infobox{color:#fff2d2!important;background:#26372e!important;padding:20px;font:20px Arial}</style></head>')
 s=s.replace('</body>','<script>window.addEventListener("pageshow",e=>{if(e.persisted)location.reload()});</script></body>')
 s=s.replace('Loading, please wait ...','Đang tải game, vui lòng chờ…')
-s=s.replace('</body>', (ROOT/'boot-status.html').read_text().replace('__LOADING_VERSION__',runpy.run_path(str(SOURCE/'brand.py'))['GAME_VERSION'])+'<script type="module" src="voice.js"></script><script src="updates.js"></script></body>')
+s=s.replace('</body>', (ROOT/'boot-status.html').read_text().replace('__LOADING_VERSION__','1.7.5')+'<script src="game-audio.js"></script><script src="updates.js"></script></body>')
 p.write_text(s)
 # Write a closed archive; pygbag can leave an unfinished gzip footer.
 with zipfile.ZipFile(p.parent/'game.apk') as source:
@@ -51,7 +53,5 @@ root_html=s.replace('platform.fopen("game.apk"','platform.fopen("play/game.apk"'
 (ROOT/'index.html').write_text(root_html)
 print('Browser build ready:',p.parent)
 
-shutil.copytree(ROOT/'voice',GAME/'build/web/voice',dirs_exist_ok=True)
-shutil.copy2(ROOT/'voice.js',GAME/'build/web/voice.js')
-
+shutil.copy2(ROOT/'game-audio.js',GAME/'build/web/game-audio.js')
 shutil.copy2(ROOT/'updates.js',GAME/'build/web/updates.js')

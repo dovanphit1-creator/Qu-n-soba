@@ -10,7 +10,7 @@ The owner explicitly requires the official name **Quán Mì Của Tôi** and a n
 
 # Release order
 
-The owner requires every gameplay update to be published and verified on the existing web game first, before building or distributing the Windows edition. Preserve disposable browser sessions. Do not claim a web update is live until deployment succeeds. Choose the next version for new features as authorized by the owner. Preserve the existing 40% service timing reduction.
+Follow the order explicitly listed by the owner for each update. The old always-web-first rule is replaced. The current audio update is web-only; do not distribute other platforms until requested. Preserve disposable browser sessions. Do not claim a web update is live until deployment succeeds. Choose the next version for new features as authorized by the owner. Preserve the existing 40% service timing reduction.
 
 # Required update notifications
 

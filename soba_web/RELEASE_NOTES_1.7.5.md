@@ -1,0 +1,3 @@
+# Web 1.7.5 — âm thanh quán mì
+
+Bỏ giọng đọc tên món trên web; giữ phiếu và dòng thông báo bằng chữ. Thêm nhạc không lời tự tạo Một góc quán, 72 BPM, lặp nhẹ nhàng; nút bật/tắt chỉ điều khiển nhạc nền. Khi mì chín, tiếng bíp lặp trong 10 giây; nhiều nồi chín đồng thời không chồng âm. Chuông ding-dong reo khi một nhóm khách thực sự được nhận qua cửa, kể cả khi nhân viên tiếp đón. Hai âm báo có âm lượng cao hơn nhạc nền. Âm thanh bắt đầu sau thao tác đầu tiên theo cơ chế trình duyệt. Giữ tranh tải chung, game tiếng Việt, phiên web không lưu và thông báo cập nhật. Windows và Android giữ bản đã phát hành.
