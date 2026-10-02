@@ -1,5 +1,6 @@
 """Build disposable-session browser edition from the shared Python game."""
 import shutil, subprocess, sys, io, tarfile, zipfile
+import soundfile
 import runpy
 from pathlib import Path
 ROOT=Path(__file__).resolve().parent
@@ -20,7 +21,8 @@ shutil.copy2(SOURCE/'assets/game.png',GAME/'assets/game.png')
 shutil.copy2(SOURCE/'assets/game.png',GAME/'favicon.png')
 shutil.copy2(SOURCE/'assets/loading-restaurant.jpg',GAME/'assets/loading-restaurant.jpg')
 (GAME/'assets/noodle-ready.wav').unlink(missing_ok=True)
-subprocess.run(['ffmpeg','-y','-loglevel','error','-i',str(SOURCE/'assets/noodle-ready.wav'),'-c:a','libvorbis',str(GAME/'assets/noodle-ready.ogg')],check=True)
+samples,rate=soundfile.read(SOURCE/'assets/noodle-ready.wav')
+soundfile.write(GAME/'assets/noodle-ready.ogg',samples,rate,subtype='VORBIS')
 for name in ('model.py','management.py','brand.py','vn_calendar.py','staff.py','staff_ui.py','catalog.py','audio.py','background.py','operations.py','finance.py','finance_ui.py','shifts.py','shifts_ui.py'):
     shutil.copy2(SOURCE/name,GAME/name)
 (GAME/'app.py').write_text((SOURCE/'main.py').read_text().replace('noodle-ready.wav','noodle-ready.ogg'))
