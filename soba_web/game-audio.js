@@ -4,7 +4,7 @@
   const button = document.createElement('button');
   button.type = 'button'; button.id = 'background-music-toggle';
   button.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:1000002;padding:9px 12px;border:1px solid #dbc29a;border-radius:6px;background:#193127;color:#fff4df;font:13px Arial;cursor:pointer';
-  const label = () => { button.textContent = enabled ? '♫ Nhạc nền: Bật' : '♫ Nhạc nền: Tắt'; button.setAttribute('aria-label', enabled ? 'Tắt nhạc nền' : 'Bật nhạc nền'); button.setAttribute('aria-pressed', String(enabled)); };
+  const label = () => { button.textContent = enabled ? '♫ Nhạc nền: Bật' : '♫ Nhạc nền: Tắt'; button.setAttribute('aria-label', enabled ? 'Tắt nhạc nền' : 'Bật nhạc nền'); button.setAttribute('aria-pressed', String(enabled)); if(window.sobaAudio)window.sobaAudio.musicEnabled=enabled; };
   label(); document.body.append(button);
   const rate = 22050, beat = 60 / 72, duration = beat * 32;
   const frequency = note => 440 * Math.pow(2, (note - 69) / 12);
@@ -59,6 +59,8 @@
   }
   let activeAlarm = null;
   window.sobaAudio = {
+    musicEnabled:enabled,
+    toggleMusic(){button.onclick();},
     noodleReady() {
       if (activeAlarm) { try { activeAlarm.stop(); } catch (_) {} } // Restart one alarm for a newly ready pot.
       activeAlarm = alertBuffer(10, data => {

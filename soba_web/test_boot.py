@@ -22,7 +22,7 @@ async def scenario(corrupt=False, late_click=False):
                   sobaStatus=lambda kind,detail='':calls.append((kind,detail)))
         @asynccontextmanager
         async def fopen(url, mode):
-            assert url=='play/game.tar.gz?v=1.8.1',url
+            assert url=='play/game.tar.gz?v=1.9.0',url
             data=b'bad download' if corrupt else (root/'game/build/web/game.tar.gz').read_bytes()
             yield io.BytesIO(data)
         def run_main(*args,**kwargs):calls.append(('mount',str(kwargs['loaderhome'])))

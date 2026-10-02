@@ -5,7 +5,7 @@ root=Path(__file__).resolve().parent
 sys.path.insert(0,str(root/'game'))
 import pygame as pg
 from app import App, RAW
-from camera import CameraMixin, VIEW, ZOOM, CONTROLS
+from camera import CameraMixin, VIEW, ZOOM
 from model import POT_POS
 
 class TestApp(CameraMixin,App):
@@ -52,15 +52,32 @@ a.event(pg.event.Event(pg.MOUSEBUTTONDOWN,button=1,pos=sink))
 assert a.clean_hold==('wash',None)
 frozen=a.camera_origin.copy();a.step(.1);assert a.camera_origin==frozen
 a.event(pg.event.Event(pg.MOUSEBUTTONUP,button=1,pos=sink));assert a.clean_hold is None
-# On-screen direction pad moves and stops on release without triggering a drag.
-a.owner.update(370,570);a.camera_origin=a.camera_goal()
-pos=logical_to_display(CONTROLS[3][0].center);x=a.owner.x
-a.event(pg.event.Event(pg.MOUSEBUTTONDOWN,button=1,pos=pos));a.step(.1)
-assert a.owner.x>x and a.down is None
+# Drag an empty floor area to steer; release stops, with no game-object drag.
+a.owner.update(370,570);a.camera_origin=a.camera_goal();a.draw()
+pos=world_to_display((400,700));x=a.owner.x
+a.event(pg.event.Event(pg.MOUSEBUTTONDOWN,button=1,pos=pos))
+a.event(pg.event.Event(pg.MOUSEMOTION,pos=(pos[0]+80,pos[1]),rel=(80,0),buttons=(1,0,0)))
+a.step(.1)
+assert a.owner.x>x and a.down is None and a.move_direction.x>0
+a.draw();pg.image.save(a.display,str(root/'camera-preview.png'))
 a.event(pg.event.Event(pg.MOUSEBUTTONUP,button=1,pos=pos));assert a.camera_touch is None
+# Genuine finger input plus its emulated mouse must not duplicate the gesture.
+dw,dh=a.display.get_size();pos=world_to_display((400,700))
+a.event(pg.event.Event(pg.FINGERDOWN,finger_id=3,x=pos[0]/dw,y=pos[1]/dh))
+anchor=a.touch_anchor.copy()
+a.event(pg.event.Event(pg.MOUSEBUTTONDOWN,button=1,pos=(pos[0]+40,pos[1]),touch=True))
+assert a.touch_anchor==anchor
+a.event(pg.event.Event(pg.FINGERMOTION,finger_id=3,x=(pos[0]+70)/dw,y=pos[1]/dh))
+a.step(.1);assert a.move_direction.x>0
+a.event(pg.event.Event(pg.FINGERUP,finger_id=3,x=(pos[0]+70)/dw,y=pos[1]/dh))
+assert a.touch_anchor is None and a.primary_finger is None
+# Finger taps still operate dialogs, rather than becoming navigation gestures.
+a.modal='presentation';a.draw();pos=logical_to_display((800,790))
+a.event(pg.event.Event(pg.FINGERDOWN,finger_id=4,x=pos[0]/dw,y=pos[1]/dh))
+a.event(pg.event.Event(pg.FINGERUP,finger_id=4,x=pos[0]/dw,y=pos[1]/dh))
+assert a.modal is None
 # Dialogs and management revert to unprojected input; focus loss clears movement.
 a.modal='help';assert a.point(logical_to_display((500,500)))==(500,500)
 a.camera_keys.add(pg.K_w);a.event(pg.event.Event(pg.WINDOWFOCUSLOST));assert not a.camera_keys
 a.modal=None;a.draw()
-pg.image.save(a.display,str(root/'camera-preview.png'))
-print('PASS: movement, follow, collision, fixed UI, projected drag/drop while panning, stable cleanup, touch pad, modal input, focus loss')
+print('PASS: movement, follow, collision, fixed UI, projected drag/drop while panning, stable cleanup, touch steering and finger deduplication, modal input, focus loss')
