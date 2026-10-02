@@ -1,0 +1,38 @@
+name: Verify game search metadata
+on:
+  push:
+    branches: [main]
+    paths: ['docs/index.html','docs/sitemap.xml','.github/workflows/verify-seo.yml']
+permissions:
+  contents: read
+jobs:
+  metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check public page and sitemap after Pages publishes
+        run: |
+          python - <<'PY'
+          import json, time, urllib.request, xml.etree.ElementTree as ET
+          from html.parser import HTMLParser
+          root='https://dovanphit1-creator.github.io/Qu-n-soba/'
+          for attempt in range(30):
+              try:
+                  page=urllib.request.urlopen(root+'?seo='+str(time.time()),timeout=20).read().decode()
+                  assert '<h1>Quán Mì Của Tôi</h1>' in page
+                  assert '<link rel="canonical" href="'+root+'">' in page
+                  assert 'content="index,follow,max-image-preview:large"' in page
+                  assert '<meta name="description" content="Quán Mì Của Tôi' in page
+                  import re
+                  data=json.loads(re.search(r'<script type="application/ld\+json">(.*?)</script>',page,re.S).group(1))
+                  game=next(x for x in data['@graph'] if x['@type']=='VideoGame')
+                  assert game['name']=='Quán Mì Của Tôi' and game['publisher']['name']=='Đỗ Văn Phi'
+                  assert 'aggregateRating' not in game
+                  sitemap=ET.fromstring(urllib.request.urlopen(root+'sitemap.xml',timeout=20).read())
+                  assert sitemap.find('{http://www.sitemaps.org/schemas/sitemap/0.9}url/{http://www.sitemaps.org/schemas/sitemap/0.9}loc').text==root
+                  assert urllib.request.urlopen(game['image'],timeout=20).status==200
+                  print('PASS: live exact game name, indexable canonical page, truthful structured metadata, sitemap and social image')
+                  break
+              except Exception as e:
+                  if attempt==29:raise
+                  print('Waiting for Pages:',type(e).__name__,flush=True);time.sleep(10)
+          PY
