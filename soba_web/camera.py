@@ -2,7 +2,7 @@
 import math
 import pygame as pg
 
-WORLD = pg.Rect(0, 97, 1177, 850)
+WORLD = pg.Rect(0, 97, 1600, 850)
 VIEW = pg.Rect(0, 97, 1600, 850)
 MINI = pg.Rect(1413,112,171,124)
 DOOR = pg.Rect(222,245,131,42)
@@ -41,12 +41,13 @@ class CameraMixin:
 
     def camera_free(self, point):
         x,y = point
-        if not (48 <= x <= 1150 and 165 <= y <= 924): return False
+        if not (48 <= x <= 1545 and 165 <= y <= 924): return False
         # The front wall has one doorway; kitchen counters and tables are solid.
         if 239 <= y <= 286 and not 236 <= x <= 338: return False
         from app import MACHINE, SINK, RAW, TRASH
         from model import POT_POS, BOWL_POS
-        obstacles = [MACHINE, SINK, RAW, TRASH]
+        from kitchen import COUNTERS
+        obstacles = [MACHINE, *COUNTERS]
         obstacles += [pg.Rect(px-51,py-40,102,86) for px,py in POT_POS]
         obstacles += [pg.Rect(px-49,py-30,98,76) for px,py in BOWL_POS]
         for i,table in enumerate(self.world.tables):
@@ -283,9 +284,9 @@ class CameraMixin:
             mini=MINI
             self.box(mini,'#233d32',8,border='#bcd0b1')
             self.text(f'T{self.floor+1} · Sàn bẩn: {len(self.world.dirt)}',(mini.centerx,mini.y+15),12,'#fff2d2',True,True)
-            def map_point(x,y):return (int(mini.x+9+x/1177*153),int(mini.y+29+(y-97)/850*84))
-            pg.draw.rect(self.canvas,'#d6b980',(*map_point(35,270),147,65),border_radius=3)
-            pg.draw.rect(self.canvas,'#a8b4a5',(*map_point(775,270),46,65),border_radius=2)
+            def map_point(x,y):return (int(mini.x+9+x/1600*153),int(mini.y+29+(y-97)/850*84))
+            pg.draw.rect(self.canvas,'#d6b980',(*map_point(35,270),146,65),border_radius=3)
+            pg.draw.rect(self.canvas,'#a8b4a5',(*map_point(775,270),74,65),border_radius=2)
             for i,t in enumerate(self.world.tables):
                 if t.floor==self.floor:pg.draw.circle(self.canvas,'#755235',map_point(*self.world.table_position(i)),5)
             pg.draw.circle(self.canvas,'#46b7aa',map_point(*self.owner),4)
