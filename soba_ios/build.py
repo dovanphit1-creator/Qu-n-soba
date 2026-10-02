@@ -79,7 +79,6 @@ def build():
     html = html.replace('https://pygame-web.github.io/cdn/0.9.3/', './runtime/')
     html = html.replace('data-os="vtx,snd,gui"', 'data-os="stdout,snd,gui"')
     html = html.replace('import json\n', 'import json\nimport os\nos.environ["PYGPI"] = str(platform.window.location.origin) + "/runtime/packages/"\n', 1)
-    import re
     html = re.sub(r'<script src="[^\"]*browserfs.min.js"></script>', '', html)
     html = html.replace('navigator.serviceWorker.register(', 'Promise.reject(')
     html = html.replace('fb_ar   :  1.77', 'fb_ar   :  1.6').replace('fb_width : "1280"', 'fb_width : "1600"').replace('fb_height : "720"', 'fb_height : "1000"')
